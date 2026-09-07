@@ -1,3 +1,2 @@
-# COMP6002-26S2-G8-RideLink
-
-RideLink repository setup.
+# RideLink
+RideLink is the ride sharing app.
