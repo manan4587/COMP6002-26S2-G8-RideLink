@@ -94,7 +94,7 @@ abstract class ClientService {
         return Success(BaseResponse.fromResponse(e.response?.data));
       } else if (e.response?.statusCode == 401) {
         Preferences.logout();
-        await Get.offAllNamed(RoutesName.loginView);
+        await Get.offAllNamed(AppRoutes.loginView);
         return Failure(
           e.response?.data['message'] as String? ?? ErrorMessage.tryAgain,
         );

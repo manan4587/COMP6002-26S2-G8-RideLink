@@ -17,7 +17,7 @@ class AppBackButton extends StatelessWidget {
         child: Icon(
           CupertinoIcons.back,
           size: 18.h,
-          color: AppColors.lightTextColor,
+          color: AppColors.secondaryTextColor,
         ),
       ).paddingOnly(bottom: defaultPadding / 2),
     );

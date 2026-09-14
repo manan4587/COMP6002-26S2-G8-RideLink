@@ -29,7 +29,7 @@ class AuthInterceptor extends Interceptor {
     super.onError(err, handler);
     if (err.response?.statusCode == 401) {
       Preferences.logout();
-      Get.offAllNamed(RoutesName.loginView);
+      Get.offAllNamed(AppRoutes.loginView);
     }
   }
 }

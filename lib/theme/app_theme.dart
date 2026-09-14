@@ -9,7 +9,7 @@ class AppTheme {
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    scaffoldBackgroundColor: AppColors.backgroundColor,
+    scaffoldBackgroundColor: AppColors.primaryBgColor,
     disabledColor: AppColors.disableColor,
     splashFactory: InkRipple.splashFactory,
     visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -21,7 +21,7 @@ class AppTheme {
 
     /// Appbar theme
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: AppColors.primaryBgColor,
       surfaceTintColor: Colors.transparent,
       systemOverlayStyle: SystemUiOverlayStyle.dark,
       iconTheme: IconThemeData(color: AppColors.primaryColor),
@@ -62,13 +62,13 @@ class AppTheme {
       locale: const Locale('en', 'US'),
     ),
     tabBarTheme: TabBarThemeData(indicatorColor: AppColors.primaryColor),
-    canvasColor: AppColors.backgroundColor,
+    canvasColor: AppColors.primaryBgColor,
   );
 
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: AppColors.backgroundColor,
+    scaffoldBackgroundColor: AppColors.primaryBgColor,
     disabledColor: AppColors.disableColor,
     splashFactory: InkRipple.splashFactory,
     visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -105,8 +105,8 @@ class AppTheme {
     /// Color scheme
     colorScheme: ColorScheme.dark(
       primary: AppColors.primaryColor,
-      onSurface: AppColors.backgroundColor,
-      surface: AppColors.backgroundColor,
+      onSurface: AppColors.primaryBgColor,
+      surface: AppColors.primaryBgColor,
     ),
     tabBarTheme: TabBarThemeData(indicatorColor: AppColors.primaryColor),
   );

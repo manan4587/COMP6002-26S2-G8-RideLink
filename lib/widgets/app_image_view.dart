@@ -74,7 +74,7 @@ class AppImageView extends StatelessWidget {
         padding: padding,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: backgroundColor ?? AppColors.whiteTextColor,
+          color: backgroundColor ?? AppColors.white,
           shape: shape ?? BoxShape.rectangle,
           borderRadius: borderRadius,
           boxShadow: boxShadow,

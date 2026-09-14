@@ -18,7 +18,7 @@ class ImageSourceSheet extends StatelessWidget {
     return BottomSheet(
       enableDrag: false,
       onClosing: () {},
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: AppColors.primaryBgColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topRight: Radius.circular(defaultRadius * 2),
@@ -82,7 +82,7 @@ class ImageSourceSheet extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        const Divider(height: 0, color: AppColors.borderColor),
+        const Divider(height: 0, color: AppColors.primaryTextColor),
         const SizedBox(height: 2),
       ],
     );

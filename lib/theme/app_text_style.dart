@@ -5,13 +5,21 @@ import 'package:ridelink/core/constants/app_colors.dart';
 class AppTextStyle {
   AppTextStyle._();
 
-  static const _fontFamily = 'Poppins';
+  static const _fontFamily = 'Inter';
+
+  static TextStyle text42Bold = TextStyle(
+    fontSize: 42.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.bold,
+    fontFamily: _fontFamily,
+  );
 
   static TextStyle text20Medium = TextStyle(
     fontSize: 20.sp,
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w500,
     height: 28.h / 20.sp,
+    fontFamily: _fontFamily,
   );
 
   static TextStyle text16Medium = TextStyle(
@@ -19,6 +27,7 @@ class AppTextStyle {
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w500,
     height: 24.h / 16.sp,
+    fontFamily: _fontFamily,
   );
 
   static TextStyle text14Medium = TextStyle(
@@ -26,6 +35,7 @@ class AppTextStyle {
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w500,
     height: 20.h / 14.sp,
+    fontFamily: _fontFamily,
   );
 
   static TextStyle text12MediumOrSmall = TextStyle(
@@ -33,18 +43,21 @@ class AppTextStyle {
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w500,
     height: 16.h / 12.sp,
+    fontFamily: _fontFamily,
   );
   static TextStyle text10Medium = TextStyle(
     fontSize: 10.sp,
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w500,
     height: 14.h / 10.sp,
+    fontFamily: _fontFamily,
   );
   static TextStyle text12Semibold = TextStyle(
     fontSize: 12.sp,
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w600,
     height: 16.h / 12.sp,
+    fontFamily: _fontFamily,
   );
 
   static TextStyle text30Semibold = TextStyle(
@@ -52,6 +65,7 @@ class AppTextStyle {
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w600,
     height: 36.h / 30.sp,
+    fontFamily: _fontFamily,
   );
 
   static TextStyle text24Semibold = TextStyle(
@@ -66,12 +80,14 @@ class AppTextStyle {
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w600,
     height: 28.h / 20.sp,
+    fontFamily: _fontFamily,
   );
   static TextStyle text18Semibold = TextStyle(
     fontSize: 18.sp,
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w600,
     height: 28.h / 18.sp,
+    fontFamily: _fontFamily,
   );
 
   static TextStyle text16Semibold = TextStyle(
@@ -86,12 +102,15 @@ class AppTextStyle {
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w600,
     height: 20.h / 14.sp,
+    fontFamily: _fontFamily,
   );
+
   static TextStyle text14Regular = TextStyle(
     fontSize: 14.sp,
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w400,
     height: 20.h / 14.sp,
+    fontFamily: _fontFamily,
   );
   static TextStyle text16Regular = TextStyle(
     fontSize: 16.sp,
@@ -104,6 +123,7 @@ class AppTextStyle {
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w400,
     height: 16.h / 12.sp,
+    fontFamily: _fontFamily,
   );
 
   static TextStyle headlineMedium_28 = TextStyle(
@@ -114,8 +134,8 @@ class AppTextStyle {
   );
 
   static TextStyle buttonText = TextStyle(
-    fontSize: 14.sp,
-    fontWeight: FontWeight.w600,
+    fontSize: 16.sp,
+    fontWeight: FontWeight.bold,
     fontFamily: _fontFamily,
     color: AppColors.white,
   );

@@ -1,3 +1,9 @@
+class APIKeys {
+  APIKeys._();
+
+  static String map = 'AIzaSyArHLeevUloxh2JjudrB2KaL5SrJEkTM9k';
+}
+
 class ApiEndpoints {
   ApiEndpoints._();
 

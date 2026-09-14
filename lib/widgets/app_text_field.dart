@@ -4,8 +4,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 
-import '../theme/app_style.dart';
-
 class AppTextFormField extends StatelessWidget {
   final Widget? suffixIcon;
   final Widget? prefixIcon;
@@ -23,7 +21,6 @@ class AppTextFormField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final TextAlign? textAlign;
   final TextStyle? style;
-  final Widget? suffix;
   final bool? filled;
   final bool autoFocus;
   final bool? isDense;
@@ -55,7 +52,7 @@ class AppTextFormField extends StatelessWidget {
     super.key,
     this.textAlign,
     this.style,
-    this.suffix,
+
     this.onTap,
     this.onFieldSubmit,
     this.maxLength,
@@ -80,62 +77,129 @@ class AppTextFormField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (label != null) ...[Text(label!, style: AppTextStyle.text16Medium)],
-        Container(
-          decoration: AppDecoration.textFieldDecoration,
-          child: TextFormField(
-            controller: controller,
-            style: AppTextStyle.text16Medium,
-            maxLines: maxLines ?? 1,
-            readOnly: readOnly ?? false,
-            textAlign: textAlign ?? TextAlign.start,
-            onFieldSubmitted: onFieldSubmit,
-            maxLength: maxLength,
-            onChanged: onChanged,
-            inputFormatters: inputFormatters,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            focusNode: focusNode,
-            minLines: minLines,
-            textInputAction: textInputAction,
-            onSaved: onSaved,
-            autofocus: autoFocus,
-            decoration: InputDecoration(
-              hintText: hintText,
-              hintStyle: AppTextStyle.text14Regular.copyWith(
-                color: AppColors.grey,
-              ),
-              prefix: prefix,
-              isDense: isDense,
-              contentPadding:
-                  contentPadding ??
-                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-              filled: filled,
-              suffixIcon: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
-                child: suffixIcon,
-              ),
-              suffix: suffix,
-              prefixIcon: prefixIcon,
-              errorMaxLines: 3,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
+        if (label != null) ...[
+          Text(
+            label!,
+            style: AppTextStyle.text14Medium.copyWith(
+              color: AppColors.primaryTextColor,
+              fontWeight: FontWeight.w600,
             ),
-            obscuringCharacter: '*',
-            obscureText: obscureText ?? false,
-            keyboardType: keyboardType,
-            cursorColor: AppColors.primaryColor,
-            onTap: onTap,
           ),
+          6.verticalSpace,
+        ],
+        FormField<String>(
+          validator: (val) => validator?.call(controller.text),
+          builder: (FormFieldState<String> fieldState) {
+            final hasError = fieldState.hasError;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    border: Border.all(
+                      width: hasError ? 1.5 : 1,
+                      color: hasError ? errorBorderColor : AppColors.borderColor,
+                    ),
+                    borderRadius: BorderRadius.circular(14.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryTextColor.withValues(alpha: 0.02),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      if (prefix != null) ...[
+                        Padding(
+                          padding: EdgeInsets.only(left: 14.w),
+                          child: prefix!,
+                        ),
+                      ],
+                      Expanded(
+                        child: TextFormField(
+                          controller: controller,
+                          style: AppTextStyle.text14Medium.copyWith(
+                            color: AppColors.primaryTextColor,
+                          ),
+                          maxLines: maxLines ?? 1,
+                          readOnly: readOnly ?? false,
+                          textAlign: textAlign ?? TextAlign.start,
+                          onFieldSubmitted: onFieldSubmit,
+                          maxLength: maxLength,
+                          onChanged: (val) {
+                            if (fieldState.hasError) {
+                              fieldState.validate();
+                            }
+                            if (onChanged != null) {
+                              onChanged!(val);
+                            }
+                          },
+                          inputFormatters: inputFormatters,
+                          focusNode: focusNode,
+                          minLines: minLines,
+                          textInputAction: textInputAction,
+                          onSaved: onSaved,
+                          autofocus: autoFocus,
+                          decoration: InputDecoration(
+                            hintText: hintText,
+                            hintStyle: AppTextStyle.text14Regular.copyWith(
+                              color: AppColors.hintTextColor,
+                            ),
+                            isDense: isDense ?? true,
+                            contentPadding: contentPadding ??
+                                EdgeInsets.symmetric(
+                                  horizontal: 14.w,
+                                  vertical: 14.h,
+                                ),
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                          ),
+                          obscuringCharacter: obscuringCharacter ?? '•',
+                          obscureText: obscureText ?? false,
+                          keyboardType: keyboardType,
+                          cursorColor: AppColors.primaryColor,
+                          onTap: onTap,
+                        ),
+                      ),
+                      if (suffixIcon != null) ...[
+                        Padding(
+                          padding: EdgeInsets.only(right: 12.w),
+                          child: suffixIcon!,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (hasError) ...[
+                  Padding(
+                    padding: EdgeInsets.only(top: 4.h, left: 6.w),
+                    child: Text(
+                      fieldState.errorText ?? '',
+                      style: AppTextStyle.text12Regular.copyWith(
+                        color: errorBorderColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
         ),
       ],
     );
   }
 }
 
-class AppNoteTextFormField extends StatelessWidget {
+class AppTextFormField1 extends StatelessWidget {
   final Widget? suffixIcon;
   final Widget? prefixIcon;
   final String? obscuringCharacter;
@@ -168,7 +232,7 @@ class AppNoteTextFormField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final String? label;
 
-  const AppNoteTextFormField({
+  const AppTextFormField1({
     this.label,
     this.suffixIcon,
     this.prefixIcon,

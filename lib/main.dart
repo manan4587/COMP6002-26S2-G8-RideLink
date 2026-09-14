@@ -3,6 +3,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:ridelink/routes/routes.dart';
+import 'package:ridelink/views/auth_flow/auth_controller.dart';
+import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
+import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
 import 'core/utils/stretch_scroll_behavior.dart';
 import 'core/utils/utils.dart';
@@ -15,6 +18,7 @@ void main() async {
   await Utils.screenPortrait();
   Utils.hideKeyboard();
   await GetStorage.init();
+  _appDepencyBiding();
   runApp(const MyApp());
 }
 
@@ -27,14 +31,15 @@ class MyApp extends StatelessWidget {
       designSize: const Size(393, 852),
       minTextAdapt: true,
       splitScreenMode: true,
+
       builder: (context, child) {
         return GetMaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Interview Task',
+          title: 'Ride Link',
           theme: AppTheme.lightTheme,
           themeMode: ThemeMode.light,
           getPages: pages,
-          initialRoute: RoutesName.splashView,
+          initialRoute: AppRoutes.splashView,
           scrollBehavior: ScrollBehaviorModified(),
           builder: (context, child) {
             final mediaQueryData = MediaQuery.of(context);
@@ -44,11 +49,20 @@ class MyApp extends StatelessWidget {
             );
             return MediaQuery(
               data: MediaQuery.of(context).copyWith(textScaler: scale),
-              child: child!,
+              child: GestureDetector(
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: child!,
+              ),
             );
           },
         );
       },
     );
   }
+}
+
+void _appDepencyBiding() {
+  Get.put<AuthController>(AuthController());
+  Get.put<DriverDashboardController>(DriverDashboardController());
+  Get.put<PassengerDashboardController>(PassengerDashboardController());
 }
