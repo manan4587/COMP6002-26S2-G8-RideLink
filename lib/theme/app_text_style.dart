@@ -38,7 +38,7 @@ class AppTextStyle {
     fontFamily: _fontFamily,
   );
 
-  static TextStyle text12MediumOrSmall = TextStyle(
+  static TextStyle text12Medium = TextStyle(
     fontSize: 12.sp,
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w500,

@@ -53,6 +53,8 @@ dependencies:
   control_style: ^0.1.2
   carousel_slider: ^5.1.2
 
+  google_maps_flutter: ^2.18.2
+
 
 
 dev_dependencies:

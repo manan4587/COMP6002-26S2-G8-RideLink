@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
-import 'package:ridelink/views/passenger_dashboard/widgets/ride_details_sheet.dart';
 
 class HomePage extends GetView<PassengerDashboardController> {
   const HomePage({super.key});
@@ -21,7 +20,7 @@ class HomePage extends GetView<PassengerDashboardController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top User Header
+              // Profile
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -32,7 +31,7 @@ class HomePage extends GetView<PassengerDashboardController> {
                         height: 46.h,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFFDBEAFE),
+                          color: const Color(0xFFEFF6FF),
                           border: Border.all(
                             color: AppColors.primaryColor,
                             width: 1.5,
@@ -40,7 +39,7 @@ class HomePage extends GetView<PassengerDashboardController> {
                         ),
                         child: Center(
                           child: Text(
-                            'AM',
+                            'JM',
                             style: AppTextStyle.text16Semibold.copyWith(
                               color: AppColors.primaryColor,
                             ),
@@ -51,25 +50,25 @@ class HomePage extends GetView<PassengerDashboardController> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Hello, Alex 👋',
-                            style: AppTextStyle.text18Semibold,
-                          ),
                           Row(
                             children: [
-                              Icon(
-                                Icons.location_on,
-                                size: 14.sp,
-                                color: AppColors.secondaryTextColor,
+                              Text(
+                                'James Miller',
+                                style: AppTextStyle.text18Semibold,
                               ),
                               SizedBox(width: 4.w),
-                              Text(
-                                'Melbourne, VIC',
-                                style: AppTextStyle.text12Regular.copyWith(
-                                  color: AppColors.secondaryTextColor,
-                                ),
+                              Icon(
+                                Icons.verified,
+                                size: 16.sp,
+                                color: AppColors.primaryColor,
                               ),
                             ],
+                          ),
+                          Text(
+                            'Verified Passenger • 4.9 ★',
+                            style: AppTextStyle.text12Regular.copyWith(
+                              color: AppColors.secondaryTextColor,
+                            ),
                           ),
                         ],
                       ),
@@ -92,21 +91,23 @@ class HomePage extends GetView<PassengerDashboardController> {
                   ),
                 ],
               ),
-
               SizedBox(height: 20.h),
 
-              // Search Hero Card
+              // Hero Card: Where are you going today?
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(16.w),
+                padding: EdgeInsets.all(22.w),
                 decoration: BoxDecoration(
                   color: AppColors.white,
-                  borderRadius: BorderRadius.circular(20.r),
-                  border: Border.all(color: AppColors.borderColor),
+                  borderRadius: BorderRadius.circular(26.r),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                    width: 1.2,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 10,
+                      color: Colors.black.withValues(alpha: 0.025),
+                      blurRadius: 14,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -115,105 +116,61 @@ class HomePage extends GetView<PassengerDashboardController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Where are you going today?',
-                      style: AppTextStyle.text16Semibold,
-                    ),
-                    SizedBox(height: 14.h),
-
-                    // Pickup
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12.w,
-                        vertical: 10.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.containerFillColor,
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 10.w,
-                            height: 10.h,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xFF16A34A),
-                            ),
-                          ),
-                          SizedBox(width: 10.w),
-                          Expanded(
-                            child: Text(
-                              controller.fromLocationController.text,
-                              style: AppTextStyle.text14Medium,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                      'Where are you going\ntoday?',
+                      style: AppTextStyle.text24Semibold.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                        color: AppColors.primaryTextColor,
                       ),
                     ),
-
-                    SizedBox(height: 8.h),
-
-                    // Destination
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12.w,
-                        vertical: 10.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.containerFillColor,
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 10.w,
-                            height: 10.h,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.primaryColor,
-                            ),
-                          ),
-                          SizedBox(width: 10.w),
-                          Expanded(
-                            child: Text(
-                              controller.toLocationController.text,
-                              style: AppTextStyle.text14Medium,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                    12.verticalSpace,
+                    Text(
+                      'Search rides, check saved routes, or\njoin a community.',
+                      style: AppTextStyle.text14Regular.copyWith(
+                        color: AppColors.secondaryTextColor,
+                        height: 1.35,
                       ),
                     ),
-
-                    SizedBox(height: 14.h),
-
-                    // Find Ride CTA
+                    18.verticalSpace,
                     GestureDetector(
-                      onTap: () => controller.switchTab(1),
+                      onTap: () =>
+                          controller.switchTab(1), // Switch to Search tab
                       child: Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.symmetric(vertical: 13.h),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 20.w,
+                          vertical: 12.h,
+                        ),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
                           ),
-                          borderRadius: BorderRadius.circular(14.r),
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFF2563EB,
+                              ).withValues(alpha: 0.28),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        alignment: Alignment.center,
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               CupertinoIcons.search,
-                              size: 18.sp,
                               color: Colors.white,
+                              size: 18.sp,
                             ),
-                            SizedBox(width: 8.w),
+                            8.horizontalSpace,
                             Text(
-                              'Search Available Rides',
-                              style: AppTextStyle.buttonText.copyWith(
-                                fontSize: 14.sp,
+                              'Search Ride',
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
@@ -224,100 +181,274 @@ class HomePage extends GetView<PassengerDashboardController> {
                 ),
               ),
 
-              SizedBox(height: 22.h),
+              16.verticalSpace,
 
-              // Quick Location Chips
-              Text(
-                'Popular Destinations',
-                style: AppTextStyle.text16Semibold,
-              ),
-              SizedBox(height: 10.h),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: [
-                    _DestinationChip(
-                      icon: Icons.school_outlined,
-                      label: 'Monash Uni',
-                      onTap: () {
-                        controller.toLocationController.text =
-                            'Monash University, Clayton';
-                        controller.switchTab(1);
-                      },
-                    ),
-                    _DestinationChip(
-                      icon: Icons.business_outlined,
-                      label: 'Melbourne CBD',
-                      onTap: () {
-                        controller.toLocationController.text =
-                            'Melbourne CBD, Flinders St';
-                        controller.switchTab(1);
-                      },
-                    ),
-                    _DestinationChip(
-                      icon: Icons.flight_outlined,
-                      label: 'Airport (MEL)',
-                      onTap: () {
-                        controller.toLocationController.text =
-                            'Melbourne Airport (MEL)';
-                        controller.switchTab(1);
-                      },
-                    ),
-                    _DestinationChip(
-                      icon: Icons.beach_access_outlined,
-                      label: 'St Kilda Beach',
-                      onTap: () {
-                        controller.toLocationController.text =
-                            'St Kilda Pier, Beach';
-                        controller.switchTab(1);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 24.h),
-
-              // Available Rides List
+              // Top Stats Cards Row: Trust Rating & Recent routes
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Available Rides Today',
-                    style: AppTextStyle.text18Semibold,
+                  // Trust Rating Card
+                  Expanded(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 14.w,
+                        vertical: 14.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: Border.all(
+                          color: const Color(0xFFE2E8F0),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(6.r),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFFFBEB),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.star_outline_rounded,
+                              color: const Color(0xFFF59E0B),
+                              size: 20.sp,
+                            ),
+                          ),
+                          10.horizontalSpace,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Trust Rating',
+                                  style: AppTextStyle.text12Medium.copyWith(
+                                    color: AppColors.secondaryTextColor,
+                                  ),
+                                ),
+                                4.verticalSpace,
+                                Obx(
+                                  () => Row(
+                                    children: [
+                                      Text(
+                                        controller.trustRating.value
+                                            .toStringAsFixed(2),
+                                        style: AppTextStyle.text18Semibold
+                                            .copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                      4.horizontalSpace,
+                                      Icon(
+                                        Icons.star,
+                                        size: 15.sp,
+                                        color: AppColors.primaryTextColor,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  TextButton(
-                    onPressed: () => controller.switchTab(1),
-                    child: Text(
-                      'See All',
-                      style: AppTextStyle.text14Semibold.copyWith(
-                        color: AppColors.primaryColor,
+
+                  12.horizontalSpace,
+
+                  // Recent Routes Count Card
+                  Expanded(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 14.w,
+                        vertical: 14.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: Border.all(
+                          color: const Color(0xFFE2E8F0),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(6.r),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFEFF6FF),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              CupertinoIcons.arrow_branch,
+                              color: AppColors.primaryColor,
+                              size: 18.sp,
+                            ),
+                          ),
+                          10.horizontalSpace,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Recent routes',
+                                  style: AppTextStyle.text12Medium.copyWith(
+                                    color: AppColors.secondaryTextColor,
+                                  ),
+                                ),
+                                4.verticalSpace,
+                                Obx(
+                                  () => Text(
+                                    '${controller.recentRoutes.length + 1}',
+                                    style: AppTextStyle.text18Semibold.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
 
-              SizedBox(height: 8.h),
+              20.verticalSpace,
 
-              Obx(
-                () => ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: controller.availableRides.length,
-                  separatorBuilder: (context, index) => SizedBox(height: 12.h),
-                  itemBuilder: (context, index) {
-                    final ride = controller.availableRides[index];
-                    return _RideCard(
-                      ride: ride,
-                      onTap: () => RideDetailsSheet.show(context, ride),
-                    );
-                  },
+              // Recent Routes Section
+              Text(
+                'Recent Routes',
+                style: AppTextStyle.text16Semibold.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryTextColor,
+                ),
+              ),
+              12.verticalSpace,
+
+              // Route 1
+              _RecentRouteCard(
+                from: 'Curtin',
+                to: 'Landsdale',
+                subtitle: 'Usually 5:00 PM',
+                onTap: () {
+                  controller.fromLocationController.text = 'Curtin University';
+                  controller.toLocationController.text = 'Landsdale';
+                  controller.switchTab(1);
+                },
+              ),
+              10.verticalSpace,
+
+              // Route 2
+              _RecentRouteCard(
+                from: 'Curtin',
+                to: 'Joondalup',
+                subtitle: 'Best shared corridor',
+                onTap: () {
+                  controller.fromLocationController.text = 'Curtin University';
+                  controller.toLocationController.text = 'Joondalup';
+                  controller.switchTab(1);
+                },
+              ),
+
+              20.verticalSpace,
+
+              // Nearby Communities Section
+              Text(
+                'Nearby Communities',
+                style: AppTextStyle.text16Semibold.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryTextColor,
+                ),
+              ),
+              12.verticalSpace,
+
+              // Community Card
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                    width: 1.2,
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(20.r),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () {
+                      final curtin = controller.communities.firstWhere(
+                        (c) => c.name.contains('Curtin'),
+                        orElse: () => controller.communities.first,
+                      );
+                      controller.openCommunityDetails(curtin);
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 16.h,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(10.r),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFEFF6FF),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              CupertinoIcons.person_2_fill,
+                              color: AppColors.primaryColor,
+                              size: 20.sp,
+                            ),
+                          ),
+                          14.horizontalSpace,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Curtin Community',
+                                  style: AppTextStyle.text16Semibold.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                4.verticalSpace,
+                                Obx(() {
+                                  final curtin = controller.communities.firstWhere(
+                                    (c) => c.name.contains('Curtin'),
+                                    orElse: () => controller.communities.first,
+                                  );
+                                  return Text(
+                                    '${curtin.passengersCount.value} passengers • ${curtin.driversCount.value} drivers',
+                                    style: AppTextStyle.text12Regular.copyWith(
+                                      color: AppColors.secondaryTextColor,
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right,
+                            color: AppColors.secondaryTextColor,
+                            size: 20.sp,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
 
-              SizedBox(height: 20.h),
+              24.verticalSpace,
             ],
           ),
         ),
@@ -326,95 +457,82 @@ class HomePage extends GetView<PassengerDashboardController> {
   }
 }
 
-class _DestinationChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
+class _RecentRouteCard extends StatelessWidget {
+  final String from;
+  final String to;
+  final String subtitle;
   final VoidCallback onTap;
 
-  const _DestinationChip({
-    required this.icon,
-    required this.label,
+  const _RecentRouteCard({
+    required this.from,
+    required this.to,
+    required this.subtitle,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: EdgeInsets.only(right: 8.w),
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: AppColors.borderColor),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16.sp, color: AppColors.primaryColor),
-            SizedBox(width: 6.w),
-            Text(
-              label,
-              style: AppTextStyle.text12Semibold,
-            ),
-          ],
-        ),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
       ),
-    );
-  }
-}
-
-class _RideCard extends StatelessWidget {
-  final RideModel ride;
-  final VoidCallback onTap;
-
-  const _RideCard({required this.ride, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(14.w),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: AppColors.borderColor),
-        ),
-        child: Column(
-          children: [
-            // Driver Row
-            Row(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20.r),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+            child: Row(
               children: [
-                CircleAvatar(
-                  radius: 20.r,
-                  backgroundColor: const Color(0xFFEFF6FF),
-                  child: Text(
-                    ride.driverName.substring(0, 1),
-                    style: AppTextStyle.text14Semibold.copyWith(
-                      color: AppColors.primaryColor,
-                    ),
+                Container(
+                  padding: EdgeInsets.all(8.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEFF6FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.arrow_branch,
+                    color: AppColors.primaryColor,
+                    size: 18.sp,
                   ),
                 ),
-                SizedBox(width: 10.w),
+                14.horizontalSpace,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Text(ride.driverName, style: AppTextStyle.text14Semibold),
-                          SizedBox(width: 4.w),
-                          if (ride.isVerified)
-                            Icon(
-                              Icons.verified,
-                              size: 15.sp,
-                              color: AppColors.primaryColor,
+                          Text(
+                            from,
+                            style: AppTextStyle.text16Semibold.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 6.w),
+                            child: const Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 15,
+                              color: AppColors.primaryTextColor,
+                            ),
+                          ),
+                          Text(
+                            to,
+                            style: AppTextStyle.text16Semibold.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
+                      4.verticalSpace,
                       Text(
-                        ride.carModel,
+                        subtitle,
                         style: AppTextStyle.text12Regular.copyWith(
                           color: AppColors.secondaryTextColor,
                         ),
@@ -422,146 +540,9 @@ class _RideCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '\$${ride.pricePerSeat.toStringAsFixed(0)}',
-                      style: AppTextStyle.text18Semibold.copyWith(
-                        color: AppColors.primaryColor,
-                      ),
-                    ),
-                    Text(
-                      'per seat',
-                      style: AppTextStyle.text10Medium.copyWith(
-                        color: AppColors.secondaryTextColor,
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
-
-            SizedBox(height: 12.h),
-            const Divider(color: AppColors.borderColor, height: 1),
-            SizedBox(height: 12.h),
-
-            // Route Timeline
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  children: [
-                    Container(
-                      width: 8.w,
-                      height: 8.h,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFF16A34A),
-                      ),
-                    ),
-                    Container(
-                      width: 2.w,
-                      height: 24.h,
-                      color: AppColors.borderColor,
-                    ),
-                    Container(
-                      width: 8.w,
-                      height: 8.h,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              ride.origin,
-                              style: AppTextStyle.text12Semibold,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            ride.departureTime,
-                            style: AppTextStyle.text12Semibold.copyWith(
-                              color: AppColors.primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 14.h),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              ride.destination,
-                              style: AppTextStyle.text12Semibold,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            ride.estimatedDuration,
-                            style: AppTextStyle.text10Medium.copyWith(
-                              color: AppColors.secondaryTextColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            SizedBox(height: 12.h),
-
-            // Seats and Action
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.airline_seat_recline_normal,
-                        size: 14.sp,
-                        color: AppColors.primaryColor,
-                      ),
-                      SizedBox(width: 4.w),
-                      Text(
-                        '${ride.seatsAvailable} seats available',
-                        style: AppTextStyle.text10Medium.copyWith(
-                          color: AppColors.primaryColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  'Tap to view details →',
-                  style: AppTextStyle.text12Semibold.copyWith(
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );

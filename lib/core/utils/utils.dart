@@ -271,4 +271,8 @@ class Utils {
 
     return base64Image;
   }
+
+  static void launchCall(String contact) {
+    launchURL('tel:$contact');
+  }
 }

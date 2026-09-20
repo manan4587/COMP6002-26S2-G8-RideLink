@@ -117,7 +117,9 @@ class EmailVerificationView extends GetView<AuthController> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primaryTextColor.withValues(alpha: 0.03),
+                        color: AppColors.primaryTextColor.withValues(
+                          alpha: 0.03,
+                        ),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -205,21 +207,24 @@ class EmailVerificationView extends GetView<AuthController> {
                       stepNumber: '1',
                       icon: Icons.inbox_rounded,
                       title: 'Check your Inbox',
-                      text: 'Look for an email from RideLink with your verification link.',
+                      text:
+                          'Look for an email from RideLink with your verification link.',
                     ),
                     12.verticalSpace,
                     _VerificationStep(
                       stepNumber: '2',
                       icon: Icons.touch_app_rounded,
                       title: 'Tap Confirm Link',
-                      text: 'Click the verification link inside the email to activate your account.',
+                      text:
+                          'Click the verification link inside the email to activate your account.',
                     ),
                     12.verticalSpace,
                     _VerificationStep(
                       stepNumber: '3',
                       icon: Icons.check_circle_outline_rounded,
                       title: 'Confirm and Continue',
-                      text: 'Return to RideLink and tap the verification button below.',
+                      text:
+                          'Return to RideLink and tap the verification button below.',
                     ),
 
                     16.verticalSpace,
@@ -250,7 +255,7 @@ class EmailVerificationView extends GetView<AuthController> {
                           Expanded(
                             child: Text(
                               "Can't find the email? Please check your Spam or Promotions folder.",
-                              style: AppTextStyle.text12MediumOrSmall.copyWith(
+                              style: AppTextStyle.text12Medium.copyWith(
                                 color: const Color(0xFFA16207),
                                 height: 1.4,
                               ),
@@ -370,7 +375,7 @@ class EmailVerificationView extends GetView<AuthController> {
                         6.horizontalSpace,
                         Text(
                           'Change email address',
-                          style: AppTextStyle.text12MediumOrSmall.copyWith(
+                          style: AppTextStyle.text12Medium.copyWith(
                             color: AppColors.secondaryTextColor,
                             decoration: TextDecoration.underline,
                             decorationColor: AppColors.secondaryTextColor,
@@ -451,4 +456,3 @@ class _VerificationStep extends StatelessWidget {
     );
   }
 }
-

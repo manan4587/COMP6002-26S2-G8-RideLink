@@ -12,6 +12,7 @@ class SplashView extends GetView<AuthController> {
 
   @override
   Widget build(BuildContext context) {
+    controller.onNavigateToScreens();
     return Scaffold(
       backgroundColor: AppColors.primaryBgColor,
       body: AppMainContainer(
@@ -45,10 +46,7 @@ class SplashView extends GetView<AuthController> {
                         ),
                       ],
                     ),
-                    child: Image.asset(
-                      AppAssets.appLogo,
-                      fit: BoxFit.contain,
-                    ),
+                    child: Image.asset(AppAssets.appLogo, fit: BoxFit.contain),
                   ),
                   24.verticalSpace,
                   Text(
@@ -82,7 +80,7 @@ class SplashView extends GetView<AuthController> {
                   14.verticalSpace,
                   Text(
                     'Smart routes • Fair split • Trusted community',
-                    style: AppTextStyle.text12MediumOrSmall.copyWith(
+                    style: AppTextStyle.text12Medium.copyWith(
                       color: AppColors.secondaryTextColor,
                     ),
                     textAlign: TextAlign.center,
@@ -120,4 +118,3 @@ class SplashView extends GetView<AuthController> {
     );
   }
 }
-

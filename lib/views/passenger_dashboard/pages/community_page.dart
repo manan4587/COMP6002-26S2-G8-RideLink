@@ -1,27 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/theme/app_text_style.dart';
-
-class CommunityItem {
-  final String name;
-  final String description;
-  final int memberCount;
-  final int dailyRides;
-  final IconData icon;
-  bool isJoined;
-
-  CommunityItem({
-    required this.name,
-    required this.description,
-    required this.memberCount,
-    required this.dailyRides,
-    required this.icon,
-    this.isJoined = false,
-  });
-}
+import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
 class CommunityPage extends StatefulWidget {
   const CommunityPage({super.key});
@@ -31,45 +15,21 @@ class CommunityPage extends StatefulWidget {
 }
 
 class _CommunityPageState extends State<CommunityPage> {
-  final List<CommunityItem> _communities = [
-    CommunityItem(
-      name: 'Monash University Clayton Carpool',
-      description: 'Daily rides between Clayton campus and Eastern suburbs.',
-      memberCount: 480,
-      dailyRides: 24,
-      icon: Icons.school_outlined,
-      isJoined: true,
-    ),
-    CommunityItem(
-      name: 'Melbourne CBD Corporate Commuters',
-      description: 'City workers carpooling during peak morning & evening hours.',
-      memberCount: 1250,
-      dailyRides: 68,
-      icon: Icons.business_outlined,
-      isJoined: false,
-    ),
-    CommunityItem(
-      name: 'Geelong ⇄ Melbourne Commuters',
-      description: 'Long-distance highway shared rides along Princes Freeway.',
-      memberCount: 390,
-      dailyRides: 16,
-      icon: Icons.alt_route_outlined,
-      isJoined: false,
-    ),
-    CommunityItem(
-      name: 'Deakin Uni Burwood Students',
-      description: 'Cost-friendly rides for university students & staff.',
-      memberCount: 310,
-      dailyRides: 12,
-      icon: Icons.menu_book_outlined,
-      isJoined: false,
-    ),
-  ];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<PassengerDashboardController>();
+
     return Scaffold(
-      backgroundColor: AppColors.secondaryBgColor,
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -77,10 +37,16 @@ class _CommunityPageState extends State<CommunityPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Commuter Communities', style: AppTextStyle.text20Semibold),
+              Text(
+                'Commuter Communities',
+                style: AppTextStyle.text20Semibold.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryTextColor,
+                ),
+              ),
               SizedBox(height: 6.h),
               Text(
-                'Join local groups to split costs and find regular rides.',
+                'Connect with verified passengers & drivers along your regular route.',
                 style: AppTextStyle.text14Regular.copyWith(
                   color: AppColors.secondaryTextColor,
                 ),
@@ -94,16 +60,29 @@ class _CommunityPageState extends State<CommunityPage> {
                 decoration: BoxDecoration(
                   color: AppColors.white,
                   borderRadius: BorderRadius.circular(16.r),
-                  border: Border.all(color: AppColors.borderColor),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: TextField(
+                  controller: _searchController,
+                  onChanged: (val) {
+                    setState(() {
+                      _searchQuery = val.trim().toLowerCase();
+                    });
+                  },
                   decoration: InputDecoration(
                     icon: Icon(
                       CupertinoIcons.search,
                       size: 18.sp,
                       color: AppColors.secondaryTextColor,
                     ),
-                    hintText: 'Search groups (e.g. Uni, Workplace)...',
+                    hintText: 'Search communities (e.g. Curtin, Monash, CBD)...',
                     hintStyle: AppTextStyle.text14Regular.copyWith(
                       color: AppColors.hintTextColor,
                     ),
@@ -112,122 +91,330 @@ class _CommunityPageState extends State<CommunityPage> {
                 ),
               ),
 
-              SizedBox(height: 20.h),
+              SizedBox(height: 18.h),
 
               // Communities List
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _communities.length,
-                separatorBuilder: (context, index) => SizedBox(height: 12.h),
-                itemBuilder: (context, index) {
-                  final group = _communities[index];
-                  return Container(
-                    padding: EdgeInsets.all(14.w),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(16.r),
-                      border: Border.all(color: AppColors.borderColor),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(10.w),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFEFF6FF),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                group.icon,
-                                color: AppColors.primaryColor,
-                                size: 22.sp,
-                              ),
-                            ),
-                            SizedBox(width: 12.w),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    group.name,
-                                    style: AppTextStyle.text14Semibold,
-                                  ),
-                                  SizedBox(height: 2.h),
-                                  Text(
-                                    '${group.memberCount} members • ${group.dailyRides} daily rides',
-                                    style: AppTextStyle.text10Medium.copyWith(
-                                      color: AppColors.secondaryTextColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 10.h),
-                        Text(
-                          group.description,
-                          style: AppTextStyle.text12Regular.copyWith(
+              Obx(() {
+                final filtered = controller.communities.where((c) {
+                  if (_searchQuery.isEmpty) return true;
+                  return c.name.toLowerCase().contains(_searchQuery) ||
+                      c.routeSummary.toLowerCase().contains(_searchQuery) ||
+                      c.description.toLowerCase().contains(_searchQuery);
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40.h),
+                      child: Column(
+                        children: [
+                          Icon(
+                            CupertinoIcons.search,
+                            size: 40.sp,
                             color: AppColors.secondaryTextColor,
                           ),
-                        ),
-                        SizedBox(height: 12.h),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  group.isJoined = !group.isJoined;
-                                });
-                                if (group.isJoined) {
-                                  AppSnackBar.success(
-                                    message: 'Joined ${group.name} successfully!',
-                                  );
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: group.isJoined
-                                    ? AppColors.containerFillColor
-                                    : AppColors.primaryColor,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12.r),
-                                  side: BorderSide(
-                                    color: group.isJoined
-                                        ? AppColors.borderColor
-                                        : AppColors.primaryColor,
-                                  ),
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 16.w,
-                                  vertical: 8.h,
-                                ),
-                              ),
-                              child: Text(
-                                group.isJoined ? 'Joined ✓' : 'Join Group',
-                                style: AppTextStyle.text12Semibold.copyWith(
-                                  color: group.isJoined
-                                      ? AppColors.primaryColor
-                                      : Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                          SizedBox(height: 10.h),
+                          Text(
+                            'No communities found',
+                            style: AppTextStyle.text16Semibold,
+                          ),
+                        ],
+                      ),
                     ),
                   );
-                },
-              ),
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  separatorBuilder: (context, index) => SizedBox(height: 14.h),
+                  itemBuilder: (context, index) {
+                    final community = filtered[index];
+                    return _CommunityCard(
+                      community: community,
+                      onTap: () => controller.openCommunityDetails(community),
+                      onToggleJoin: () => controller.toggleCommunityJoin(community),
+                    );
+                  },
+                );
+              }),
 
               SizedBox(height: 24.h),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CommunityCard extends StatelessWidget {
+  final CommunityModel community;
+  final VoidCallback onTap;
+  final VoidCallback onToggleJoin;
+
+  const _CommunityCard({
+    required this.community,
+    required this.onTap,
+    required this.onToggleJoin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20.r),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Header Row
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10.r),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEFF6FF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        community.icon,
+                        color: const Color(0xFF2563EB),
+                        size: 22.sp,
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  community.name,
+                                  style: AppTextStyle.text16Semibold.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                color: const Color(0xFF94A3B8),
+                                size: 20.sp,
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            community.routeSummary,
+                            style: AppTextStyle.text12Semibold.copyWith(
+                              color: const Color(0xFF2563EB),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 10.h),
+
+                Text(
+                  community.description,
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: const Color(0xFF64748B),
+                    height: 1.35,
+                  ),
+                ),
+
+                SizedBox(height: 14.h),
+
+                // Metrics Row: Passengers, Drivers, Next Ride
+                Row(
+                  children: [
+                    // Passenger badge
+                    Obx(
+                      () => _MetricPill(
+                        icon: CupertinoIcons.person_fill,
+                        label: '${community.passengersCount.value} Passengers',
+                        color: const Color(0xFF2563EB),
+                        bgColor: const Color(0xFFEFF6FF),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    // Drivers badge
+                    Obx(
+                      () => _MetricPill(
+                        icon: CupertinoIcons.car_detailed,
+                        label: '${community.driversCount.value} Drivers',
+                        color: const Color(0xFF0284C7),
+                        bgColor: const Color(0xFFF0F9FF),
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 10.h),
+
+                // Next Available Ride line
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10.r),
+                    border: Border.all(
+                      color: const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        CupertinoIcons.clock_fill,
+                        size: 13.sp,
+                        color: const Color(0xFF2563EB),
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        'Next ride: ',
+                        style: AppTextStyle.text12Medium.copyWith(
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        '${community.nextRideTime} (${community.nextRideSeatsOpen} seats open)',
+                        style: AppTextStyle.text12Semibold.copyWith(
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 14.h),
+
+                // Action Buttons Row: View Community Details & Quick Join Toggle
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onTap,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                            color: Color(0xFFCBD5E1),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          padding: EdgeInsets.symmetric(vertical: 8.h),
+                        ),
+                        child: Text(
+                          'View Details',
+                          style: AppTextStyle.text12Semibold.copyWith(
+                            color: const Color(0xFF334155),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Obx(
+                        () => ElevatedButton(
+                          onPressed: onToggleJoin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: community.isJoined.value
+                                ? const Color(0xFFF1F5F9)
+                                : const Color(0xFF2563EB),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                              side: BorderSide(
+                                color: community.isJoined.value
+                                    ? const Color(0xFFCBD5E1)
+                                    : const Color(0xFF2563EB),
+                              ),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: 8.h),
+                          ),
+                          child: Text(
+                            community.isJoined.value ? 'Joined ✓' : 'Join Group',
+                            style: AppTextStyle.text12Semibold.copyWith(
+                              color: community.isJoined.value
+                                  ? const Color(0xFF0F172A)
+                                  : Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color bgColor;
+
+  const _MetricPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.bgColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12.sp, color: color),
+          SizedBox(width: 4.w),
+          Text(
+            label,
+            style: AppTextStyle.text10Medium.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -29,31 +29,10 @@ class VerificationSubmittedView extends GetView<AuthController> {
                 16.verticalSpace,
 
                 // Celebratory Hero Illustration
-                Container(
-                  height: 120.h,
-                  width: 120.h,
-                  padding: EdgeInsets.all(18.r),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.borderColor,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryColor.withValues(alpha: 0.14),
-                        blurRadius: 32,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: SvgPicture.asset(
-                    AppAssets.verification,
-                    height: 80.h,
-                    width: 80.w,
-                  ),
+                SvgPicture.asset(
+                  AppAssets.verification,
+                  height: 116.h,
+                  width: 116.w,
                 ),
 
                 20.verticalSpace,
@@ -152,7 +131,8 @@ class VerificationSubmittedView extends GetView<AuthController> {
                     _FeatureTile(
                       icon: AppAssets.createRide,
                       label: 'Publish & Offer Rides',
-                      description: 'Create scheduled trips and split fuel costs',
+                      description:
+                          'Create scheduled trips and split fuel costs',
                       iconBg: const Color(0xFFECFDF5),
                       iconColor: const Color(0xFF059669),
                     ),
@@ -169,16 +149,6 @@ class VerificationSubmittedView extends GetView<AuthController> {
                     label: 'Continue to Dashboard',
                     icon: AppAssets.checkIcon,
                   ),
-                ),
-
-                16.verticalSpace,
-
-                Text(
-                  "We'll notify you via push notification once verified.",
-                  style: AppTextStyle.text12Regular.copyWith(
-                    color: AppColors.hintTextColor,
-                  ),
-                  textAlign: TextAlign.center,
                 ),
 
                 16.verticalSpace,
@@ -217,20 +187,7 @@ class _FeatureTile extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
       child: Row(
         children: [
-          Container(
-            height: 38.h,
-            width: 38.w,
-            padding: EdgeInsets.all(7.r),
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(10.r),
-            ),
-            alignment: Alignment.center,
-            child: SvgPicture.asset(
-              icon,
-              colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-            ),
-          ),
+          SvgPicture.asset(icon, height: 40.h, width: 40.w),
           12.horizontalSpace,
           Expanded(
             child: Column(
@@ -259,4 +216,3 @@ class _FeatureTile extends StatelessWidget {
     );
   }
 }
-

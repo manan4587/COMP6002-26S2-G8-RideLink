@@ -7,6 +7,23 @@ import 'package:ridelink/views/auth_flow/view/login_view.dart';
 import 'package:ridelink/views/auth_flow/view/splash_view.dart';
 import 'package:ridelink/views/auth_flow/view/verification_submitted_view.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_view.dart';
+import 'package:ridelink/views/driver_dashboard/pages/driver_notification_preferences_page.dart';
+import 'package:ridelink/views/driver_dashboard/pages/driver_safety_sos_page.dart';
+import 'package:ridelink/views/driver_dashboard/pages/driver_support_page.dart';
+import 'package:ridelink/views/driver_dashboard/pages/driver_verification_documents_page.dart';
+import 'package:ridelink/views/driver_dashboard/pages/vehicle_registration_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/live_trip_tracking_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/passenger_community_details_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/passenger_emergency_contacts_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/passenger_notification_preferences_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/passenger_safety_sos_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/passenger_saved_locations_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/passenger_support_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/request_approved_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/request_sent_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/ride_chat_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/ride_details_page.dart';
+import 'package:ridelink/views/passenger_dashboard/pages/suggested_rides_page.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_view.dart';
 
 import 'routes_name.dart';
@@ -54,5 +71,73 @@ List<GetPage> pages = [
   getPage(
     name: AppRoutes.driverDashboard,
     page: () => const DriverDashboardView(),
+  ),
+  getPage(
+    name: AppRoutes.vehicleRegistration,
+    page: () => const VehicleRegistrationPage(),
+  ),
+  getPage(
+    name: AppRoutes.driverVerificationDocuments,
+    page: () => const DriverVerificationDocumentsPage(),
+  ),
+  getPage(
+    name: AppRoutes.driverSafetySos,
+    page: () => const DriverSafetySosPage(),
+  ),
+  getPage(
+    name: AppRoutes.driverSupport,
+    page: () => const DriverSupportPage(),
+  ),
+  getPage(
+    name: AppRoutes.driverNotificationPreferences,
+    page: () => const DriverNotificationPreferencesPage(),
+  ),
+  getPage(
+    name: AppRoutes.passengerSavedLocations,
+    page: () => const PassengerSavedLocationsPage(),
+  ),
+  getPage(
+    name: AppRoutes.passengerSafetySos,
+    page: () => const PassengerSafetySosPage(),
+  ),
+  getPage(
+    name: AppRoutes.passengerEmergencyContacts,
+    page: () => const PassengerEmergencyContactsPage(),
+  ),
+  getPage(
+    name: AppRoutes.passengerNotificationPreferences,
+    page: () => const PassengerNotificationPreferencesPage(),
+  ),
+  getPage(
+    name: AppRoutes.passengerSupport,
+    page: () => const PassengerSupportPage(),
+  ),
+  getPage(
+    name: AppRoutes.suggestedRides,
+    page: () => const SuggestedRidesPage(),
+  ),
+  getPage(
+    name: AppRoutes.rideDetails,
+    page: () => const RideDetailsPage(),
+  ),
+  getPage(
+    name: AppRoutes.requestSent,
+    page: () => const RequestSentPage(),
+  ),
+  getPage(
+    name: AppRoutes.requestApproved,
+    page: () => const RequestApprovedPage(),
+  ),
+  getPage(
+    name: AppRoutes.liveTripTracking,
+    page: () => const LiveTripTrackingPage(),
+  ),
+  getPage(
+    name: AppRoutes.rideChat,
+    page: () => const RideChatPage(),
+  ),
+  getPage(
+    name: AppRoutes.passengerCommunityDetails,
+    page: () => const PassengerCommunityDetailsPage(),
   ),
 ];

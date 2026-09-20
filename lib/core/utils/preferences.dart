@@ -12,12 +12,16 @@ class Preferences {
   static const String _deviceId = 'deviceId';
   static const String _isLogged = 'isLogged';
   static const String _token = 'token';
+  static const String _userRole = 'userRole'; // 'passenger' or 'driver'
 
   static set deviceId(String? value) => GetStorage().write(_deviceId, value);
   static String? get deviceId => GetStorage().read(_deviceId);
 
   static set isLogged(bool value) => GetStorage().write(_isLogged, value);
   static bool get isLogged => GetStorage().read(_isLogged) ?? false;
+
+  static set userRole(String? value) => GetStorage().write(_userRole, value);
+  static String? get userRole => GetStorage().read(_userRole);
 
   static set token(String? value) => GetStorage().write(_token, value);
   static String? get token => GetStorage().read(_token);
@@ -29,9 +33,10 @@ class Preferences {
   }
 
   /// Get user data (Put user model)
-  static User get user {
+  static User? get user {
     final storage = GetStorage();
-    final String result = storage.read(_user) as String;
+    final dynamic result = storage.read(_user);
+    if (result == null || result is! String) return null;
     return User.fromJson(json.decode(result) as Map<String, dynamic>);
   }
 
@@ -42,5 +47,6 @@ class Preferences {
     unawaited(storage.write(_token, null));
     unawaited(storage.write(_user, null));
     unawaited(storage.write(_deviceId, null));
+    unawaited(storage.write(_userRole, null));
   }
 }

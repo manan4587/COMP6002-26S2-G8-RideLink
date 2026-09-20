@@ -206,7 +206,7 @@ class _LoginViewState extends State<LoginView> with ValidationMixin {
                         padding: EdgeInsets.symmetric(horizontal: 14.w),
                         child: Text(
                           'or continue with',
-                          style: AppTextStyle.text12MediumOrSmall.copyWith(
+                          style: AppTextStyle.text12Medium.copyWith(
                             color: AppColors.secondaryTextColor,
                           ),
                         ),

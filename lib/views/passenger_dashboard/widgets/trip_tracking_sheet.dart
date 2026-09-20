@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 import 'package:ridelink/views/passenger_dashboard/widgets/ride_chat_sheet.dart';
@@ -192,10 +193,18 @@ class TripTrackingSheet extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  onPressed: () => RideChatSheet.show(
-                    context,
-                    driverName: booking.ride.driverName,
-                  ),
+                  onPressed: () {
+                    Get.back();
+                    Get.toNamed(
+                      AppRoutes.rideChat,
+                      arguments: {
+                        'driverName': booking.ride.driverName,
+                        'carModel': booking.ride.carModel,
+                        'route':
+                            '${booking.ride.origin} → ${booking.ride.destination}',
+                      },
+                    );
+                  },
                   icon: Container(
                     padding: EdgeInsets.all(8.w),
                     decoration: const BoxDecoration(
@@ -292,18 +301,29 @@ class TripTrackingSheet extends StatelessWidget {
               ),
               SizedBox(width: 12.w),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () => Get.back(),
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Get.back();
+                    Get.find<PassengerDashboardController>()
+                        .currentSelectedRide
+                        .value = booking.ride;
+                    Get.toNamed(AppRoutes.liveTripTracking);
+                  },
+                  icon: const Icon(
+                    CupertinoIcons.map_fill,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    'Full Map View',
+                    style: AppTextStyle.buttonText.copyWith(fontSize: 13.sp),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryColor,
                     padding: EdgeInsets.symmetric(vertical: 14.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14.r),
                     ),
-                  ),
-                  child: Text(
-                    'Done',
-                    style: AppTextStyle.buttonText.copyWith(fontSize: 14.sp),
                   ),
                 ),
               ),

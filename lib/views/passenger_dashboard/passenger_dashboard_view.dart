@@ -46,13 +46,13 @@ class PassengerDashboardView extends GetView<PassengerDashboardController> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _NavBarItem(
                     icon: CupertinoIcons.home,
-                    activeIcon: CupertinoIcons.house_fill,
+                    activeIcon: CupertinoIcons.home,
                     label: 'Home',
                     isSelected: controller.currentTabIndex.value == 0,
                     onTap: () => controller.switchTab(0),
@@ -66,21 +66,21 @@ class PassengerDashboardView extends GetView<PassengerDashboardController> {
                   ),
                   _NavBarItem(
                     icon: CupertinoIcons.car,
-                    activeIcon: CupertinoIcons.car_detailed,
-                    label: 'My Rides',
+                    activeIcon: CupertinoIcons.car,
+                    label: 'Trips',
                     isSelected: controller.currentTabIndex.value == 2,
                     onTap: () => controller.switchTab(2),
                   ),
                   _NavBarItem(
-                    icon: CupertinoIcons.person_3,
-                    activeIcon: CupertinoIcons.person_3_fill,
+                    icon: CupertinoIcons.person_2,
+                    activeIcon: CupertinoIcons.person_2,
                     label: 'Community',
                     isSelected: controller.currentTabIndex.value == 3,
                     onTap: () => controller.switchTab(3),
                   ),
                   _NavBarItem(
                     icon: CupertinoIcons.person,
-                    activeIcon: CupertinoIcons.person_fill,
+                    activeIcon: CupertinoIcons.person,
                     label: 'Profile',
                     isSelected: controller.currentTabIndex.value == 4,
                     onTap: () => controller.switchTab(4),
@@ -115,23 +115,37 @@ class _NavBarItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isSelected ? activeIcon : icon,
-            size: 22.sp,
-            color: isSelected ? AppColors.primaryColor : AppColors.secondaryTextColor,
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            label,
-            style: AppTextStyle.text10Medium.copyWith(
-              color: isSelected ? AppColors.primaryColor : AppColors.secondaryTextColor,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 12.w : 8.w,
+          vertical: 4.h,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              size: 20.sp,
+              color: isSelected
+                  ? AppColors.primaryColor
+                  : AppColors.secondaryTextColor,
             ),
-          ),
-        ],
+            SizedBox(height: 3.h),
+            Text(
+              label,
+              style: AppTextStyle.text10Medium.copyWith(
+                color: isSelected
+                    ? AppColors.primaryColor
+                    : AppColors.secondaryTextColor,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

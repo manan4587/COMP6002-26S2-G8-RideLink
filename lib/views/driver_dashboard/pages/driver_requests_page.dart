@@ -160,6 +160,38 @@ class DriverRequestsPage extends GetView<DriverDashboardController> {
                                 color: AppColors.secondaryTextColor,
                               ),
                             ),
+                            SizedBox(height: 8.h),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10.w,
+                                vertical: 6.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(8.r),
+                                border: Border.all(
+                                  color: AppColors.borderColor.withOpacity(0.5),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.lock_shield,
+                                    size: 13.sp,
+                                    color: AppColors.secondaryTextColor,
+                                  ),
+                                  SizedBox(width: 6.w),
+                                  Expanded(
+                                    child: Text(
+                                      'Emergency contact unlocks when ride starts',
+                                      style: AppTextStyle.text10Medium.copyWith(
+                                        color: AppColors.secondaryTextColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
 
                             SizedBox(height: 14.h),
 

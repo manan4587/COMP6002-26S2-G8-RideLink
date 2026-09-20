@@ -84,57 +84,65 @@ class DriverVerificationUploadView extends GetView<AuthController> {
                 20.verticalSpace,
 
                 // Document Upload Cards List
-                Obx(() => _DriverDocsUploadCard(
-                      label: 'Driving Licence',
-                      description: 'Government-issued valid driver licence',
-                      icon: AppAssets.drivingLicense,
-                      isRequired: true,
-                      uploadedFileName: controller.drivingLicencePath.value,
-                      onTap: controller.onSelectDrivingLicence,
-                    )),
+                Obx(
+                  () => _DriverDocsUploadCard(
+                    label: 'Driving Licence',
+                    description: 'Government-issued valid driver licence',
+                    icon: AppAssets.drivingLicense,
+                    isRequired: true,
+                    uploadedFileName: controller.drivingLicencePath.value,
+                    onTap: controller.onSelectDrivingLicence,
+                  ),
+                ),
                 12.verticalSpace,
 
-                Obx(() => _DriverDocsUploadCard(
-                      label: 'Vehicle Registration',
-                      description: 'Valid registration document for your car',
-                      icon: AppAssets.vehicleRegistration,
-                      isRequired: true,
-                      uploadedFileName: controller.vehicleRegistrationPath.value,
-                      onTap: controller.onSelectVehicleRegistration,
-                    )),
+                Obx(
+                  () => _DriverDocsUploadCard(
+                    label: 'Vehicle Registration',
+                    description: 'Valid registration document for your car',
+                    icon: AppAssets.vehicleRegistration,
+                    isRequired: true,
+                    uploadedFileName: controller.vehicleRegistrationPath.value,
+                    onTap: controller.onSelectVehicleRegistration,
+                  ),
+                ),
                 12.verticalSpace,
 
-                Obx(() => _DriverDocsUploadCard(
-                      label: 'Vehicle Insurance',
-                      description: 'Current third-party or comprehensive policy',
-                      icon: AppAssets.vehicleInsurance,
-                      isRequired: true,
-                      uploadedFileName: controller.vehicleInsurancePath.value,
-                      onTap: controller.onSelectVehicleInsurance,
-                    )),
+                Obx(
+                  () => _DriverDocsUploadCard(
+                    label: 'Vehicle Insurance',
+                    description: 'Current third-party or comprehensive policy',
+                    icon: AppAssets.vehicleInsurance,
+                    isRequired: true,
+                    uploadedFileName: controller.vehicleInsurancePath.value,
+                    onTap: controller.onSelectVehicleInsurance,
+                  ),
+                ),
                 12.verticalSpace,
 
-                Obx(() => _DriverDocsUploadCard(
-                      label: 'Police Check',
-                      description: 'National police certificate (Optional)',
-                      icon: AppAssets.policCheck,
-                      isRequired: false,
-                      uploadedFileName: controller.policeCheckPath.value,
-                      onTap: controller.onSelectPoliceCheck,
-                    )),
+                Obx(
+                  () => _DriverDocsUploadCard(
+                    label: 'Police Check',
+                    description: 'National police certificate (Optional)',
+                    icon: AppAssets.policCheck,
+                    isRequired: false,
+                    uploadedFileName: controller.policeCheckPath.value,
+                    onTap: controller.onSelectPoliceCheck,
+                  ),
+                ),
 
                 18.verticalSpace,
 
                 // Security & Privacy Note
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 12.h,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.containerFillColor,
                     borderRadius: BorderRadius.circular(14.r),
-                    border: Border.all(
-                      color: AppColors.borderColor,
-                      width: 1,
-                    ),
+                    border: Border.all(color: AppColors.borderColor, width: 1),
                   ),
                   child: Row(
                     children: [
@@ -146,8 +154,8 @@ class DriverVerificationUploadView extends GetView<AuthController> {
                       12.horizontalSpace,
                       Expanded(
                         child: Text(
-                          '256-bit encrypted. Your documents are strictly confidential and used solely for identity verification.',
-                          style: AppTextStyle.text12MediumOrSmall.copyWith(
+                          'Your documents are strictly confidential and used solely for identity verification.',
+                          style: AppTextStyle.text12Medium.copyWith(
                             color: AppColors.secondaryTextColor,
                             height: 1.35,
                           ),
@@ -186,7 +194,7 @@ class DriverVerificationUploadView extends GetView<AuthController> {
                     6.horizontalSpace,
                     Text(
                       'Verified badge will be issued upon approval',
-                      style: AppTextStyle.text12MediumOrSmall.copyWith(
+                      style: AppTextStyle.text12Medium.copyWith(
                         color: AppColors.secondaryTextColor,
                       ),
                     ),
@@ -267,7 +275,9 @@ class _DriverDocsUploadCard extends StatelessWidget {
                 child: SvgPicture.asset(
                   icon,
                   colorFilter: ColorFilter.mode(
-                    isUploaded ? const Color(0xFF059669) : AppColors.primaryColor,
+                    isUploaded
+                        ? const Color(0xFF059669)
+                        : AppColors.primaryColor,
                     BlendMode.srcIn,
                   ),
                 ),
@@ -401,4 +411,3 @@ class _DriverDocsUploadCard extends StatelessWidget {
     );
   }
 }
-

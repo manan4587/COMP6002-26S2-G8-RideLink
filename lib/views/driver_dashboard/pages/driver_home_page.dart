@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
 
@@ -223,7 +224,10 @@ class DriverHomePage extends GetView<DriverDashboardController> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('My Published Trips', style: AppTextStyle.text18Semibold),
+                  Text(
+                    'My Published Trips',
+                    style: AppTextStyle.text18Semibold,
+                  ),
                   Obx(
                     () => Text(
                       '${controller.myTrips.length} Active',
@@ -245,88 +249,339 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                   separatorBuilder: (context, index) => SizedBox(height: 12.h),
                   itemBuilder: (context, index) {
                     final trip = controller.myTrips[index];
-                    return Container(
-                      padding: EdgeInsets.all(14.w),
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(16.r),
-                        border: Border.all(color: AppColors.borderColor),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w,
-                                  vertical: 4.h,
+                    return Obx(() {
+                      final bool isActive = trip.status.value == 'Active';
+                      return Container(
+                        padding: EdgeInsets.all(14.w),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(16.r),
+                          border: Border.all(
+                            color: isActive
+                                ? const Color(0xFF86EFAC)
+                                : AppColors.borderColor,
+                            width: isActive ? 1.5 : 1.0,
+                          ),
+                          boxShadow: isActive
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF22C55E,
+                                    ).withOpacity(0.12),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w,
+                                    vertical: 4.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isActive
+                                        ? const Color(0xFFDCFCE7)
+                                        : const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(8.r),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (isActive) ...[
+                                        Container(
+                                          width: 6.r,
+                                          height: 6.r,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF16A34A),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        4.horizontalSpace,
+                                      ],
+                                      Text(
+                                        isActive
+                                            ? 'Active (In Progress)'
+                                            : trip.status.value,
+                                        style: AppTextStyle.text10Medium
+                                            .copyWith(
+                                              color: isActive
+                                                  ? const Color(0xFF16A34A)
+                                                  : AppColors.primaryColor,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEFF6FF),
-                                  borderRadius: BorderRadius.circular(8.r),
-                                ),
-                                child: Text(
-                                  trip.status,
-                                  style: AppTextStyle.text10Medium.copyWith(
+                                Text(
+                                  '\$${trip.pricePerSeat.toStringAsFixed(0)} / seat',
+                                  style: AppTextStyle.text14Semibold.copyWith(
                                     color: AppColors.primaryColor,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                              ),
-                              Text(
-                                '\$${trip.pricePerSeat.toStringAsFixed(0)} / seat',
-                                style: AppTextStyle.text14Semibold.copyWith(
-                                  color: AppColors.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 10.h),
-                          Text(
-                            '${trip.from} → ${trip.to}',
-                            style: AppTextStyle.text14Semibold,
-                          ),
-                          SizedBox(height: 4.h),
-                          Text(
-                            trip.time,
-                            style: AppTextStyle.text12Regular.copyWith(
-                              color: AppColors.secondaryTextColor,
+                              ],
                             ),
-                          ),
-                          SizedBox(height: 12.h),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Booked: ${trip.bookedSeats}/${trip.totalSeats} seats',
-                                style: AppTextStyle.text12Semibold,
+                            SizedBox(height: 10.h),
+                            Text(
+                              '${trip.from} → ${trip.to}',
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                fontWeight: FontWeight.bold,
                               ),
-                              ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primaryColor,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 14.w,
-                                    vertical: 6.h,
+                            ),
+                            SizedBox(height: 4.h),
+                            Text(
+                              trip.time,
+                              style: AppTextStyle.text12Regular.copyWith(
+                                color: AppColors.secondaryTextColor,
+                              ),
+                            ),
+                            SizedBox(height: 12.h),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Booked: ${trip.bookedSeats}/${trip.totalSeats} seats',
+                                  style: AppTextStyle.text12Semibold,
+                                ),
+                                ElevatedButton(
+                                  onPressed: () =>
+                                      controller.toggleTripStatus(trip),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isActive
+                                        ? const Color(0xFF16A34A)
+                                        : AppColors.primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 14.w,
+                                      vertical: 6.h,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10.r),
+                                    ),
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10.r),
+                                  child: Text(
+                                    isActive ? 'End Ride' : 'Start Ride',
+                                    style: AppTextStyle.buttonText.copyWith(
+                                      fontSize: 12.sp,
+                                    ),
                                   ),
                                 ),
-                                child: Text(
-                                  'Start Ride',
-                                  style: AppTextStyle.buttonText.copyWith(
-                                    fontSize: 12.sp,
-                                  ),
-                                ),
+                              ],
+                            ),
+
+                            // Passenger & Emergency Contact Details
+                            if (trip.acceptedPassengers.isNotEmpty) ...[
+                              12.verticalSpace,
+                              const Divider(
+                                color: AppColors.borderColor,
+                                height: 1,
                               ),
+                              10.verticalSpace,
+                              ...trip.acceptedPassengers.map((p) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 12.r,
+                                          backgroundColor: const Color(
+                                            0xFFEFF6FF,
+                                          ),
+                                          child: Text(
+                                            p.passengerName[0],
+                                            style: TextStyle(
+                                              fontSize: 11.sp,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primaryColor,
+                                            ),
+                                          ),
+                                        ),
+                                        8.horizontalSpace,
+                                        Expanded(
+                                          child: Text(
+                                            '${p.passengerName} (★ ${p.rating})',
+                                            style: AppTextStyle.text12Semibold,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${p.seats} seat',
+                                          style: AppTextStyle.text12Medium
+                                              .copyWith(
+                                                color: AppColors
+                                                    .secondaryTextColor,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    8.verticalSpace,
+
+                                    // EMERGENCY CONTACT: Visible only during active trips!
+                                    if (isActive) ...[
+                                      Container(
+                                        padding: EdgeInsets.all(10.w),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFEF2F2),
+                                          borderRadius: BorderRadius.circular(
+                                            12.r,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFFFCA5A5),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: EdgeInsets.all(6.r),
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFFFEE2E2),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.contact_phone_rounded,
+                                                color: Color(0xFFDC2626),
+                                                size: 16,
+                                              ),
+                                            ),
+                                            10.horizontalSpace,
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Text(
+                                                        'Emergency Contact (${p.emergencyContactRelation})',
+                                                        style: TextStyle(
+                                                          fontSize: 10.sp,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: const Color(
+                                                            0xFF991B1B,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      4.horizontalSpace,
+                                                      Container(
+                                                        padding:
+                                                            EdgeInsets.symmetric(
+                                                              horizontal: 4.w,
+                                                              vertical: 1.h,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(
+                                                            0xFFDC2626,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                4.r,
+                                                              ),
+                                                        ),
+                                                        child: const Text(
+                                                          'Active Trip Only',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 8,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  2.verticalSpace,
+                                                  Text(
+                                                    '${p.emergencyContactName} • ${p.emergencyContactPhone}',
+                                                    style: TextStyle(
+                                                      fontSize: 12.sp,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: const Color(
+                                                        0xFF7F1D1D,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            IconButton(
+                                              onPressed: () => Utils.launchCall(
+                                                p.emergencyContactPhone,
+                                              ),
+                                              tooltip: 'Call Emergency Contact',
+                                              icon: Container(
+                                                padding: EdgeInsets.all(6.r),
+                                                decoration: const BoxDecoration(
+                                                  color: Color(0xFFDC2626),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  CupertinoIcons.phone_fill,
+                                                  color: Colors.white,
+                                                  size: 14,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ] else ...[
+                                      // TRIP NOT ACTIVE: PRIVACY PROTECTED
+                                      Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 10.w,
+                                          vertical: 8.h,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF8FAFC),
+                                          borderRadius: BorderRadius.circular(
+                                            10.r,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFFE2E8F0),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.lock_outline_rounded,
+                                              color:
+                                                  AppColors.secondaryTextColor,
+                                              size: 15,
+                                            ),
+                                            8.horizontalSpace,
+                                            Expanded(
+                                              child: Text(
+                                                'Emergency contact hidden (Protected by privacy • Unlocks when ride starts)',
+                                                style: TextStyle(
+                                                  fontSize: 10.sp,
+                                                  color: AppColors
+                                                      .secondaryTextColor,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                );
+                              }).toList(),
                             ],
-                          ),
-                        ],
-                      ),
-                    );
+                          ],
+                        ),
+                      );
+                    });
                   },
                 ),
               ),

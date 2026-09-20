@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ridelink/core/enums/user_type.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
+import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/core/utils/validation_mixin.dart';
 import 'package:ridelink/data/repositories/auth_repository.dart';
@@ -38,13 +39,18 @@ class AuthController extends GetxController with ValidationMixin {
   final RxBool isCheckingVerification = false.obs;
   Timer? _resendTimer;
 
-  @override
-  void onInit() {
-    Future.delayed(
-      const Duration(seconds: 2),
-      () => Get.offNamed(AppRoutes.getStartedView),
-    );
-    super.onInit();
+  void onNavigateToScreens() {
+    Future.delayed(const Duration(seconds: 2), () {
+      if (Preferences.isLogged) {
+        if (Preferences.userRole == 'driver') {
+          Get.offAllNamed(AppRoutes.driverDashboard);
+        } else {
+          Get.offAllNamed(AppRoutes.passengerDashboard);
+        }
+      } else {
+        Get.offNamed(AppRoutes.getStartedView);
+      }
+    });
   }
 
   @override
@@ -96,23 +102,32 @@ class AuthController extends GetxController with ValidationMixin {
     isCheckingVerification.value = true;
     await Future.delayed(const Duration(milliseconds: 800));
     isCheckingVerification.value = false;
+    Preferences.isLogged = true;
     if (selectedUserType.value == UserType.driver) {
-      Get.toNamed(AppRoutes.driverDashboard);
+      Preferences.userRole = 'driver';
+      Get.offAllNamed(AppRoutes.driverDashboard);
     } else {
-      Get.toNamed(AppRoutes.passengerDashboard);
+      Preferences.userRole = 'passenger';
+      Get.offAllNamed(AppRoutes.passengerDashboard);
     }
   }
 
   Future<void> onLogin([GlobalKey<FormState>? formKey]) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final isValid = formKey?.currentState?.validate() ?? loginFormKey.currentState?.validate() ?? true;
+    final isValid =
+        formKey?.currentState?.validate() ??
+        loginFormKey.currentState?.validate() ??
+        true;
     if (isValid) {
       isLoading.value = true;
       await Future.delayed(const Duration(milliseconds: 600));
       isLoading.value = false;
+      Preferences.isLogged = true;
       if (selectedUserType.value == UserType.driver) {
+        Preferences.userRole = 'driver';
         Get.offAllNamed(AppRoutes.driverDashboard);
       } else {
+        Preferences.userRole = 'passenger';
         Get.offAllNamed(AppRoutes.passengerDashboard);
       }
     }
@@ -120,7 +135,10 @@ class AuthController extends GetxController with ValidationMixin {
 
   Future<void> onPassegerAccountCreate([GlobalKey<FormState>? formKey]) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final isValid = formKey?.currentState?.validate() ?? createAccountFormKey.currentState?.validate() ?? true;
+    final isValid =
+        formKey?.currentState?.validate() ??
+        createAccountFormKey.currentState?.validate() ??
+        true;
     if (isValid) {
       startResendTimer(30);
       Get.toNamed(AppRoutes.emailVerificationView);
@@ -129,7 +147,10 @@ class AuthController extends GetxController with ValidationMixin {
 
   Future<void> onDriverAccountCreate([GlobalKey<FormState>? formKey]) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final isValid = formKey?.currentState?.validate() ?? createAccountFormKey.currentState?.validate() ?? true;
+    final isValid =
+        formKey?.currentState?.validate() ??
+        createAccountFormKey.currentState?.validate() ??
+        true;
     if (isValid) {
       Get.toNamed(AppRoutes.driverVerificaitonUploadView);
     }
@@ -138,7 +159,9 @@ class AuthController extends GetxController with ValidationMixin {
   Future<void> onSelectDrivingLicence() async {
     final image = await Utils.pickImage(ImageSource.gallery);
     if (image != null && image.path.isNotEmpty) {
-      drivingLicencePath.value = image.name.isNotEmpty ? image.name : 'driving_licence.jpg';
+      drivingLicencePath.value = image.name.isNotEmpty
+          ? image.name
+          : 'driving_licence.jpg';
       AppSnackBar.success(message: 'Driving Licence attached.');
     }
   }
@@ -146,7 +169,9 @@ class AuthController extends GetxController with ValidationMixin {
   Future<void> onSelectVehicleRegistration() async {
     final image = await Utils.pickImage(ImageSource.gallery);
     if (image != null && image.path.isNotEmpty) {
-      vehicleRegistrationPath.value = image.name.isNotEmpty ? image.name : 'vehicle_registration.jpg';
+      vehicleRegistrationPath.value = image.name.isNotEmpty
+          ? image.name
+          : 'vehicle_registration.jpg';
       AppSnackBar.success(message: 'Vehicle Registration attached.');
     }
   }
@@ -154,7 +179,9 @@ class AuthController extends GetxController with ValidationMixin {
   Future<void> onSelectVehicleInsurance() async {
     final image = await Utils.pickImage(ImageSource.gallery);
     if (image != null && image.path.isNotEmpty) {
-      vehicleInsurancePath.value = image.name.isNotEmpty ? image.name : 'vehicle_insurance.jpg';
+      vehicleInsurancePath.value = image.name.isNotEmpty
+          ? image.name
+          : 'vehicle_insurance.jpg';
       AppSnackBar.success(message: 'Vehicle Insurance attached.');
     }
   }
@@ -162,7 +189,9 @@ class AuthController extends GetxController with ValidationMixin {
   Future<void> onSelectPoliceCheck() async {
     final image = await Utils.pickImage(ImageSource.gallery);
     if (image != null && image.path.isNotEmpty) {
-      policeCheckPath.value = image.name.isNotEmpty ? image.name : 'police_check.jpg';
+      policeCheckPath.value = image.name.isNotEmpty
+          ? image.name
+          : 'police_check.jpg';
       AppSnackBar.success(message: 'Police Check document attached.');
     }
   }
@@ -175,6 +204,8 @@ class AuthController extends GetxController with ValidationMixin {
   }
 
   Future<void> onVerificationSubmited() async {
+    Preferences.isLogged = true;
+    Preferences.userRole = 'driver';
     Get.offAllNamed(AppRoutes.driverDashboard);
   }
 }

@@ -30,6 +30,142 @@ class CreateRidePage extends GetView<DriverDashboardController> {
                 ),
               ),
 
+              // Admin Verification Warning Banner
+              Obx(() {
+                if (controller.isVerifiedByAdmin.value) {
+                  return const SizedBox.shrink();
+                }
+                return Container(
+                  margin: EdgeInsets.only(top: 14.h),
+                  padding: EdgeInsets.all(14.w),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(14.r),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: Color(0xFFDC2626),
+                        size: 22,
+                      ),
+                      SizedBox(width: 10.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Verification Required',
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                color: const Color(0xFFB91C1C),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 4.h),
+                            Text(
+                              "You cannot publish new rides until your documents are verified by admin. Please complete your verification profile.",
+                              style: AppTextStyle.text12Regular.copyWith(
+                                color: const Color(0xFF7F1D1D),
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+
+              // Target Community Selector
+              Container(
+                margin: EdgeInsets.only(top: 14.h),
+                padding: EdgeInsets.all(14.w),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(color: AppColors.borderColor),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(8.r),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEFF6FF),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            CupertinoIcons.person_2_fill,
+                            size: 16.sp,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Post ride into Community',
+                                style: AppTextStyle.text14Semibold.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 2.h),
+                              Text(
+                                'Matched verified community members get priority.',
+                                style: AppTextStyle.text10Medium.copyWith(
+                                  color: AppColors.secondaryTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12.h),
+                    Obx(
+                      () => Wrap(
+                        spacing: 8.w,
+                        runSpacing: 8.h,
+                        children: controller.availableCommunitiesForDriver.map((comm) {
+                          final isSelected =
+                              controller.selectedCommunityForPublish.value == comm;
+                          return ChoiceChip(
+                            label: Text(comm),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              if (selected) {
+                                controller.selectCommunityForPublish(comm);
+                              }
+                            },
+                            selectedColor: AppColors.primaryColor,
+                            backgroundColor: const Color(0xFFF1F5F9),
+                            labelStyle: AppTextStyle.text12Medium.copyWith(
+                              color: isSelected ? Colors.white : AppColors.primaryTextColor,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10.r),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppColors.primaryColor
+                                    : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               SizedBox(height: 16.h),
 
               // Route Input Card
@@ -221,7 +357,7 @@ class CreateRidePage extends GetView<DriverDashboardController> {
                         title: Text('Luggage Space Available', style: AppTextStyle.text14Semibold),
                         subtitle: Text('Passengers can bring small baggage/backpacks', style: AppTextStyle.text12Regular.copyWith(color: AppColors.secondaryTextColor)),
                         value: controller.allowLuggage.value,
-                        activeColor: AppColors.primaryColor,
+                        activeThumbColor: AppColors.primaryColor,
                         onChanged: (v) => controller.allowLuggage.value = v,
                       ),
                     ),
@@ -232,7 +368,7 @@ class CreateRidePage extends GetView<DriverDashboardController> {
                         title: Text('Pets Allowed', style: AppTextStyle.text14Semibold),
                         subtitle: Text('Allow small caged pets inside vehicle', style: AppTextStyle.text12Regular.copyWith(color: AppColors.secondaryTextColor)),
                         value: controller.allowPets.value,
-                        activeColor: AppColors.primaryColor,
+                        activeThumbColor: AppColors.primaryColor,
                         onChanged: (v) => controller.allowPets.value = v,
                       ),
                     ),
@@ -243,9 +379,16 @@ class CreateRidePage extends GetView<DriverDashboardController> {
               SizedBox(height: 24.h),
 
               // Publish CTA
-              AppButton(
-                onPressed: controller.publishNewTrip,
-                label: 'Publish Ride Now',
+              Obx(
+                () => AppButton(
+                  onPressed: controller.publishNewTrip,
+                  label: controller.isVerifiedByAdmin.value
+                      ? 'Publish Ride Now'
+                      : 'Verification Pending (Cannot Publish)',
+                  backgroundColor: controller.isVerifiedByAdmin.value
+                      ? AppColors.primaryColor
+                      : const Color(0xFF9CA3AF),
+                ),
               ),
 
               SizedBox(height: 20.h),

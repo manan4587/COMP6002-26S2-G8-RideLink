@@ -331,7 +331,7 @@ class _CreateAccountViewState extends State<CreateAccountView>
                             : () => controller.onDriverAccountCreate(_formKey),
                         label: isPassenger
                             ? 'Create Passenger Account'
-                            : 'Continue to Driver Verification',
+                            : 'Create Driver Account',
                         isLoading: controller.isLoading.value,
                         icon: AppAssets.checkIcon,
                       );

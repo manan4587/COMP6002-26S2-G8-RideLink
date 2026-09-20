@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
@@ -48,7 +49,10 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Alex Morgan', style: AppTextStyle.text18Semibold),
+                          Text(
+                            'Alex Morgan',
+                            style: AppTextStyle.text18Semibold,
+                          ),
                           SizedBox(height: 2.h),
                           Text(
                             'alex.morgan@email.com',
@@ -203,41 +207,54 @@ class ProfilePage extends GetView<PassengerDashboardController> {
               SizedBox(height: 10.h),
 
               _SettingsTile(
-                icon: CupertinoIcons.creditcard,
-                title: 'Payment Methods',
-                subtitle: 'Apple Pay, Visa ending in 4242',
-                onTap: () {},
+                icon: CupertinoIcons.money_dollar_circle,
+                title: 'Trip Payments (Cash Only)',
+                subtitle: 'Direct Cash Settlement with Drivers',
+                onTap: () => _showCashPaymentNotice(context),
               ),
-              _SettingsTile(
-                icon: CupertinoIcons.placemark,
-                title: 'Saved Locations',
-                subtitle: 'Home, Monash Uni, Office',
-                onTap: () {},
+              Obx(
+                () => _SettingsTile(
+                  icon: CupertinoIcons.placemark,
+                  title: 'Saved Locations',
+                  subtitle:
+                      '${controller.savedLocations.length} Places Bookmarked (Home, Work, Uni)',
+                  onTap: () => Get.toNamed(AppRoutes.passengerSavedLocations),
+                ),
+              ),
+              Obx(
+                () => _SettingsTile(
+                  icon: CupertinoIcons.phone_badge_plus,
+                  title: 'Emergency Contacts',
+                  subtitle:
+                      '${controller.emergencyContacts.length} Contacts Saved (Visible only during active trips)',
+                  onTap: () => Get.toNamed(AppRoutes.passengerEmergencyContacts),
+                ),
               ),
               _SettingsTile(
                 icon: CupertinoIcons.shield,
-                title: 'Safety & Emergency Contacts',
-                subtitle: 'SOS, 2 Trusted contacts added',
-                onTap: () {},
+                title: 'Safety & SOS Assistance',
+                subtitle: 'Emergency assistance, call SOS & email desk',
+                onTap: () => Get.toNamed(AppRoutes.passengerSafetySos),
               ),
               _SettingsTile(
                 icon: CupertinoIcons.bell,
                 title: 'Notification Preferences',
-                subtitle: 'Push, Email & SMS ride alerts',
-                onTap: () {},
+                subtitle: 'Push Notifications Only • Instant Ride Alerts',
+                onTap: () =>
+                    Get.toNamed(AppRoutes.passengerNotificationPreferences),
               ),
               _SettingsTile(
                 icon: CupertinoIcons.question_circle,
                 title: 'Help & Customer Support',
-                subtitle: 'FAQs, Live Chat',
-                onTap: () {},
+                subtitle: 'Submit queries to admin, support ticket history',
+                onTap: () => Get.toNamed(AppRoutes.passengerSupport),
               ),
 
-              SizedBox(height: 18.h),
+              SizedBox(height: 20.h),
 
-              // Logout Button
+              // Logout Button with Bottom Sheet
               GestureDetector(
-                onTap: controller.onLogout,
+                onTap: () => controller.confirmLogout(context),
                 child: Container(
                   width: double.infinity,
                   padding: EdgeInsets.symmetric(vertical: 14.h),
@@ -261,9 +278,164 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                 ),
               ),
 
+              SizedBox(height: 12.h),
+
+              // Delete Account Button with Bottom Sheet
+              GestureDetector(
+                onTap: () => controller.confirmDeleteAccount(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(14.r),
+                    border: Border.all(
+                      color: AppColors.red.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.delete_outline_rounded,
+                        color: AppColors.red.withValues(alpha: 0.8),
+                        size: 18.sp,
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        'Delete Account',
+                        style: AppTextStyle.text12Semibold.copyWith(
+                          color: AppColors.red.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               SizedBox(height: 24.h),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showCashPaymentNotice(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          top: 12.h,
+          left: 20.w,
+          right: 20.w,
+          bottom: MediaQuery.of(context).padding.bottom + 20.h,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: AppColors.borderColor,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ),
+            16.verticalSpace,
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(8.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFDCFCE7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.payments_rounded,
+                    color: Color(0xFF16A34A),
+                    size: 24,
+                  ),
+                ),
+                12.horizontalSpace,
+                Text(
+                  'Cash Payments Only',
+                  style: AppTextStyle.text18Semibold.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            14.verticalSpace,
+            Text(
+              'RideLink operates purely on a direct cash settlement basis for all passenger carpools.',
+              style: AppTextStyle.text14Medium.copyWith(
+                color: AppColors.primaryTextColor,
+              ),
+            ),
+            10.verticalSpace,
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: AppColors.containerFillColor,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '• Pay the driver directly in cash upon arriving safely at your destination.',
+                    style: AppTextStyle.text12Regular.copyWith(
+                      color: AppColors.secondaryTextColor,
+                      height: 1.4,
+                    ),
+                  ),
+                  6.verticalSpace,
+                  Text(
+                    '• No credit cards, banking details, or digital top-ups are required in the app.',
+                    style: AppTextStyle.text12Regular.copyWith(
+                      color: AppColors.secondaryTextColor,
+                      height: 1.4,
+                    ),
+                  ),
+                  6.verticalSpace,
+                  Text(
+                    '• Please keep exact cash change ready before your scheduled ride.',
+                    style: AppTextStyle.text12Regular.copyWith(
+                      color: AppColors.secondaryTextColor,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            20.verticalSpace,
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                ),
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Understood'),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -292,27 +464,35 @@ class _SettingsTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: AppColors.borderColor),
       ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Container(
-          padding: EdgeInsets.all(8.w),
-          decoration: BoxDecoration(
-            color: AppColors.containerFillColor,
-            shape: BoxShape.circle,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16.r),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          onTap: onTap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
           ),
-          child: Icon(icon, color: AppColors.primaryColor, size: 18.sp),
-        ),
-        title: Text(title, style: AppTextStyle.text14Semibold),
-        subtitle: Text(
-          subtitle,
-          style: AppTextStyle.text12Regular.copyWith(
+          leading: Container(
+            padding: EdgeInsets.all(8.w),
+            decoration: BoxDecoration(
+              color: AppColors.containerFillColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: AppColors.primaryColor, size: 18.sp),
+          ),
+          title: Text(title, style: AppTextStyle.text14Semibold),
+          subtitle: Text(
+            subtitle,
+            style: AppTextStyle.text12Regular.copyWith(
+              color: AppColors.secondaryTextColor,
+            ),
+          ),
+          trailing: Icon(
+            Icons.chevron_right,
             color: AppColors.secondaryTextColor,
+            size: 20.sp,
           ),
-        ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: AppColors.secondaryTextColor,
-          size: 20.sp,
         ),
       ),
     );
