@@ -7,6 +7,7 @@ import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 import 'package:ridelink/views/passenger_dashboard/widgets/ride_details_sheet.dart';
+import 'package:ridelink/widgets/google_places_search_field.dart';
 
 class SearchPage extends GetView<PassengerDashboardController> {
   const SearchPage({super.key});
@@ -57,48 +58,22 @@ class SearchPage extends GetView<PassengerDashboardController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Pickup Location
-                    _FormFieldLabel(label: 'Pickup Location'),
-                    6.verticalSpace,
-                    _InputFieldContainer(
-                      icon: CupertinoIcons.location,
-                      child: TextField(
-                        controller: controller.fromLocationController,
-                        decoration: InputDecoration(
-                          hintText: 'Enter pickup suburb or spot',
-                          hintStyle: AppTextStyle.text14Regular.copyWith(
-                            color: const Color(0xFF94A3B8),
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                        style: AppTextStyle.text14Medium.copyWith(
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
+                    // Pickup Location with Google Places Autocomplete
+                    GooglePlacesSearchField(
+                      controller: controller.fromLocationController,
+                      label: 'PICKUP LOCATION',
+                      labelColor: const Color(0xFF16A34A),
+                      hintText: 'Search pickup suburb, street or station',
                     ),
 
-                    14.verticalSpace,
+                    12.verticalSpace,
 
-                    // Destination
-                    _FormFieldLabel(label: 'Destination'),
-                    6.verticalSpace,
-                    _InputFieldContainer(
-                      icon: CupertinoIcons.map,
-                      child: TextField(
-                        controller: controller.toLocationController,
-                        decoration: InputDecoration(
-                          hintText: 'Enter drop-off destination',
-                          hintStyle: AppTextStyle.text14Regular.copyWith(
-                            color: const Color(0xFF94A3B8),
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                        style: AppTextStyle.text14Medium.copyWith(
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
+                    // Destination with Google Places Autocomplete
+                    GooglePlacesSearchField(
+                      controller: controller.toLocationController,
+                      label: 'DESTINATION',
+                      labelColor: AppColors.primaryColor,
+                      hintText: 'Search drop-off destination or university',
                     ),
 
                     14.verticalSpace,
@@ -423,51 +398,52 @@ class SearchPage extends GetView<PassengerDashboardController> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: EdgeInsets.all(20.w),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select Seats Needed',
-              style: AppTextStyle.text16Semibold.copyWith(
-                fontWeight: FontWeight.bold,
+      builder: (ctx) => Material(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          padding: EdgeInsets.all(20.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Seats Needed',
+                style: AppTextStyle.text16Semibold.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            14.verticalSpace,
-            ListTile(
-              leading: const Icon(CupertinoIcons.person),
-              title: const Text('1 seat - just me'),
-              onTap: () {
-                controller.requestedSeats.value = 1;
-                controller.seatsNote.value = '1 seat - just me';
-                Navigator.of(ctx).pop();
-              },
-            ),
-            ListTile(
-              leading: const Icon(CupertinoIcons.person_2),
-              title: const Text('2 seats - me + friend / family'),
-              onTap: () {
-                controller.requestedSeats.value = 2;
-                controller.seatsNote.value = '2 seats - me + my brother';
-                Navigator.of(ctx).pop();
-              },
-            ),
-            ListTile(
-              leading: const Icon(CupertinoIcons.person_3),
-              title: const Text('3 seats - small group'),
-              onTap: () {
-                controller.requestedSeats.value = 3;
-                controller.seatsNote.value = '3 seats - small group';
-                Navigator.of(ctx).pop();
-              },
-            ),
-          ],
+              14.verticalSpace,
+              ListTile(
+                leading: const Icon(CupertinoIcons.person),
+                title: const Text('1 seat - just me'),
+                onTap: () {
+                  controller.requestedSeats.value = 1;
+                  controller.seatsNote.value = '1 seat - just me';
+                  Navigator.of(ctx).pop();
+                },
+              ),
+              ListTile(
+                leading: const Icon(CupertinoIcons.person_2),
+                title: const Text('2 seats - me + friend / family'),
+                onTap: () {
+                  controller.requestedSeats.value = 2;
+                  controller.seatsNote.value = '2 seats - me + my brother';
+                  Navigator.of(ctx).pop();
+                },
+              ),
+              ListTile(
+                leading: const Icon(CupertinoIcons.person_3),
+                title: const Text('3 seats - small group'),
+                onTap: () {
+                  controller.requestedSeats.value = 3;
+                  controller.seatsNote.value = '3 seats - small group';
+                  Navigator.of(ctx).pop();
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -11,7 +11,6 @@ import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
-import 'package:ridelink/views/passenger_dashboard/widgets/ride_chat_sheet.dart';
 
 class LiveTripTrackingPage extends StatefulWidget {
   const LiveTripTrackingPage({super.key});

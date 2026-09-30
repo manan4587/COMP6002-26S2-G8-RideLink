@@ -1,0 +1,48 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ],
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "ridelink-d4408",
+          "appId": "1:315317243384:android:1c25a4865f775df0ad5a0d",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "ridelink-d4408",
+          "appId": "1:315317243384:ios:8ff46c348d3d7e39ad5a0d",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "ridelink-d4408",
+          "configurations": {
+            "android": "1:315317243384:android:1c25a4865f775df0ad5a0d",
+            "ios": "1:315317243384:ios:8ff46c348d3d7e39ad5a0d"
+          }
+        }
+      }
+    }
+  }
+}

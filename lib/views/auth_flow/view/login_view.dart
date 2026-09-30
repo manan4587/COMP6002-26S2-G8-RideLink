@@ -5,7 +5,6 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_assets.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
-import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/validation_mixin.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
@@ -26,6 +25,12 @@ class LoginView extends StatefulWidget {
 class _LoginViewState extends State<LoginView> with ValidationMixin {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final AuthController controller = Get.find<AuthController>();
+
+  @override
+  void initState() {
+    super.initState();
+    controller.clearAllFields();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -153,16 +158,12 @@ class _LoginViewState extends State<LoginView> with ValidationMixin {
                       }),
                       8.verticalSpace,
 
-                      // Forgot Password Link
+                      // Actions Row: Forgot Password
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
-                            AppSnackBar.info(
-                              message:
-                                  'Password reset instruction will be sent to your registered email.',
-                            );
-                          },
+                          onPressed: () =>
+                              controller.showForgotPasswordDialog(context),
                           style: TextButton.styleFrom(
                             padding: EdgeInsets.zero,
                             minimumSize: Size.zero,
@@ -224,14 +225,15 @@ class _LoginViewState extends State<LoginView> with ValidationMixin {
                   16.verticalSpace,
 
                   // Google Login Button
-                  AppCutomLoginButton(
-                    lable: 'Continue with Google',
-                    icon: AppAssets.googleIcon,
-                    onTap: () {
-                      AppSnackBar.info(
-                        message: 'Google Sign-In integration ready.',
-                      );
-                    },
+                  Obx(
+                    () => AppCutomLoginButton(
+                      lable: 'Continue with Google',
+                      icon: AppAssets.googleIcon,
+                      isLoading: controller.isGoogleLoading.value,
+                      onTap: controller.isGoogleLoading.value
+                          ? null
+                          : controller.onContinueWithGoogle,
+                    ),
                   ),
 
                   26.verticalSpace,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
@@ -24,55 +25,75 @@ class HomePage extends GetView<PassengerDashboardController> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 46.w,
-                        height: 46.h,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFFEFF6FF),
-                          border: Border.all(
-                            color: AppColors.primaryColor,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'JM',
-                            style: AppTextStyle.text16Semibold.copyWith(
-                              color: AppColors.primaryColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'James Miller',
-                                style: AppTextStyle.text18Semibold,
-                              ),
-                              SizedBox(width: 4.w),
-                              Icon(
-                                Icons.verified,
-                                size: 16.sp,
+                  GestureDetector(
+                    onTap: () => controller.switchTab(4),
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      children: [
+                        Obx(
+                          () => Container(
+                            width: 46.w,
+                            height: 46.h,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFFEFF6FF),
+                              border: Border.all(
                                 color: AppColors.primaryColor,
+                                width: 1.5,
                               ),
-                            ],
-                          ),
-                          Text(
-                            'Verified Passenger • 4.9 ★',
-                            style: AppTextStyle.text12Regular.copyWith(
-                              color: AppColors.secondaryTextColor,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryColor
+                                      .withValues(alpha: 0.1),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                controller.passengerInitials,
+                                style: AppTextStyle.text16Semibold.copyWith(
+                                  color: AppColors.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        SizedBox(width: 12.w),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Obx(
+                                  () => Text(
+                                    controller.passengerName.value.isNotEmpty
+                                        ? controller.passengerName.value
+                                        : (Preferences.userName.isNotEmpty
+                                            ? Preferences.userName
+                                            : 'Passenger'),
+                                    style: AppTextStyle.text18Semibold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Obx(() {
+                              final rating = controller.trustRating.value;
+                              final ratingStr =
+                                  rating > 0 ? rating.toStringAsFixed(1) : '0.0';
+                              return Text(
+                                'Passenger • $ratingStr ★',
+                                style: AppTextStyle.text12Regular.copyWith(
+                                  color: AppColors.secondaryTextColor,
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   Container(
                     decoration: BoxDecoration(
@@ -302,7 +323,7 @@ class HomePage extends GetView<PassengerDashboardController> {
                                 4.verticalSpace,
                                 Obx(
                                   () => Text(
-                                    '${controller.recentRoutes.length + 1}',
+                                    '${controller.recentRoutes.length}',
                                     style: AppTextStyle.text18Semibold.copyWith(
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -330,123 +351,144 @@ class HomePage extends GetView<PassengerDashboardController> {
               ),
               12.verticalSpace,
 
-              // Route 1
-              _RecentRouteCard(
-                from: 'Curtin',
-                to: 'Landsdale',
-                subtitle: 'Usually 5:00 PM',
-                onTap: () {
-                  controller.fromLocationController.text = 'Curtin University';
-                  controller.toLocationController.text = 'Landsdale';
-                  controller.switchTab(1);
-                },
-              ),
-              10.verticalSpace,
-
-              // Route 2
-              _RecentRouteCard(
-                from: 'Curtin',
-                to: 'Joondalup',
-                subtitle: 'Best shared corridor',
-                onTap: () {
-                  controller.fromLocationController.text = 'Curtin University';
-                  controller.toLocationController.text = 'Joondalup';
-                  controller.switchTab(1);
-                },
-              ),
+              Obx(() {
+                if (controller.recentRoutes.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 20.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'No recent routes yet',
+                        style: AppTextStyle.text14Regular.copyWith(
+                          color: AppColors.secondaryTextColor,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return Column(
+                  children: controller.recentRoutes.map((route) {
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: 10.h),
+                      child: _RecentRouteCard(
+                        from: route.from,
+                        to: route.to,
+                        subtitle: route.subtitle,
+                        onTap: () => controller.selectRecentRoute(route),
+                      ),
+                    );
+                  }).toList(),
+                );
+              }),
 
               20.verticalSpace,
 
               // Nearby Communities Section
-              Text(
-                'Nearby Communities',
-                style: AppTextStyle.text16Semibold.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryTextColor,
-                ),
-              ),
-              12.verticalSpace,
+              Obx(() {
+                if (controller.communities.isEmpty) {
+                  return const SizedBox.shrink();
+                }
 
-              // Community Card
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(20.r),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                    width: 1.2,
-                  ),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(20.r),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () {
-                      final curtin = controller.communities.firstWhere(
-                        (c) => c.name.contains('Curtin'),
-                        orElse: () => controller.communities.first,
-                      );
-                      controller.openCommunityDetails(curtin);
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16.w,
-                        vertical: 16.h,
+                final curtin = controller.communities.firstWhere(
+                  (c) => c.name.toLowerCase().contains('curtin'),
+                  orElse: () => controller.communities.first,
+                );
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Nearby Communities',
+                      style: AppTextStyle.text16Semibold.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryTextColor,
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(10.r),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFEFF6FF),
-                              shape: BoxShape.circle,
+                    ),
+                    12.verticalSpace,
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: Border.all(
+                          color: const Color(0xFFE2E8F0),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(20.r),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => controller.openCommunityDetails(curtin),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 16.h,
                             ),
-                            child: Icon(
-                              CupertinoIcons.person_2_fill,
-                              color: AppColors.primaryColor,
-                              size: 20.sp,
-                            ),
-                          ),
-                          14.horizontalSpace,
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(
-                                  'Curtin Community',
-                                  style: AppTextStyle.text16Semibold.copyWith(
-                                    fontWeight: FontWeight.bold,
+                                Container(
+                                  padding: EdgeInsets.all(10.r),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFEFF6FF),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    curtin.icon,
+                                    color: AppColors.primaryColor,
+                                    size: 20.sp,
                                   ),
                                 ),
-                                4.verticalSpace,
-                                Obx(() {
-                                  final curtin = controller.communities.firstWhere(
-                                    (c) => c.name.contains('Curtin'),
-                                    orElse: () => controller.communities.first,
-                                  );
-                                  return Text(
-                                    '${curtin.passengersCount.value} passengers • ${curtin.driversCount.value} drivers',
-                                    style: AppTextStyle.text12Regular.copyWith(
-                                      color: AppColors.secondaryTextColor,
-                                    ),
-                                  );
-                                }),
+                                14.horizontalSpace,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        curtin.name,
+                                        style:
+                                            AppTextStyle.text16Semibold.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      4.verticalSpace,
+                                      Text(
+                                        '${curtin.passengersCount.value} passengers • ${curtin.driversCount.value} drivers',
+                                        style:
+                                            AppTextStyle.text12Regular.copyWith(
+                                          color: AppColors.secondaryTextColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: AppColors.secondaryTextColor,
+                                  size: 20.sp,
+                                ),
                               ],
                             ),
                           ),
-                          Icon(
-                            Icons.chevron_right,
-                            color: AppColors.secondaryTextColor,
-                            size: 20.sp,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ),
+                  ],
+                );
+              }),
 
               24.verticalSpace,
             ],

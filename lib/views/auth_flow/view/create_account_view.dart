@@ -12,6 +12,7 @@ import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/auth_flow/auth_controller.dart';
 import 'package:ridelink/widgets/app_border_container.dart';
 import 'package:ridelink/widgets/app_button.dart';
+import 'package:ridelink/widgets/app_cutom_login_button.dart';
 import 'package:ridelink/widgets/app_main_container.dart';
 import 'package:ridelink/widgets/app_text_field.dart';
 
@@ -26,6 +27,12 @@ class _CreateAccountViewState extends State<CreateAccountView>
     with ValidationMixin {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final AuthController controller = Get.find<AuthController>();
+
+  @override
+  void initState() {
+    super.initState();
+    controller.clearAllFields();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +283,7 @@ class _CreateAccountViewState extends State<CreateAccountView>
                               ),
                               6.verticalSpace,
                               Text(
-                                "You'll upload these documents in the next step to get verified:",
+                                "You'll upload these documents in the next step to get verified, or you can skip and upload them later in your profile:",
                                 style: AppTextStyle.text12Regular.copyWith(
                                   color: AppColors.secondaryTextColor,
                                 ),
@@ -316,7 +323,43 @@ class _CreateAccountViewState extends State<CreateAccountView>
                     ],
                   ),
 
-                  24.verticalSpace,
+                  16.verticalSpace,
+
+                  // Email Verification Notice
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10.w),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10.r),
+                        border: Border.all(
+                          color: AppColors.primaryColor.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.mail_outline_rounded,
+                            size: 16.sp,
+                            color: AppColors.primaryColor,
+                          ),
+                          8.horizontalSpace,
+                          Expanded(
+                            child: Text(
+                              'An email verification link will be sent to confirm your identity upon account creation.',
+                              style: AppTextStyle.text12Medium.copyWith(
+                                color: AppColors.primaryColor,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  14.verticalSpace,
 
                   // Submit Button
                   Padding(
@@ -339,6 +382,51 @@ class _CreateAccountViewState extends State<CreateAccountView>
                   ),
 
                   18.verticalSpace,
+
+                  // Or Continue With Divider
+                  Row(
+                    children: [
+                      16.horizontalSpace,
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: AppColors.borderColor,
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 14.w),
+                        child: Text(
+                          'or continue with',
+                          style: AppTextStyle.text12Medium.copyWith(
+                            color: AppColors.secondaryTextColor,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: AppColors.borderColor,
+                        ),
+                      ),
+                      16.horizontalSpace,
+                    ],
+                  ),
+
+                  16.verticalSpace,
+
+                  // Google Sign-Up Button
+                  Obx(
+                    () => AppCutomLoginButton(
+                      lable: 'Continue with Google',
+                      icon: AppAssets.googleIcon,
+                      isLoading: controller.isGoogleLoading.value,
+                      onTap: controller.isGoogleLoading.value
+                          ? null
+                          : controller.onContinueWithGoogle,
+                    ),
+                  ),
+
+                  20.verticalSpace,
 
                   // Already Have an Account Link
                   GestureDetector(

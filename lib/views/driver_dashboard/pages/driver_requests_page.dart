@@ -6,7 +6,7 @@ import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
 
-class DriverRequestsPage extends GetView<DriverDashboardController> {
+class DriverRequestsPage extends GetView<DriverTripsController> {
   const DriverRequestsPage({super.key});
 
   @override
@@ -170,7 +170,7 @@ class DriverRequestsPage extends GetView<DriverDashboardController> {
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(8.r),
                                 border: Border.all(
-                                  color: AppColors.borderColor.withOpacity(0.5),
+                                  color: AppColors.borderColor.withValues(alpha: 0.5),
                                 ),
                               ),
                               child: Row(

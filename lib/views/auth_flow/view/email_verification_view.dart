@@ -267,7 +267,7 @@ class EmailVerificationView extends GetView<AuthController> {
                   ],
                 ),
 
-                24.verticalSpace,
+                20.verticalSpace,
 
                 // Primary Action Button
                 Padding(
@@ -348,7 +348,7 @@ class EmailVerificationView extends GetView<AuthController> {
                             style: AppTextStyle.text14Semibold.copyWith(
                               color: AppColors.primaryColor,
                               fontWeight: FontWeight.bold,
-                              decoration: TextDecoration.underline,
+
                               decorationColor: AppColors.primaryColor,
                             ),
                           ),
@@ -377,7 +377,7 @@ class EmailVerificationView extends GetView<AuthController> {
                           'Change email address',
                           style: AppTextStyle.text12Medium.copyWith(
                             color: AppColors.secondaryTextColor,
-                            decoration: TextDecoration.underline,
+
                             decorationColor: AppColors.secondaryTextColor,
                           ),
                         ),

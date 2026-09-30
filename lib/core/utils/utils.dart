@@ -196,15 +196,86 @@ class Utils {
     }
   }
 
-  static Future<XFile?> pickImage(ImageSource source) async {
+  static Future<XFile?> pickImage([ImageSource source = ImageSource.gallery]) async {
     try {
-      final XFile? xFile = await _picker.pickImage(source: source);
+      final XFile? xFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 75,
+      );
       if (xFile != null) {
         return xFile;
       }
       return null;
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Convert picked image file to a base64 encoded string data URI
+  static Future<String?> xFileToBase64(XFile file) async {
+    try {
+      final Uint8List bytes = await file.readAsBytes();
+      final String encoded = base64Encode(bytes);
+      return 'data:image/jpeg;base64,$encoded';
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Helper to render base64 encoded image string or network URL as an Image widget
+  static Widget imageFromBase64(
+    String base64String, {
+    BoxFit fit = BoxFit.cover,
+    Widget? errorWidget,
+    double? width,
+    double? height,
+  }) {
+    final trimmed = base64String.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return Image.network(
+        trimmed,
+        fit: fit,
+        width: width,
+        height: height,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: progress.expectedTotalBytes != null
+                    ? progress.cumulativeBytesLoaded /
+                        progress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            errorWidget ?? const Icon(Icons.broken_image_rounded),
+      );
+    }
+    try {
+      String cleanBase64 = trimmed;
+      if (cleanBase64.contains(',')) {
+        cleanBase64 = cleanBase64.split(',').last;
+      }
+      cleanBase64 = cleanBase64.trim();
+      final Uint8List bytes = base64Decode(cleanBase64);
+      return Image.memory(
+        bytes,
+        fit: fit,
+        width: width,
+        height: height,
+        errorBuilder: (context, error, stackTrace) =>
+            errorWidget ?? const Icon(Icons.broken_image_rounded),
+      );
+    } catch (_) {
+      return errorWidget ?? const Icon(Icons.broken_image_rounded);
     }
   }
 

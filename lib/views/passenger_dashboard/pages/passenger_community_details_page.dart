@@ -4,7 +4,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
-import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
@@ -19,7 +18,27 @@ class PassengerCommunityDetailsPage
       body: SafeArea(
         child: Obx(() {
           final community = controller.selectedCommunity.value ??
-              controller.communities.first;
+              (controller.communities.isNotEmpty
+                  ? controller.communities.first
+                  : null);
+
+          if (community == null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(
+                    color: AppColors.primaryColor,
+                  ),
+                  16.verticalSpace,
+                  TextButton(
+                    onPressed: () => Get.back(),
+                    child: const Text('Back'),
+                  ),
+                ],
+              ),
+            );
+          }
 
           return Column(
             children: [
@@ -56,7 +75,10 @@ class PassengerCommunityDetailsPage
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 20.w,
+                    vertical: 8.h,
+                  ),
                   child: Column(
                     children: [
                       SizedBox(height: 12.h),
@@ -77,7 +99,7 @@ class PassengerCommunityDetailsPage
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
+                              color: Colors.black.withValues(alpha: 0.02),
                               blurRadius: 16,
                               offset: const Offset(0, 4),
                             ),
@@ -114,6 +136,17 @@ class PassengerCommunityDetailsPage
                               ),
                               textAlign: TextAlign.center,
                             ),
+                            if (community.description.isNotEmpty) ...[
+                              SizedBox(height: 12.h),
+                              Text(
+                                community.description,
+                                style: AppTextStyle.text12Regular.copyWith(
+                                  color: const Color(0xFF475569),
+                                  height: 1.4,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -139,7 +172,7 @@ class PassengerCommunityDetailsPage
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.02),
+                                    color: Colors.black.withValues(alpha: 0.02),
                                     blurRadius: 10,
                                     offset: const Offset(0, 2),
                                   ),
@@ -166,9 +199,10 @@ class PassengerCommunityDetailsPage
                                       Expanded(
                                         child: Text(
                                           'Passengers',
-                                          style: AppTextStyle.text12Medium.copyWith(
-                                            color: const Color(0xFF64748B),
-                                          ),
+                                          style: AppTextStyle.text12Medium
+                                              .copyWith(
+                                                color: const Color(0xFF64748B),
+                                              ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -178,11 +212,12 @@ class PassengerCommunityDetailsPage
                                   Obx(
                                     () => Text(
                                       '${community.passengersCount.value}',
-                                      style: AppTextStyle.text20Semibold.copyWith(
-                                        fontSize: 22.sp,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF0F172A),
-                                      ),
+                                      style: AppTextStyle.text20Semibold
+                                          .copyWith(
+                                            fontSize: 22.sp,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF0F172A),
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -206,7 +241,7 @@ class PassengerCommunityDetailsPage
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.02),
+                                    color: Colors.black.withValues(alpha: 0.02),
                                     blurRadius: 10,
                                     offset: const Offset(0, 2),
                                   ),
@@ -233,9 +268,10 @@ class PassengerCommunityDetailsPage
                                       Expanded(
                                         child: Text(
                                           'Drivers',
-                                          style: AppTextStyle.text12Medium.copyWith(
-                                            color: const Color(0xFF64748B),
-                                          ),
+                                          style: AppTextStyle.text12Medium
+                                              .copyWith(
+                                                color: const Color(0xFF64748B),
+                                              ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -245,11 +281,12 @@ class PassengerCommunityDetailsPage
                                   Obx(
                                     () => Text(
                                       '${community.driversCount.value}',
-                                      style: AppTextStyle.text20Semibold.copyWith(
-                                        fontSize: 22.sp,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF0F172A),
-                                      ),
+                                      style: AppTextStyle.text20Semibold
+                                          .copyWith(
+                                            fontSize: 22.sp,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF0F172A),
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -274,7 +311,7 @@ class PassengerCommunityDetailsPage
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
+                              color: Colors.black.withValues(alpha: 0.02),
                               blurRadius: 10,
                               offset: const Offset(0, 2),
                             ),
@@ -335,7 +372,7 @@ class PassengerCommunityDetailsPage
                           borderRadius: BorderRadius.circular(20.r),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF2563EB).withOpacity(0.3),
+                              color: const Color(0xFF2563EB).withValues(alpha: 0.3),
                               blurRadius: 14,
                               offset: const Offset(0, 4),
                             ),
@@ -348,7 +385,8 @@ class PassengerCommunityDetailsPage
                             onTap: () {
                               // If there is an available ride matching this community route, select it
                               if (controller.availableRides.isNotEmpty) {
-                                final matchRide = controller.availableRides.first;
+                                final matchRide =
+                                    controller.availableRides.first;
                                 controller.selectRideForDetails(matchRide);
                               } else {
                                 AppSnackBar.success(
@@ -384,43 +422,92 @@ class PassengerCommunityDetailsPage
 
                       SizedBox(height: 16.h),
 
-                      // Secondary Action: Community membership toggle
-                      OutlinedButton.icon(
-                        onPressed: () => controller.toggleCommunityJoin(community),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                            color: community.isJoined.value
-                                ? const Color(0xFFCBD5E1)
-                                : const Color(0xFF2563EB),
+                      // Community membership status & action
+                      if (community.isJoined.value) ...[
+                        // Status Banner: Member of this community
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 14.w,
+                            vertical: 10.h,
                           ),
-                          minimumSize: Size(double.infinity, 46.h),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16.r),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(14.r),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
                           ),
-                          backgroundColor: community.isJoined.value
-                              ? const Color(0xFFF1F5F9)
-                              : Colors.transparent,
-                        ),
-                        icon: Icon(
-                          community.isJoined.value
-                              ? CupertinoIcons.checkmark_circle_fill
-                              : CupertinoIcons.person_badge_plus,
-                          size: 16.sp,
-                          color: community.isJoined.value
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFF2563EB),
-                        ),
-                        label: Text(
-                          community.isJoined.value
-                              ? 'Member of this Community ✓'
-                              : 'Join Community Members',
-                          style: AppTextStyle.text14Semibold.copyWith(
-                            color: community.isJoined.value
-                                ? const Color(0xFF475569)
-                                : const Color(0xFF2563EB),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                CupertinoIcons.checkmark_seal_fill,
+                                color: Color(0xFF10B981),
+                                size: 18,
+                              ),
+                              8.horizontalSpace,
+                              Text(
+                                'You are a member of this community',
+                                style: AppTextStyle.text14Medium.copyWith(
+                                  color: const Color(0xFF047857),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
+                        10.verticalSpace,
+                        // Leave Community Button
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              controller.confirmLeaveCommunity(community),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFFECACA)),
+                            minimumSize: Size(double.infinity, 46.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16.r),
+                            ),
+                            backgroundColor: const Color(0xFFFEF2F2),
+                          ),
+                          icon: const Icon(
+                            Icons.exit_to_app_rounded,
+                            size: 18,
+                            color: Color(0xFFDC2626),
+                          ),
+                          label: Text(
+                            'Leave Community',
+                            style: AppTextStyle.text14Semibold.copyWith(
+                              color: const Color(0xFFDC2626),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        // Join Community Button
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              controller.toggleCommunityJoin(community),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF2563EB)),
+                            minimumSize: Size(double.infinity, 46.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16.r),
+                            ),
+                            backgroundColor: Colors.transparent,
+                          ),
+                          icon: Icon(
+                            CupertinoIcons.person_badge_plus,
+                            size: 18.sp,
+                            color: const Color(0xFF2563EB),
+                          ),
+                          label: Text(
+                            'Join Community',
+                            style: AppTextStyle.text14Semibold.copyWith(
+                              color: const Color(0xFF2563EB),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
 
                       SizedBox(height: 24.h),
                     ],
@@ -434,4 +521,3 @@ class PassengerCommunityDetailsPage
     );
   }
 }
-

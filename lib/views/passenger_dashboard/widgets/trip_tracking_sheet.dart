@@ -6,7 +6,6 @@ import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
-import 'package:ridelink/views/passenger_dashboard/widgets/ride_chat_sheet.dart';
 
 class TripTrackingSheet extends StatelessWidget {
   final BookingModel booking;
@@ -26,7 +25,12 @@ class TripTrackingSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
-      padding: EdgeInsets.only(top: 16.h, left: 16.w, right: 16.w, bottom: 20.h),
+      padding: EdgeInsets.only(
+        top: 16.h,
+        left: 16.w,
+        right: 16.w,
+        bottom: 20.h,
+      ),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -124,13 +128,16 @@ class TripTrackingSheet extends StatelessWidget {
                   bottom: 12.h,
                   left: 12.w,
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 10.w,
+                      vertical: 6.h,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.white,
                       borderRadius: BorderRadius.circular(12.r),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
+                          color: Colors.black.withValues(alpha: 0.08),
                           blurRadius: 6,
                         ),
                       ],
@@ -285,10 +292,15 @@ class TripTrackingSheet extends StatelessWidget {
                   onPressed: () {
                     Get.back();
                   },
-                  icon: const Icon(CupertinoIcons.shield_fill, color: Colors.red),
+                  icon: const Icon(
+                    CupertinoIcons.shield_fill,
+                    color: Colors.red,
+                  ),
                   label: Text(
                     'Safety Center',
-                    style: AppTextStyle.text14Semibold.copyWith(color: Colors.red),
+                    style: AppTextStyle.text14Semibold.copyWith(
+                      color: Colors.red,
+                    ),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.red),
@@ -305,8 +317,9 @@ class TripTrackingSheet extends StatelessWidget {
                   onPressed: () {
                     Get.back();
                     Get.find<PassengerDashboardController>()
-                        .currentSelectedRide
-                        .value = booking.ride;
+                            .currentSelectedRide
+                            .value =
+                        booking.ride;
                     Get.toNamed(AppRoutes.liveTripTracking);
                   },
                   icon: const Icon(

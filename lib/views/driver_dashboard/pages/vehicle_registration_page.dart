@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/theme/app_text_style.dart';
-import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
+import 'package:ridelink/views/driver_dashboard/controllers/driver_profile_controller.dart';
 import 'package:ridelink/widgets/app_border_container.dart';
 import 'package:ridelink/widgets/app_button.dart';
 import 'package:ridelink/widgets/app_main_container.dart';
@@ -18,12 +19,13 @@ class VehicleRegistrationPage extends StatefulWidget {
 }
 
 class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
-  final DriverDashboardController controller =
-      Get.find<DriverDashboardController>();
+  final DriverProfileController controller =
+      Get.find<DriverProfileController>();
 
   late final TextEditingController _numberController;
   late final TextEditingController _modelController;
   late String _selectedType;
+  bool _isLoading = false;
 
   final List<Map<String, dynamic>> _vehicleTypes = [
     {'type': 'Sedan', 'icon': CupertinoIcons.car_detailed},
@@ -37,12 +39,20 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
   void initState() {
     super.initState();
     _numberController = TextEditingController(
-      text: controller.vehicleNumber.value,
+      text: controller.vehicleNumber.value != 'N/A'
+          ? controller.vehicleNumber.value
+          : '',
     );
     _modelController = TextEditingController(
-      text: controller.vehicleModel.value,
+      text: controller.vehicleModel.value != 'N/A'
+          ? controller.vehicleModel.value
+          : '',
     );
-    _selectedType = controller.vehicleType.value;
+    _selectedType =
+        controller.vehicleType.value.isNotEmpty &&
+            controller.vehicleType.value != 'N/A'
+        ? controller.vehicleType.value
+        : 'Sedan';
   }
 
   @override
@@ -308,14 +318,27 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
 
                     // Save Button
                     AppButton(
-                      onPressed: () {
-                        controller.updateVehicleInfo(
-                          number: _numberController.text,
-                          type: _selectedType,
-                          model: _modelController.text,
-                        );
+                      onPressed: () async {
+                        final plate = _numberController.text.trim();
+                        if (plate.isEmpty) {
+                          AppSnackBar.warning(
+                            message: 'Please enter your vehicle plate number.',
+                          );
+                          return;
+                        }
+
+                        setState(() => _isLoading = true);
                         Get.back();
+                        await controller.updateVehicleInfo(
+                          number: plate,
+                          type: _selectedType,
+                          model: _modelController.text.trim(),
+                        );
+                        if (mounted) {
+                          setState(() => _isLoading = false);
+                        }
                       },
+                      isLoading: _isLoading,
                       label: 'Save Vehicle Details',
                     ),
                   ],

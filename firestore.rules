@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User Profiles & Nested Subcollections
+    match /users/{userId} {
+      allow read, write: if request.auth != null;
+
+      // Driver verification documents stored as base64 in users/{userId}/docs
+      match /docs/{docId} {
+        allow read, write: if request.auth != null;
+      }
+
+      // Emergency contacts or any other user subcollections
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Driver Verification Documents (top-level collection if used)
+    match /driver_verifications/{verificationId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Support Tickets (Support & Help Desk)
+    match /support_tickets/{ticketId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Rides / Trips (Driver published rides)
+    match /rides/{tripId} {
+      allow read, write: if request.auth != null;
+      
+      // Trip subcollection messages (Real-time ride chat)
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Trip Bookings
+    match /bookings/{bookingId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Chats and Chat Messages
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null;
+
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Communities
+    match /communities/{communityId} {
+      allow read, write: if request.auth != null;
+      
+      match /members/{memberId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Notifications (Push notification trigger collection)
+    match /notifications/{notificationId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+

@@ -13,6 +13,12 @@ class FirestoreCollections {
   static const String reviews = 'reviews';
   static const String transactions = 'transactions';
   static const String safetyAlerts = 'safety_alerts';
+  static const String supportTickets = 'support_tickets';
+  static const String notifications = 'notifications';
+  static const String docs = 'docs';
+
+  /// Subcollection path helper for driver verification documents: `users/{userId}/docs`
+  static String userDocs(String userId) => '$users/$userId/$docs';
 
   /// Subcollection path helper for chat messages: `chats/{chatId}/messages`
   static String chatMessages(String chatId) => '$chats/$chatId/$messages';

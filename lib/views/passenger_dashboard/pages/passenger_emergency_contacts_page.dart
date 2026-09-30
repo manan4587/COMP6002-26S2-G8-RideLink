@@ -207,7 +207,7 @@ class PassengerEmergencyContactsPage
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: controller.emergencyContacts.length,
-                    separatorBuilder: (_, __) => 10.verticalSpace,
+                    separatorBuilder: (_, _) => 10.verticalSpace,
                     itemBuilder: (context, index) {
                       final contact = controller.emergencyContacts[index];
                       return _ContactCard(
@@ -513,7 +513,7 @@ class _ContactCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -617,52 +617,135 @@ class _ContactCard extends StatelessWidget {
           const Divider(color: AppColors.borderColor, height: 1),
           8.verticalSpace,
 
-          // Actions Row
+          // Actions Row (Call, Edit, Delete)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Visible only during active trips',
-                style: TextStyle(
-                  fontSize: 10.sp,
-                  color: AppColors.hintTextColor,
-                  fontStyle: FontStyle.italic,
+              // Call Button (Primary Action)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onCall,
+                  borderRadius: BorderRadius.circular(10.r),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 14.w,
+                      vertical: 7.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(10.r),
+                      border: Border.all(
+                        color: const Color(0xFF86EFAC),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          CupertinoIcons.phone_fill,
+                          color: Color(0xFF15803D),
+                          size: 14,
+                        ),
+                        6.horizontalSpace,
+                        Text(
+                          'Call',
+                          style: TextStyle(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF15803D),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+
+              // Edit & Delete Action Buttons
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    onPressed: onCall,
-                    tooltip: 'Call contact',
-                    icon: Container(
-                      padding: EdgeInsets.all(6.r),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFDCFCE7),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.phone_fill,
-                        color: Color(0xFF16A34A),
-                        size: 14,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onEdit,
+                      borderRadius: BorderRadius.circular(10.r),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 7.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10.r),
+                          border: Border.all(
+                            color: const Color(0xFFE2E8F0),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: AppColors.secondaryTextColor,
+                            ),
+                            4.horizontalSpace,
+                            Text(
+                              'Edit',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.secondaryTextColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: onEdit,
-                    tooltip: 'Edit',
-                    icon: const Icon(
-                      Icons.edit_outlined,
-                      size: 18,
-                      color: AppColors.primaryColor,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: onDelete,
-                    tooltip: 'Delete',
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: AppColors.red,
+                  8.horizontalSpace,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onDelete,
+                      borderRadius: BorderRadius.circular(10.r),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 7.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(10.r),
+                          border: Border.all(
+                            color: const Color(0xFFFECACA),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.delete_outline,
+                              size: 14,
+                              color: Color(0xFFDC2626),
+                            ),
+                            4.horizontalSpace,
+                            Text(
+                              'Delete',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFFDC2626),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],

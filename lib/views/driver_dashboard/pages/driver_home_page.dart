@@ -4,14 +4,24 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/utils.dart';
+import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
 
-class DriverHomePage extends GetView<DriverDashboardController> {
+class DriverHomePage extends StatelessWidget {
   const DriverHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final DriverHomeController homeController =
+        Get.find<DriverHomeController>();
+    final DriverTripsController tripsController =
+        Get.find<DriverTripsController>();
+    final DriverProfileController profileController =
+        Get.find<DriverProfileController>();
+    final DriverDashboardController dashboardController =
+        Get.find<DriverDashboardController>();
+
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
       body: SafeArea(
@@ -25,73 +35,106 @@ class DriverHomePage extends GetView<DriverDashboardController> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 46.w,
-                        height: 46.h,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFFEFF6FF),
-                          border: Border.all(
-                            color: AppColors.primaryColor,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'JM',
-                            style: AppTextStyle.text16Semibold.copyWith(
-                              color: AppColors.primaryColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'James Miller',
-                                style: AppTextStyle.text18Semibold,
-                              ),
-                              SizedBox(width: 4.w),
-                              Icon(
-                                Icons.verified,
-                                size: 16.sp,
+                  GestureDetector(
+                    onTap: () => dashboardController.switchTab(3),
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      children: [
+                        Obx(
+                          () => Container(
+                            width: 46.w,
+                            height: 46.h,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFFEFF6FF),
+                              border: Border.all(
                                 color: AppColors.primaryColor,
+                                width: 1.5,
                               ),
-                            ],
-                          ),
-                          Text(
-                            'Verified Driver • 4.9 ★',
-                            style: AppTextStyle.text12Regular.copyWith(
-                              color: AppColors.secondaryTextColor,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                profileController.driverInitials,
+                                style: AppTextStyle.text16Semibold.copyWith(
+                                  color: AppColors.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        SizedBox(width: 12.w),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Obx(
+                                  () => Text(
+                                    profileController.driverName.value,
+                                    style: AppTextStyle.text18Semibold,
+                                  ),
+                                ),
+                                Obx(
+                                  () => profileController.isVerifiedByAdmin.value
+                                      ? Padding(
+                                          padding: EdgeInsets.only(left: 4.w),
+                                          child: Icon(
+                                            Icons.verified,
+                                            size: 16.sp,
+                                            color: AppColors.primaryColor,
+                                          ),
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+                              ],
+                            ),
+                            Obx(() {
+                              final isVerified =
+                                  profileController.isVerifiedByAdmin.value;
+                              final rating = profileController.driverRating.value;
+                              final ratingStr =
+                                  rating > 0 ? rating.toStringAsFixed(1) : '0.0';
+                              final title =
+                                  isVerified ? 'Verified Driver' : 'Driver';
+                              return Text(
+                                '$title • $ratingStr ★',
+                                style: AppTextStyle.text12Regular.copyWith(
+                                  color: AppColors.secondaryTextColor,
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
 
                   // Online / Offline Toggle
                   Obx(
                     () => GestureDetector(
-                      onTap: controller.toggleOnlineStatus,
+                      onTap: homeController.toggleOnlineStatus,
                       child: Container(
                         padding: EdgeInsets.symmetric(
                           horizontal: 12.w,
                           vertical: 6.h,
                         ),
                         decoration: BoxDecoration(
-                          color: controller.isOnline.value
+                          color: homeController.isOnline.value
                               ? const Color(0xFFDCFCE7)
                               : const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(20.r),
                           border: Border.all(
-                            color: controller.isOnline.value
+                            color: homeController.isOnline.value
                                 ? const Color(0xFF16A34A)
                                 : AppColors.borderColor,
                           ),
@@ -103,16 +146,16 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                               height: 8.h,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: controller.isOnline.value
+                                color: homeController.isOnline.value
                                     ? const Color(0xFF16A34A)
                                     : AppColors.secondaryTextColor,
                               ),
                             ),
                             SizedBox(width: 6.w),
                             Text(
-                              controller.isOnline.value ? 'Online' : 'Offline',
+                              homeController.isOnline.value ? 'Online' : 'Offline',
                               style: AppTextStyle.text12Semibold.copyWith(
-                                color: controller.isOnline.value
+                                color: homeController.isOnline.value
                                     ? const Color(0xFF16A34A)
                                     : AppColors.secondaryTextColor,
                               ),
@@ -138,7 +181,7 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                   borderRadius: BorderRadius.circular(20.r),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2563EB).withOpacity(0.3),
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -156,7 +199,7 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                     SizedBox(height: 6.h),
                     Obx(
                       () => Text(
-                        '\$${controller.todayEarnings.value.toStringAsFixed(2)}',
+                        '\$${homeController.todayEarnings.value.toStringAsFixed(2)}',
                         style: AppTextStyle.text30Semibold.copyWith(
                           color: Colors.white,
                           fontSize: 32.sp,
@@ -168,14 +211,18 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _StatItem(
-                          label: 'Completed Trips',
-                          value: '${controller.completedTripsCount.value}',
+                        Obx(
+                          () => _StatItem(
+                            label: 'Completed Trips',
+                            value: '${homeController.completedTripsCount.value}',
+                          ),
                         ),
-                        _StatItem(
-                          label: 'Weekly Total',
-                          value:
-                              '\$${controller.weeklyEarnings.value.toStringAsFixed(0)}',
+                        Obx(
+                          () => _StatItem(
+                            label: 'Weekly Total',
+                            value:
+                                '\$${homeController.weeklyEarnings.value.toStringAsFixed(0)}',
+                          ),
                         ),
                         _StatItem(label: 'Acceptance', value: '98%'),
                       ],
@@ -188,7 +235,7 @@ class DriverHomePage extends GetView<DriverDashboardController> {
 
               // Publish New Ride Quick Action
               GestureDetector(
-                onTap: () => controller.switchTab(1),
+                onTap: () => Get.toNamed(AppRoutes.driverPublishRide),
                 child: Container(
                   width: double.infinity,
                   padding: EdgeInsets.symmetric(vertical: 14.h),
@@ -230,7 +277,7 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                   ),
                   Obx(
                     () => Text(
-                      '${controller.myTrips.length} Active',
+                      '${tripsController.myTrips.length} Active',
                       style: AppTextStyle.text12Semibold.copyWith(
                         color: AppColors.primaryColor,
                       ),
@@ -241,14 +288,71 @@ class DriverHomePage extends GetView<DriverDashboardController> {
 
               SizedBox(height: 12.h),
 
-              Obx(
-                () => ListView.separated(
+              Obx(() {
+                if (tripsController.myTrips.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(height: 20),
+                        Container(
+                          padding: EdgeInsets.all(20.r),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEFF6FF),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            CupertinoIcons.car_detailed,
+                            size: 44.sp,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                        16.verticalSpace,
+                        Text(
+                          'No Trips Published Yet',
+                          style: AppTextStyle.text18Semibold,
+                        ),
+                        8.verticalSpace,
+                        Text(
+                          'Publish your commute to start receiving passenger ride requests.',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyle.text14Regular.copyWith(
+                            color: AppColors.secondaryTextColor,
+                          ),
+                        ),
+                        20.verticalSpace,
+                        ElevatedButton.icon(
+                          onPressed: () =>
+                              Get.toNamed(AppRoutes.driverPublishRide),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 22.w,
+                              vertical: 12.h,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16.r),
+                            ),
+                          ),
+                          icon: const Icon(
+                            CupertinoIcons.plus_circle,
+                            size: 18,
+                          ),
+                          label: const Text('Publish a Trip'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: controller.myTrips.length,
+                  itemCount: tripsController.myTrips.length,
                   separatorBuilder: (context, index) => SizedBox(height: 12.h),
                   itemBuilder: (context, index) {
-                    final trip = controller.myTrips[index];
+                    final trip = tripsController.myTrips[index];
                     return Obx(() {
                       final bool isActive = trip.status.value == 'Active';
                       return Container(
@@ -267,7 +371,7 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                                   BoxShadow(
                                     color: const Color(
                                       0xFF22C55E,
-                                    ).withOpacity(0.12),
+                                    ).withValues(alpha: 0.12),
                                     blurRadius: 10,
                                     offset: const Offset(0, 3),
                                   ),
@@ -321,7 +425,7 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                                   ),
                                 ),
                                 Text(
-                                  '\$${trip.pricePerSeat.toStringAsFixed(0)} / seat',
+                                  '\$${trip.pricePerSeat.value.toStringAsFixed(0)} / seat',
                                   style: AppTextStyle.text14Semibold.copyWith(
                                     color: AppColors.primaryColor,
                                     fontWeight: FontWeight.bold,
@@ -338,41 +442,82 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                             ),
                             SizedBox(height: 4.h),
                             Text(
-                              trip.time,
+                              trip.time.value,
                               style: AppTextStyle.text12Regular.copyWith(
                                 color: AppColors.secondaryTextColor,
                               ),
                             ),
                             SizedBox(height: 12.h),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8.w,
+                              runSpacing: 8.h,
                               children: [
                                 Text(
-                                  'Booked: ${trip.bookedSeats}/${trip.totalSeats} seats',
+                                  'Booked: ${trip.bookedSeats.value}/${trip.totalSeats.value} seats',
                                   style: AppTextStyle.text12Semibold,
                                 ),
-                                ElevatedButton(
-                                  onPressed: () =>
-                                      controller.toggleTripStatus(trip),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: isActive
-                                        ? const Color(0xFF16A34A)
-                                        : AppColors.primaryColor,
-                                    foregroundColor: Colors.white,
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 14.w,
-                                      vertical: 6.h,
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (isActive) ...[
+                                      ElevatedButton.icon(
+                                        onPressed: () =>
+                                            tripsController.openLiveTrip(trip),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(
+                                            0xFF2563EB,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 10.w,
+                                            vertical: 6.h,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10.r,
+                                            ),
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          CupertinoIcons.location_fill,
+                                          size: 13,
+                                        ),
+                                        label: Text(
+                                          'Live Track',
+                                          style: AppTextStyle.buttonText
+                                              .copyWith(fontSize: 11.sp),
+                                        ),
+                                      ),
+                                      6.horizontalSpace,
+                                    ],
+                                    ElevatedButton(
+                                      onPressed: () =>
+                                          tripsController.toggleTripStatus(trip),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: isActive
+                                            ? const Color(0xFF16A34A)
+                                            : AppColors.primaryColor,
+                                        foregroundColor: Colors.white,
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 14.w,
+                                          vertical: 6.h,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10.r,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isActive ? 'End Ride' : 'Start Ride',
+                                        style: AppTextStyle.buttonText.copyWith(
+                                          fontSize: 12.sp,
+                                        ),
+                                      ),
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10.r),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    isActive ? 'End Ride' : 'Start Ride',
-                                    style: AppTextStyle.buttonText.copyWith(
-                                      fontSize: 12.sp,
-                                    ),
-                                  ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -398,11 +543,10 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                                           ),
                                           child: Text(
                                             p.passengerName[0],
-                                            style: TextStyle(
-                                              fontSize: 11.sp,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primaryColor,
-                                            ),
+                                            style: AppTextStyle.text11Bold
+                                                .copyWith(
+                                                  color: AppColors.primaryColor,
+                                                ),
                                           ),
                                         ),
                                         8.horizontalSpace,
@@ -427,107 +571,107 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                                     // EMERGENCY CONTACT: Visible only during active trips!
                                     if (isActive) ...[
                                       Container(
-                                        padding: EdgeInsets.all(10.w),
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 10.w,
+                                          vertical: 6.h,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFFFEF2F2),
                                           borderRadius: BorderRadius.circular(
-                                            12.r,
+                                            10.r,
                                           ),
                                           border: Border.all(
-                                            color: const Color(0xFFFCA5A5),
+                                            color: const Color(0xFFFECACA),
+                                            width: 1,
                                           ),
                                         ),
                                         child: Row(
                                           children: [
-                                            Container(
-                                              padding: EdgeInsets.all(6.r),
-                                              decoration: const BoxDecoration(
-                                                color: Color(0xFFFEE2E2),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(
-                                                Icons.contact_phone_rounded,
-                                                color: Color(0xFFDC2626),
-                                                size: 16,
-                                              ),
+                                            const Icon(
+                                              CupertinoIcons.shield_fill,
+                                              color: Color(0xFFDC2626),
+                                              size: 14,
                                             ),
-                                            10.horizontalSpace,
+                                            8.horizontalSpace,
                                             Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      Text(
-                                                        'Emergency Contact (${p.emergencyContactRelation})',
-                                                        style: TextStyle(
-                                                          fontSize: 10.sp,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: const Color(
-                                                            0xFF991B1B,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      4.horizontalSpace,
-                                                      Container(
-                                                        padding:
-                                                            EdgeInsets.symmetric(
-                                                              horizontal: 4.w,
-                                                              vertical: 1.h,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(
-                                                            0xFFDC2626,
-                                                          ),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                4.r,
-                                                              ),
-                                                        ),
-                                                        child: const Text(
-                                                          'Active Trip Only',
-                                                          style: TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 8,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  2.verticalSpace,
-                                                  Text(
-                                                    '${p.emergencyContactName} • ${p.emergencyContactPhone}',
-                                                    style: TextStyle(
-                                                      fontSize: 12.sp,
-                                                      fontWeight:
-                                                          FontWeight.w600,
+                                              child: Text(
+                                                'Emergency: ${p.emergencyContactName}',
+                                                style: AppTextStyle
+                                                    .text12Semibold
+                                                    .copyWith(
                                                       color: const Color(
-                                                        0xFF7F1D1D,
+                                                        0xFF991B1B,
                                                       ),
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                     ),
-                                                  ),
-                                                ],
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
-                                            IconButton(
-                                              onPressed: () => Utils.launchCall(
-                                                p.emergencyContactPhone,
-                                              ),
-                                              tooltip: 'Call Emergency Contact',
-                                              icon: Container(
-                                                padding: EdgeInsets.all(6.r),
+                                            6.horizontalSpace,
+                                            // Chat Passenger
+                                            InkWell(
+                                              onTap: () => tripsController
+                                                  .openDriverChat(passenger: p),
+                                              borderRadius:
+                                                  BorderRadius.circular(12.r),
+                                              child: Container(
+                                                padding: EdgeInsets.all(5.r),
                                                 decoration: const BoxDecoration(
-                                                  color: Color(0xFFDC2626),
+                                                  color: Color(0xFFEFF6FF),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: const Icon(
-                                                  CupertinoIcons.phone_fill,
-                                                  color: Colors.white,
-                                                  size: 14,
+                                                  CupertinoIcons
+                                                      .chat_bubble_2_fill,
+                                                  color: Color(0xFF2563EB),
+                                                  size: 13,
+                                                ),
+                                              ),
+                                            ),
+                                            6.horizontalSpace,
+                                            // Call Emergency Contact (Direct dialer)
+                                            InkWell(
+                                              onTap: () => Utils.launchCall(
+                                                p.emergencyContactPhone,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12.r),
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 8.w,
+                                                  vertical: 4.h,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                    0xFFDC2626,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        10.r,
+                                                      ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(
+                                                      CupertinoIcons.phone_fill,
+                                                      color: Colors.white,
+                                                      size: 11,
+                                                    ),
+                                                    4.horizontalSpace,
+                                                    Text(
+                                                      'Call',
+                                                      style: AppTextStyle
+                                                          .text12Semibold
+                                                          .copyWith(
+                                                            color: Colors.white,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ),
@@ -539,7 +683,7 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                                       Container(
                                         padding: EdgeInsets.symmetric(
                                           horizontal: 10.w,
-                                          vertical: 8.h,
+                                          vertical: 6.h,
                                         ),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFFF8FAFC),
@@ -556,18 +700,21 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                                               Icons.lock_outline_rounded,
                                               color:
                                                   AppColors.secondaryTextColor,
-                                              size: 15,
+                                              size: 13,
                                             ),
-                                            8.horizontalSpace,
+                                            6.horizontalSpace,
                                             Expanded(
                                               child: Text(
-                                                'Emergency contact hidden (Protected by privacy • Unlocks when ride starts)',
-                                                style: TextStyle(
-                                                  fontSize: 10.sp,
-                                                  color: AppColors
-                                                      .secondaryTextColor,
-                                                  fontStyle: FontStyle.italic,
-                                                ),
+                                                'Emergency contact protected (Unlocks when ride starts)',
+                                                style: AppTextStyle
+                                                    .text10Regular
+                                                    .copyWith(
+                                                      color: AppColors
+                                                          .secondaryTextColor,
+                                                      fontStyle:
+                                                          FontStyle.italic,
+                                                    ),
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                           ],
@@ -576,15 +723,15 @@ class DriverHomePage extends GetView<DriverDashboardController> {
                                     ],
                                   ],
                                 );
-                              }).toList(),
+                              }),
                             ],
                           ],
                         ),
                       );
                     });
                   },
-                ),
-              ),
+                );
+              }),
 
               SizedBox(height: 20.h),
             ],

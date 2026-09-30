@@ -14,7 +14,7 @@ class UserProfileModel {
   final VehicleInfo? vehicle;
   final List<SavedLocationItem> savedLocations;
   final List<EmergencyContactItem> emergencyContacts;
-  final List<String> fcmTokens;
+  final String? fcmToken;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -27,14 +27,14 @@ class UserProfileModel {
     this.activeRole = 'passenger',
     this.roles = const ['passenger'],
     this.isEmailVerified = false,
-    this.rating = 5.0,
+    this.rating = 0.0,
     this.ratingCount = 0,
     this.tripsCompleted = 0,
     this.isVerifiedDriver = false,
     this.vehicle,
     this.savedLocations = const [],
     this.emergencyContacts = const [],
-    this.fcmTokens = const [],
+    this.fcmToken,
     this.createdAt,
     this.updatedAt,
   });
@@ -42,18 +42,33 @@ class UserProfileModel {
   factory UserProfileModel.fromMap(Map<String, dynamic> map, String id) {
     return UserProfileModel(
       id: id,
-      fullName: map['fullName'] as String? ?? '',
-      email: map['email'] as String? ?? '',
-      phoneNumber: map['phoneNumber'] as String? ?? '',
+      fullName: (map['fullName'] ?? map['name'] ?? map['displayName'])
+              ?.toString() ??
+          '',
+      email: (map['email'])?.toString() ?? '',
+      phoneNumber: (map['phoneNumber'] ??
+              map['phone'] ??
+              map['mobile'] ??
+              map['contact'])
+          ?.toString() ??
+          '',
       photoUrl: map['photoUrl'] as String?,
       activeRole: map['activeRole'] as String? ?? 'passenger',
       roles: (map['roles'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           ['passenger'],
       isEmailVerified: map['isEmailVerified'] as bool? ?? false,
-      rating: (map['passengerStats']?['rating'] as num?)?.toDouble() ?? 5.0,
-      ratingCount: (map['passengerStats']?['ratingCount'] as num?)?.toInt() ?? 0,
+      rating: (map['passengerStats']?['rating'] as num?)?.toDouble() ??
+          (map['driverStats']?['rating'] as num?)?.toDouble() ??
+          (map['rating'] as num?)?.toDouble() ??
+          0.0,
+      ratingCount: (map['passengerStats']?['ratingCount'] as num?)?.toInt() ??
+          (map['driverStats']?['ratingCount'] as num?)?.toInt() ??
+          0,
       tripsCompleted:
-          (map['passengerStats']?['tripsCompleted'] as num?)?.toInt() ?? 0,
+          (map['passengerStats']?['tripsCompleted'] as num?)?.toInt() ??
+              (map['driverStats']?['tripsCompleted'] as num?)?.toInt() ??
+              (map['tripsCompleted'] as num?)?.toInt() ??
+              0,
       isVerifiedDriver:
           map['driverStats']?['isVerifiedDriver'] as bool? ?? false,
       vehicle: map['vehicle'] != null
@@ -68,10 +83,10 @@ class UserProfileModel {
                   EmergencyContactItem.fromMap(e as Map<String, dynamic>))
               .toList() ??
           [],
-      fcmTokens: (map['fcmTokens'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
+      fcmToken: (map['fcmToken'] as String?) ??
+          ((map['fcmTokens'] is List && (map['fcmTokens'] as List).isNotEmpty)
+              ? (map['fcmTokens'] as List).first.toString()
+              : null),
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt'].toString())
           : null,
@@ -87,7 +102,7 @@ class UserProfileModel {
       'fullName': fullName,
       'email': email,
       'phoneNumber': phoneNumber,
-      'photoUrl': photoUrl,
+      if (photoUrl != null && photoUrl!.isNotEmpty) 'photoUrl': photoUrl,
       'activeRole': activeRole,
       'roles': roles,
       'isEmailVerified': isEmailVerified,
@@ -102,7 +117,7 @@ class UserProfileModel {
       if (vehicle != null) 'vehicle': vehicle!.toMap(),
       'savedLocations': savedLocations.map((e) => e.toMap()).toList(),
       'emergencyContacts': emergencyContacts.map((e) => e.toMap()).toList(),
-      'fcmTokens': fcmTokens,
+      if (fcmToken != null && fcmToken!.isNotEmpty) 'fcmToken': fcmToken,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -116,6 +131,7 @@ class VehicleInfo {
   final String color;
   final String licensePlate;
   final int totalSeats;
+  final String type;
 
   VehicleInfo({
     required this.make,
@@ -124,6 +140,7 @@ class VehicleInfo {
     required this.color,
     required this.licensePlate,
     this.totalSeats = 4,
+    this.type = 'Sedan',
   });
 
   factory VehicleInfo.fromMap(Map<String, dynamic> map) {
@@ -132,8 +149,13 @@ class VehicleInfo {
       model: map['model'] as String? ?? '',
       year: (map['year'] as num?)?.toInt() ?? 2022,
       color: map['color'] as String? ?? '',
-      licensePlate: map['licensePlate'] as String? ?? '',
+      licensePlate: (map['licensePlate'] ??
+              map['number'] ??
+              map['vehicleNumber'] ??
+              map['plate']) as String? ??
+          '',
       totalSeats: (map['totalSeats'] as num?)?.toInt() ?? 4,
+      type: (map['type'] ?? map['vehicleType']) as String? ?? 'Sedan',
     );
   }
 
@@ -145,6 +167,7 @@ class VehicleInfo {
       'color': color,
       'licensePlate': licensePlate,
       'totalSeats': totalSeats,
+      'type': type,
     };
   }
 }

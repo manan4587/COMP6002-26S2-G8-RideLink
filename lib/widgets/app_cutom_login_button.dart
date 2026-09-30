@@ -10,11 +10,13 @@ class AppCutomLoginButton extends StatelessWidget {
     required this.lable,
     required this.icon,
     required this.onTap,
+    this.isLoading = false,
   });
 
   final String lable;
   final String icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +45,36 @@ class AppCutomLoginButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SvgPicture.asset(icon, height: 20.h, width: 20.w),
-                12.horizontalSpace,
-                Text(
-                  lable,
-                  style: AppTextStyle.text14Semibold.copyWith(
-                    color: AppColors.primaryTextColor,
-                    fontWeight: FontWeight.w600,
+                if (isLoading) ...[
+                  SizedBox(
+                    width: 18.w,
+                    height: 18.h,
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primaryColor,
+                      ),
+                    ),
                   ),
-                ),
+                  12.horizontalSpace,
+                  Text(
+                    'Signing in with Google...',
+                    style: AppTextStyle.text14Semibold.copyWith(
+                      color: AppColors.primaryTextColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ] else ...[
+                  SvgPicture.asset(icon, height: 20.h, width: 20.w),
+                  12.horizontalSpace,
+                  Text(
+                    lable,
+                    style: AppTextStyle.text14Semibold.copyWith(
+                      color: AppColors.primaryTextColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -5,20 +5,24 @@ import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
-import 'package:ridelink/views/driver_dashboard/pages/create_ride_page.dart';
+import 'package:ridelink/views/driver_dashboard/pages/driver_communities_page.dart';
 import 'package:ridelink/views/driver_dashboard/pages/driver_home_page.dart';
 import 'package:ridelink/views/driver_dashboard/pages/driver_profile_page.dart';
-import 'package:ridelink/views/driver_dashboard/pages/driver_requests_page.dart';
+import 'package:ridelink/views/driver_dashboard/pages/driver_trips_page.dart';
 
 class DriverDashboardView extends GetView<DriverDashboardController> {
   const DriverDashboardView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.profileController.reloadProfile();
+    });
+
     final List<Widget> pages = const [
       DriverHomePage(),
-      CreateRidePage(),
-      DriverRequestsPage(),
+      DriverTripsPage(),
+      DriverCommunitiesPage(),
       DriverProfilePage(),
     ];
 
@@ -38,7 +42,7 @@ class DriverDashboardView extends GetView<DriverDashboardController> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, -3),
               ),
@@ -51,25 +55,24 @@ class DriverDashboardView extends GetView<DriverDashboardController> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _DriverNavBarItem(
-                    icon: CupertinoIcons.car_detailed,
-                    activeIcon: CupertinoIcons.car_detailed,
-                    label: 'Trips',
+                    icon: CupertinoIcons.house,
+                    activeIcon: CupertinoIcons.house_fill,
+                    label: 'Home',
                     isSelected: controller.currentTabIndex.value == 0,
                     onTap: () => controller.switchTab(0),
                   ),
                   _DriverNavBarItem(
-                    icon: CupertinoIcons.plus_circle,
-                    activeIcon: CupertinoIcons.plus_circle_fill,
-                    label: 'Publish',
+                    icon: CupertinoIcons.car_detailed,
+                    activeIcon: CupertinoIcons.car_detailed,
+                    label: 'Trips',
                     isSelected: controller.currentTabIndex.value == 1,
                     onTap: () => controller.switchTab(1),
                   ),
                   _DriverNavBarItem(
-                    icon: CupertinoIcons.person_2,
-                    activeIcon: CupertinoIcons.person_2_fill,
-                    label: 'Requests',
+                    icon: CupertinoIcons.group,
+                    activeIcon: CupertinoIcons.group_solid,
+                    label: 'Community',
                     isSelected: controller.currentTabIndex.value == 2,
-                    badgeCount: controller.pendingRequests.length,
                     onTap: () => controller.switchTab(2),
                   ),
                   _DriverNavBarItem(
@@ -102,9 +105,8 @@ class _DriverNavBarItem extends StatelessWidget {
     required this.activeIcon,
     required this.label,
     required this.isSelected,
-    this.badgeCount,
     required this.onTap,
-  });
+  }) : badgeCount = null;
 
   @override
   Widget build(BuildContext context) {
@@ -148,10 +150,8 @@ class _DriverNavBarItem extends StatelessWidget {
                 ),
                 child: Text(
                   '$badgeCount',
-                  style: TextStyle(
+                  style: AppTextStyle.text9Bold.copyWith(
                     color: Colors.white,
-                    fontSize: 9.sp,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),

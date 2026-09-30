@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
-import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
@@ -63,7 +62,7 @@ class _CommunityPageState extends State<CommunityPage> {
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
+                      color: Colors.black.withValues(alpha: 0.02),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -82,7 +81,8 @@ class _CommunityPageState extends State<CommunityPage> {
                       size: 18.sp,
                       color: AppColors.secondaryTextColor,
                     ),
-                    hintText: 'Search communities (e.g. Curtin, Monash, CBD)...',
+                    hintText:
+                        'Search communities (e.g. Curtin, Monash, CBD)...',
                     hintStyle: AppTextStyle.text14Regular.copyWith(
                       color: AppColors.hintTextColor,
                     ),
@@ -95,6 +95,18 @@ class _CommunityPageState extends State<CommunityPage> {
 
               // Communities List
               Obx(() {
+                if (controller.isCommunitiesLoading.value &&
+                    controller.communities.isEmpty) {
+                  return Padding(
+                    padding: EdgeInsets.symmetric(vertical: 48.h),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  );
+                }
+
                 final filtered = controller.communities.where((c) {
                   if (_searchQuery.isEmpty) return true;
                   return c.name.toLowerCase().contains(_searchQuery) ||
@@ -134,7 +146,13 @@ class _CommunityPageState extends State<CommunityPage> {
                     return _CommunityCard(
                       community: community,
                       onTap: () => controller.openCommunityDetails(community),
-                      onToggleJoin: () => controller.toggleCommunityJoin(community),
+                      onToggleJoin: () {
+                        if (community.isJoined.value) {
+                          controller.confirmLeaveCommunity(community);
+                        } else {
+                          controller.toggleCommunityJoin(community);
+                        }
+                      },
                     );
                   },
                 );
@@ -166,13 +184,10 @@ class _CommunityCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(
-          color: const Color(0xFFE2E8F0),
-          width: 1.2,
-        ),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -278,42 +293,6 @@ class _CommunityCard extends StatelessWidget {
                   ],
                 ),
 
-                SizedBox(height: 10.h),
-
-                // Next Available Ride line
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10.r),
-                    border: Border.all(
-                      color: const Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        CupertinoIcons.clock_fill,
-                        size: 13.sp,
-                        color: const Color(0xFF2563EB),
-                      ),
-                      SizedBox(width: 6.w),
-                      Text(
-                        'Next ride: ',
-                        style: AppTextStyle.text12Medium.copyWith(
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
-                      Text(
-                        '${community.nextRideTime} (${community.nextRideSeatsOpen} seats open)',
-                        style: AppTextStyle.text12Semibold.copyWith(
-                          color: const Color(0xFF0F172A),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
                 SizedBox(height: 14.h),
 
                 // Action Buttons Row: View Community Details & Quick Join Toggle
@@ -323,9 +302,7 @@ class _CommunityCard extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: onTap,
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                            color: Color(0xFFCBD5E1),
-                          ),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12.r),
                           ),
@@ -346,24 +323,26 @@ class _CommunityCard extends StatelessWidget {
                           onPressed: onToggleJoin,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: community.isJoined.value
-                                ? const Color(0xFFF1F5F9)
+                                ? const Color(0xFFFEF2F2)
                                 : const Color(0xFF2563EB),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12.r),
                               side: BorderSide(
                                 color: community.isJoined.value
-                                    ? const Color(0xFFCBD5E1)
+                                    ? const Color(0xFFFECACA)
                                     : const Color(0xFF2563EB),
                               ),
                             ),
                             padding: EdgeInsets.symmetric(vertical: 8.h),
                           ),
                           child: Text(
-                            community.isJoined.value ? 'Joined ✓' : 'Join Group',
+                            community.isJoined.value
+                                ? 'Leave'
+                                : 'Join Group',
                             style: AppTextStyle.text12Semibold.copyWith(
                               color: community.isJoined.value
-                                  ? const Color(0xFF0F172A)
+                                  ? const Color(0xFFDC2626)
                                   : Colors.white,
                             ),
                           ),

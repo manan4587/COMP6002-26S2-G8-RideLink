@@ -16,6 +16,10 @@ class PassengerDashboardView extends GetView<PassengerDashboardController> {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.reloadProfile();
+    });
+
     final List<Widget> pages = const [
       HomePage(),
       SearchPage(),
@@ -25,10 +29,12 @@ class PassengerDashboardView extends GetView<PassengerDashboardController> {
     ];
 
     return Scaffold(
-      body: Obx(() => IndexedStack(
-            index: controller.currentTabIndex.value,
-            children: pages,
-          )),
+      body: Obx(
+        () => IndexedStack(
+          index: controller.currentTabIndex.value,
+          children: pages,
+        ),
+      ),
       bottomNavigationBar: Obx(
         () => Container(
           decoration: BoxDecoration(
@@ -38,7 +44,7 @@ class PassengerDashboardView extends GetView<PassengerDashboardController> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, -3),
               ),

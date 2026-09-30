@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
@@ -12,6 +13,10 @@ class ProfilePage extends GetView<PassengerDashboardController> {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.reloadProfile();
+    });
+
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
       body: SafeArea(
@@ -34,13 +39,16 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                 ),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 30.r,
-                      backgroundColor: const Color(0xFFDBEAFE),
-                      child: Text(
-                        'AM',
-                        style: AppTextStyle.text20Semibold.copyWith(
-                          color: AppColors.primaryColor,
+                    Obx(
+                      () => CircleAvatar(
+                        radius: 30.r,
+                        backgroundColor: const Color(0xFFDBEAFE),
+                        child: Text(
+                          controller.passengerInitials,
+                          style: AppTextStyle.text20Semibold.copyWith(
+                            color: AppColors.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -49,36 +57,101 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Alex Morgan',
-                            style: AppTextStyle.text18Semibold,
-                          ),
-                          SizedBox(height: 2.h),
-                          Text(
-                            'alex.morgan@email.com',
-                            style: AppTextStyle.text12Regular.copyWith(
-                              color: AppColors.secondaryTextColor,
-                            ),
-                          ),
-                          SizedBox(height: 4.h),
                           Row(
                             children: [
-                              Icon(
-                                Icons.star,
-                                size: 14.sp,
-                                color: const Color(0xFFFFB900),
+                              Expanded(
+                                child: Obx(
+                                  () => Text(
+                                    controller.passengerName.value.isNotEmpty
+                                        ? controller.passengerName.value
+                                        : (Preferences.userName.isNotEmpty
+                                              ? Preferences.userName
+                                              : 'N/A'),
+                                    style: AppTextStyle.text18Semibold,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ),
                               SizedBox(width: 4.w),
-                              Text(
-                                '4.95 Rating • 28 Trips',
-                                style: AppTextStyle.text12Semibold.copyWith(
-                                  color: AppColors.primaryTextColor,
-                                ),
+                              Icon(
+                                Icons.verified,
+                                size: 16.sp,
+                                color: AppColors.primaryColor,
                               ),
                             ],
                           ),
+                          SizedBox(height: 2.h),
+                          Obx(
+                            () => Text(
+                              controller.passengerEmail.value.isNotEmpty
+                                  ? controller.passengerEmail.value
+                                  : (Preferences.userEmail.isNotEmpty
+                                        ? Preferences.userEmail
+                                        : 'N/A'),
+                              style: AppTextStyle.text12Regular.copyWith(
+                                color: AppColors.secondaryTextColor,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          SizedBox(height: 2.h),
+                          Obx(
+                            () => Text(
+                              controller.passengerPhone.value.isNotEmpty
+                                  ? controller.passengerPhone.value
+                                  : (Preferences.userPhone.isNotEmpty
+                                        ? Preferences.userPhone
+                                        : 'N/A'),
+                              style: AppTextStyle.text12Regular.copyWith(
+                                color: AppColors.secondaryTextColor,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Obx(() {
+                            final rating = controller.passengerRating.value;
+                            final ratingStr = rating > 0
+                                ? rating.toStringAsFixed(2)
+                                : '0.0';
+                            final trips = controller.tripsCount.value;
+                            return Row(
+                              children: [
+                                Icon(
+                                  Icons.star,
+                                  size: 14.sp,
+                                  color: const Color(0xFFFFB900),
+                                ),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  '$ratingStr Rating • $trips Trips',
+                                  style: AppTextStyle.text12Semibold.copyWith(
+                                    color: AppColors.primaryTextColor,
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
                         ],
                       ),
+                    ),
+                    SizedBox(width: 8.w),
+                    IconButton(
+                      onPressed: () =>
+                          Get.toNamed(AppRoutes.editPassengerProfile),
+                      icon: Container(
+                        padding: EdgeInsets.all(8.r),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Icon(
+                          Icons.edit_outlined,
+                          size: 18.sp,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                      tooltip: 'Edit Profile',
                     ),
                   ],
                 ),
@@ -94,12 +167,12 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                   gradient: LinearGradient(
                     colors: [
                       const Color(0xFFEFF6FF),
-                      const Color(0xFFDBEAFE).withOpacity(0.5),
+                      const Color(0xFFDBEAFE).withValues(alpha: 0.5),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(20.r),
                   border: Border.all(
-                    color: AppColors.primaryColor.withOpacity(0.3),
+                    color: AppColors.primaryColor.withValues(alpha: 0.3),
                     width: 1.5,
                   ),
                 ),
@@ -207,6 +280,12 @@ class ProfilePage extends GetView<PassengerDashboardController> {
               SizedBox(height: 10.h),
 
               _SettingsTile(
+                icon: CupertinoIcons.person_crop_circle,
+                title: 'Personal Details (Edit Profile)',
+                subtitle: 'Change your name, phone number, and email address',
+                onTap: () => Get.toNamed(AppRoutes.editPassengerProfile),
+              ),
+              _SettingsTile(
                 icon: CupertinoIcons.money_dollar_circle,
                 title: 'Trip Payments (Cash Only)',
                 subtitle: 'Direct Cash Settlement with Drivers',
@@ -227,7 +306,8 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                   title: 'Emergency Contacts',
                   subtitle:
                       '${controller.emergencyContacts.length} Contacts Saved (Visible only during active trips)',
-                  onTap: () => Get.toNamed(AppRoutes.passengerEmergencyContacts),
+                  onTap: () =>
+                      Get.toNamed(AppRoutes.passengerEmergencyContacts),
                 ),
               ),
               _SettingsTile(
@@ -236,13 +316,13 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                 subtitle: 'Emergency assistance, call SOS & email desk',
                 onTap: () => Get.toNamed(AppRoutes.passengerSafetySos),
               ),
-              _SettingsTile(
-                icon: CupertinoIcons.bell,
-                title: 'Notification Preferences',
-                subtitle: 'Push Notifications Only • Instant Ride Alerts',
-                onTap: () =>
-                    Get.toNamed(AppRoutes.passengerNotificationPreferences),
-              ),
+              // _SettingsTile(
+              //   icon: CupertinoIcons.bell,
+              //   title: 'Notification Preferences',
+              //   subtitle: 'Push Notifications Only • Instant Ride Alerts',
+              //   onTap: () =>
+              //       Get.toNamed(AppRoutes.passengerNotificationPreferences),
+              // ),
               _SettingsTile(
                 icon: CupertinoIcons.question_circle,
                 title: 'Help & Customer Support',

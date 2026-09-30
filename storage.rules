@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Driver Verification Documents: driver_documents/{userId}/{allPaths=**}
+    match /driver_documents/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Profile photos or user uploads: users/{userId}/{allPaths=**}
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // General authenticated read/write for chat attachments, etc.
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+

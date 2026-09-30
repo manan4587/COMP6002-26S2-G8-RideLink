@@ -20,6 +20,7 @@ class AppRoutes {
   static String passengerEmergencyContacts = '/passenger-emergency-contacts';
   static String passengerNotificationPreferences = '/passenger-notification-preferences';
   static String passengerSupport = '/passenger-support';
+  static String passengerSupportChat = '/passenger-support-chat';
   static String suggestedRides = '/suggested-rides';
   static String rideDetails = '/ride-details';
   static String requestSent = '/request-sent';
@@ -27,4 +28,11 @@ class AppRoutes {
   static String liveTripTracking = '/live-trip-tracking';
   static String rideChat = '/ride-chat';
   static String passengerCommunityDetails = '/passenger-community-details';
+  static String editPassengerProfile = '/edit-passenger-profile';
+  static String driverRideRequests = '/driver-ride-requests';
+  static String driverRequestDetails = '/driver-request-details';
+  static String driverPublishRide = '/driver-publish-ride';
+  static String driverLiveTrip = '/driver-live-trip';
+  static String driverRideChat = '/driver-ride-chat';
+  static String driverSupportChat = '/driver-support-chat';
 }

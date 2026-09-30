@@ -43,7 +43,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                     border: Border.all(color: AppColors.borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
+                        color: Colors.black.withValues(alpha: 0.02),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -136,7 +136,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                   padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 1.h),
                   decoration: BoxDecoration(
                     color: isActive
-                        ? Colors.white.withOpacity(0.25)
+                        ? Colors.white.withValues(alpha: 0.25)
                         : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(10.r),
                   ),
@@ -214,7 +214,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
       itemCount: controller.pendingRequests.length,
-      separatorBuilder: (_, __) => SizedBox(height: 12.h),
+      separatorBuilder: (_, _) => SizedBox(height: 12.h),
       itemBuilder: (context, index) {
         final pending = controller.pendingRequests[index];
         return _PendingRequestCard(
@@ -280,7 +280,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
       itemCount: controller.myBookings.length,
-      separatorBuilder: (_, __) => SizedBox(height: 12.h),
+      separatorBuilder: (_, _) => SizedBox(height: 12.h),
       itemBuilder: (context, index) {
         final booking = controller.myBookings[index];
         return _ConfirmedTripCard(
@@ -293,6 +293,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
             Get.toNamed(
               AppRoutes.rideChat,
               arguments: {
+                'tripId': booking.ride.id,
                 'driverName': booking.ride.driverName,
                 'carModel': booking.ride.carModel,
                 'route':
@@ -347,7 +348,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
       itemCount: controller.completedTrips.length,
-      separatorBuilder: (_, __) => SizedBox(height: 12.h),
+      separatorBuilder: (_, _) => SizedBox(height: 12.h),
       itemBuilder: (context, index) {
         final trip = controller.completedTrips[index];
         return _CompletedTripCard(
@@ -819,7 +820,7 @@ class _PendingRequestCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1026,7 +1027,7 @@ class _ConfirmedTripCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1213,7 +1214,7 @@ class _CompletedTripCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

@@ -4,11 +4,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/theme/app_text_style.dart';
-import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
+import 'package:ridelink/views/driver_dashboard/controllers/driver_profile_controller.dart';
 import 'package:ridelink/widgets/app_border_container.dart';
 import 'package:ridelink/widgets/app_main_container.dart';
 
-class DriverSafetySosPage extends GetView<DriverDashboardController> {
+class DriverSafetySosPage extends GetView<DriverProfileController> {
   const DriverSafetySosPage({super.key});
 
   @override

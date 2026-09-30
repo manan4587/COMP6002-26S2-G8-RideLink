@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/core/utils/utils.dart';
+import 'package:ridelink/data/services/auth_service.dart';
+import 'package:ridelink/data/services/trip_service.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 
 class ChatMessage {
@@ -15,11 +19,18 @@ class ChatMessage {
 }
 
 class RideChatPage extends StatefulWidget {
+  final String? tripId;
   final String? driverName;
   final String? carModel;
   final String? route;
 
-  const RideChatPage({super.key, this.driverName, this.carModel, this.route});
+  const RideChatPage({
+    super.key,
+    this.tripId,
+    this.driverName,
+    this.carModel,
+    this.route,
+  });
 
   @override
   State<RideChatPage> createState() => _RideChatPageState();
@@ -29,9 +40,12 @@ class _RideChatPageState extends State<RideChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  late String _tripId;
   late String _driverName;
   late String _carModel;
   late String _route;
+
+  StreamSubscription? _chatSubscription;
 
   final List<ChatMessage> _messages = [
     ChatMessage(
@@ -43,12 +57,6 @@ class _RideChatPageState extends State<RideChatPage> {
       text: 'Thanks! I am waiting near the Shell station entrance.',
       isMe: true,
       time: '08:16 AM',
-    ),
-    ChatMessage(
-      text:
-          'Perfect! Look for the hazard lights. I should be there in about 4-5 mins.',
-      isMe: false,
-      time: '08:17 AM',
     ),
   ];
 
@@ -63,13 +71,46 @@ class _RideChatPageState extends State<RideChatPage> {
   void initState() {
     super.initState();
     final args = Get.arguments as Map<String, dynamic>?;
+    _tripId = widget.tripId ?? args?['tripId'] ?? 'trip_general';
     _driverName = widget.driverName ?? args?['driverName'] ?? 'James Miller';
     _carModel = widget.carModel ?? args?['carModel'] ?? 'Toyota Camry (White)';
     _route = widget.route ?? args?['route'] ?? 'Landsdale → Curtin University';
+
+    _subscribeToTripChat();
+  }
+
+  void _subscribeToTripChat() {
+    if (_tripId.isEmpty || _tripId == 'trip_general') return;
+
+    _chatSubscription =
+        TripService.instance.streamTripChatMessages(_tripId).listen((list) {
+      if (list.isEmpty) return;
+
+      final myUid = AuthService.instance.currentUser?.uid;
+      final loaded = list.map((m) {
+        final isMe = m.senderRole == 'passenger' || (myUid != null && m.senderId == myUid);
+        final hour = m.timestamp.hour.toString().padLeft(2, '0');
+        final minute = m.timestamp.minute.toString().padLeft(2, '0');
+        return ChatMessage(
+          text: m.message,
+          isMe: isMe,
+          time: '$hour:$minute',
+        );
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _messages.clear();
+          _messages.addAll(loaded);
+        });
+        _scrollToBottom();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _chatSubscription?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -91,6 +132,12 @@ class _RideChatPageState extends State<RideChatPage> {
     final text = (quickText ?? _messageController.text).trim();
     if (text.isEmpty) return;
 
+    final user = AuthService.instance.currentUser;
+    final passengerUid = user?.uid ?? 'passenger_demo';
+    final passengerName = Preferences.userName.isNotEmpty
+        ? Preferences.userName
+        : 'Passenger';
+
     setState(() {
       _messages.add(ChatMessage(text: text, isMe: true, time: 'Just now'));
       if (quickText == null) {
@@ -100,20 +147,16 @@ class _RideChatPageState extends State<RideChatPage> {
 
     _scrollToBottom();
 
-    // Simulate driver reply after 2 seconds for a realistic experience
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        _messages.add(
-          ChatMessage(
-            text: 'Got it! See you shortly.',
-            isMe: false,
-            time: 'Just now',
-          ),
-        );
-      });
-      _scrollToBottom();
-    });
+    // Send to Firestore subcollection `rides/{tripId}/messages`
+    if (_tripId.isNotEmpty && _tripId != 'trip_general') {
+      TripService.instance.sendTripChatMessage(
+        tripId: _tripId,
+        senderId: passengerUid,
+        senderName: passengerName,
+        senderRole: 'passenger',
+        message: text,
+      );
+    }
   }
 
   Future<void> _callDriver() async {
@@ -265,7 +308,7 @@ class _RideChatPageState extends State<RideChatPage> {
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 itemCount: _quickReplies.length,
-                separatorBuilder: (_, __) => SizedBox(width: 8.w),
+                separatorBuilder: (_, _) => SizedBox(width: 8.w),
                 itemBuilder: (context, index) {
                   final reply = _quickReplies[index];
                   return GestureDetector(
@@ -375,7 +418,7 @@ class _RideChatPageState extends State<RideChatPage> {
               : Border.all(color: AppColors.borderColor, width: 0.8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
@@ -399,7 +442,7 @@ class _RideChatPageState extends State<RideChatPage> {
               style: TextStyle(
                 fontSize: 10.sp,
                 color: msg.isMe
-                    ? Colors.white.withOpacity(0.7)
+                    ? Colors.white.withValues(alpha: 0.7)
                     : AppColors.hintTextColor,
               ),
             ),

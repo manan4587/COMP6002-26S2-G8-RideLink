@@ -12,57 +12,58 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
-  
+
   # State Management
   get: ^4.7.3
   get_storage: ^2.1.1
 
-  # Network Connection
+  # Network & Device
   dio: ^5.11.1
-  http_parser: ^4.1.2
   connectivity_plus: ^7.3.2
-  network_info_plus: ^8.2.2
+  device_info_plus: ^13.3.0
 
-  # Responsive UI
+  # Responsive UI & Theme
   flutter_screenutil: ^5.9.3
 
-  # Utils
+  # UI & Media Utils
   intl: ^0.20.3
   fluttertoast: ^10.0.2
   url_launcher: ^6.3.2
   cached_network_image: ^4.0.4
   flutter_svg: ^2.3.0
-  lottie: ^3.6.1
   crypto: ^3.0.7
   shimmer: ^4.0.0
-  device_info_plus: ^13.3.0
-  animations: ^3.0.0
-  dropdown_button2: ^3.1.0
-  flutter_html: ^3.0.0
 
-  # Image of File picker
+  # Image & File Picker
   image_picker: ^1.2.3
-  permission_handler: ^13.0.2
   path_provider: ^2.1.6
 
-  # This app utils
-  readmore: ^3.0.0
-  grouped_list: ^6.0.0
-  pin_code_fields: ^10.1.1
-  easy_date_timeline: ^2.0.9
-  control_style: ^0.1.2
-  carousel_slider: ^5.1.2
-
+  # Maps
   google_maps_flutter: ^2.18.2
 
-
+  # Firebase
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
+  firebase_storage: ^13.6.0
+  firebase_messaging: ^16.7.0
+  google_sign_in: ^6.2.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  lint: ^2.8.0
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/images/app_logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/app_logo.png"
 
 flutter:
   uses-material-design: true

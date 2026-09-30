@@ -95,6 +95,15 @@ class AppTextStyle {
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w600,
     height: 24.h / 16.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text15Semibold = TextStyle(
+    fontSize: 15.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w600,
+    height: 22.h / 15.sp,
+    fontFamily: _fontFamily,
   );
 
   static TextStyle text14Semibold = TextStyle(
@@ -105,6 +114,121 @@ class AppTextStyle {
     fontFamily: _fontFamily,
   );
 
+  static TextStyle text13Semibold = TextStyle(
+    fontSize: 13.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w600,
+    height: 18.h / 13.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text11Semibold = TextStyle(
+    fontSize: 11.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w600,
+    height: 15.h / 11.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text10Semibold = TextStyle(
+    fontSize: 10.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w600,
+    height: 14.h / 10.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text9Semibold = TextStyle(
+    fontSize: 9.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w600,
+    height: 12.h / 9.sp,
+    fontFamily: _fontFamily,
+  );
+
+  // Bold styles
+  static TextStyle text18Bold = TextStyle(
+    fontSize: 18.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.bold,
+    height: 26.h / 18.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text16Bold = TextStyle(
+    fontSize: 16.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.bold,
+    height: 24.h / 16.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text14Bold = TextStyle(
+    fontSize: 14.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.bold,
+    height: 20.h / 14.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text12Bold = TextStyle(
+    fontSize: 12.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.bold,
+    height: 16.h / 12.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text11Bold = TextStyle(
+    fontSize: 11.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.bold,
+    height: 15.h / 11.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text10Bold = TextStyle(
+    fontSize: 10.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.bold,
+    height: 14.h / 10.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text9Bold = TextStyle(
+    fontSize: 9.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.bold,
+    height: 12.h / 9.sp,
+    fontFamily: _fontFamily,
+  );
+
+  // Additional Medium styles
+  static TextStyle text11Medium = TextStyle(
+    fontSize: 11.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w500,
+    height: 15.h / 11.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text9Medium = TextStyle(
+    fontSize: 9.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w500,
+    height: 12.h / 9.sp,
+    fontFamily: _fontFamily,
+  );
+
+  // Regular styles
+  static TextStyle text16Regular = TextStyle(
+    fontSize: 16.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w400,
+    height: 24.h / 16.sp,
+    fontFamily: _fontFamily,
+  );
+
   static TextStyle text14Regular = TextStyle(
     fontSize: 14.sp,
     color: AppColors.primaryTextColor,
@@ -112,17 +236,44 @@ class AppTextStyle {
     height: 20.h / 14.sp,
     fontFamily: _fontFamily,
   );
-  static TextStyle text16Regular = TextStyle(
-    fontSize: 16.sp,
+
+  static TextStyle text13Regular = TextStyle(
+    fontSize: 13.sp,
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w400,
-    height: 24.h / 16.sp,
+    height: 18.h / 13.sp,
+    fontFamily: _fontFamily,
   );
+
   static TextStyle text12Regular = TextStyle(
     fontSize: 12.sp,
     color: AppColors.primaryTextColor,
     fontWeight: FontWeight.w400,
     height: 16.h / 12.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text11Regular = TextStyle(
+    fontSize: 11.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w400,
+    height: 15.h / 11.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text10Regular = TextStyle(
+    fontSize: 10.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w400,
+    height: 14.h / 10.sp,
+    fontFamily: _fontFamily,
+  );
+
+  static TextStyle text9Regular = TextStyle(
+    fontSize: 9.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w400,
+    height: 12.h / 9.sp,
     fontFamily: _fontFamily,
   );
 

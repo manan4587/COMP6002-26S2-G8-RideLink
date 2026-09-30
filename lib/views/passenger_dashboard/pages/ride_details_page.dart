@@ -11,15 +11,18 @@ import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controlle
 class RideDetailsPage extends GetView<PassengerDashboardController> {
   const RideDetailsPage({super.key});
 
-  static const LatLng _pickupPoint = LatLng(-31.8156, 115.8452); // Landsdale
-  static const LatLng _dropoffPoint = LatLng(-32.0044, 115.8947); // Curtin University
-  static const LatLng _driverMidPoint = LatLng(-31.9100, 115.8700);
-
   @override
   Widget build(BuildContext context) {
     final ride = controller.currentSelectedRide.value ?? controller.availableRides.first;
     final int seatsNeeded = controller.requestedSeats.value;
     final double totalPrice = ride.pricePerSeat * seatsNeeded;
+
+    final LatLng pickupPoint = LatLng(ride.originLat, ride.originLng);
+    final LatLng dropoffPoint = LatLng(ride.destinationLat, ride.destinationLng);
+    final LatLng midPoint = LatLng(
+      (ride.originLat + ride.destinationLat) / 2,
+      (ride.originLng + ride.destinationLng) / 2,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
@@ -81,34 +84,34 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
                   child: Stack(
                     children: [
                       GoogleMap(
-                        initialCameraPosition: const CameraPosition(
-                          target: LatLng(-31.9100, 115.8700),
+                        initialCameraPosition: CameraPosition(
+                          target: midPoint,
                           zoom: 10.5,
                         ),
                         markers: {
-                          const Marker(
-                            markerId: MarkerId('pickup'),
-                            position: _pickupPoint,
-                            infoWindow: InfoWindow(title: 'Pickup: Landsdale'),
+                          Marker(
+                            markerId: const MarkerId('pickup'),
+                            position: pickupPoint,
+                            infoWindow: InfoWindow(title: 'Pickup: ${ride.origin}'),
                           ),
-                          const Marker(
-                            markerId: MarkerId('driver'),
-                            position: _driverMidPoint,
-                            infoWindow: InfoWindow(title: 'Driver Live Vehicle'),
+                          Marker(
+                            markerId: const MarkerId('driver'),
+                            position: midPoint,
+                            infoWindow: InfoWindow(title: 'Driver: ${ride.driverName}'),
                           ),
-                          const Marker(
-                            markerId: MarkerId('dropoff'),
-                            position: _dropoffPoint,
-                            infoWindow: InfoWindow(title: 'Drop-off: Curtin'),
+                          Marker(
+                            markerId: const MarkerId('dropoff'),
+                            position: dropoffPoint,
+                            infoWindow: InfoWindow(title: 'Drop-off: ${ride.destination}'),
                           ),
                         },
                         polylines: {
                           Polyline(
                             polylineId: const PolylineId('route_preview'),
-                            points: const [
-                              _pickupPoint,
-                              _driverMidPoint,
-                              _dropoffPoint,
+                            points: [
+                              pickupPoint,
+                              midPoint,
+                              dropoffPoint,
                             ],
                             color: const Color(0xFF2563EB),
                             width: 4,

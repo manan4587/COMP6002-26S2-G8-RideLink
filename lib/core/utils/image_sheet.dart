@@ -26,28 +26,31 @@ class ImageSourceSheet extends StatelessWidget {
         ),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _dialogHeader(context, title: 'Select Option'),
-              _buildListTile(
-                icon: Icons.image_rounded,
-                title: 'Gallery',
-                onTap: () async {
-                  XFile? file = await Utils.pickImage(ImageSource.gallery);
-                  Get.back(result: file);
-                },
-              ),
-              _buildListTile(
-                icon: Icons.camera_alt_rounded,
-                title: 'Camera',
-                onTap: () async {
-                  XFile? file = await Utils.pickImage(ImageSource.camera);
-                  Get.back(result: file);
-                },
-              ),
-            ],
+        return Material(
+          color: Colors.transparent,
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _dialogHeader(context, title: 'Select Option'),
+                _buildListTile(
+                  icon: Icons.image_rounded,
+                  title: 'Gallery',
+                  onTap: () async {
+                    XFile? file = await Utils.pickImage(ImageSource.gallery);
+                    Get.back(result: file);
+                  },
+                ),
+                _buildListTile(
+                  icon: Icons.camera_alt_rounded,
+                  title: 'Camera',
+                  onTap: () async {
+                    XFile? file = await Utils.pickImage(ImageSource.camera);
+                    Get.back(result: file);
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },

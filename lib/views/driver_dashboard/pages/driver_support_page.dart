@@ -5,7 +5,8 @@ import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_assets.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/theme/app_text_style.dart';
-import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
+import 'package:ridelink/views/driver_dashboard/controllers/driver_support_controller.dart';
+import 'package:ridelink/views/driver_dashboard/pages/driver_support_chat_page.dart';
 import 'package:ridelink/widgets/app_border_container.dart';
 import 'package:ridelink/widgets/app_button.dart';
 import 'package:ridelink/widgets/app_main_container.dart';
@@ -18,14 +19,15 @@ class DriverSupportPage extends StatefulWidget {
 }
 
 class _DriverSupportPageState extends State<DriverSupportPage> {
-  final DriverDashboardController controller =
-      Get.find<DriverDashboardController>();
+  final DriverSupportController controller =
+      Get.find<DriverSupportController>();
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
 
   String _selectedCategory = 'Verification & Documents';
+  String _selectedStatusFilter = 'All';
 
   final List<String> _categories = [
     'Verification & Documents',
@@ -36,6 +38,8 @@ class _DriverSupportPageState extends State<DriverSupportPage> {
     'Other Inquiries',
   ];
 
+  final RxBool _isSubmitting = false.obs;
+
   @override
   void dispose() {
     _subjectController.dispose();
@@ -43,15 +47,25 @@ class _DriverSupportPageState extends State<DriverSupportPage> {
     super.dispose();
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
+    if (_isSubmitting.value) return;
     if (_formKey.currentState?.validate() ?? false) {
-      controller.submitSupportTicket(
-        subject: _subjectController.text.trim(),
-        category: _selectedCategory,
-        message: _messageController.text.trim(),
-      );
-      _subjectController.clear();
-      _messageController.clear();
+      _isSubmitting.value = true;
+      try {
+        final newTicket = await controller.submitSupportTicket(
+          subject: _subjectController.text.trim(),
+          category: _selectedCategory,
+          message: _messageController.text.trim(),
+        );
+        if (newTicket != null) {
+          _subjectController.clear();
+          _messageController.clear();
+          // Automatically open live chat for the newly created ticket
+          Get.to(() => DriverSupportChatPage(ticket: newTicket));
+        }
+      } finally {
+        _isSubmitting.value = false;
+      }
     }
   }
 
@@ -132,7 +146,7 @@ class _DriverSupportPageState extends State<DriverSupportPage> {
                             ),
                             2.verticalSpace,
                             Text(
-                              'Submit your question or issue below. Our admin team stores your ticket in database and will reply to your email directly.',
+                              'Submit your question or issue below. Our admin team will chat with you directly in the support thread.',
                               style: AppTextStyle.text12Regular.copyWith(
                                 color: AppColors.secondaryTextColor,
                                 height: 1.35,
@@ -317,11 +331,12 @@ class _DriverSupportPageState extends State<DriverSupportPage> {
 
                           20.verticalSpace,
 
-                          AppButton(
+                          Obx(() => AppButton(
                             onPressed: _handleSubmit,
+                            isLoading: _isSubmitting.value,
                             label: 'Send Support Query',
                             icon: AppAssets.checkIcon,
-                          ),
+                          )),
                         ],
                       ),
                     ),
@@ -331,16 +346,87 @@ class _DriverSupportPageState extends State<DriverSupportPage> {
                 20.verticalSpace,
 
                 // Ticket History Section
-                Text(
-                  'Submitted Queries & Tickets',
-                  style: AppTextStyle.text16Semibold.copyWith(
-                    color: AppColors.primaryTextColor,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Submitted Queries & Tickets',
+                      style: AppTextStyle.text16Semibold.copyWith(
+                        color: AppColors.primaryTextColor,
+                      ),
+                    ),
+                    Obx(() => Text(
+                          '${controller.supportTickets.length} tickets',
+                          style: AppTextStyle.text12Medium.copyWith(
+                            color: AppColors.secondaryTextColor,
+                          ),
+                        )),
+                  ],
                 ),
                 10.verticalSpace,
 
+                // Status Filter Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ['All', 'Open', 'In Progress', 'Resolved'].map((filter) {
+                      final isSelected = _selectedStatusFilter == filter;
+                      return Padding(
+                        padding: EdgeInsets.only(right: 8.w),
+                        child: ChoiceChip(
+                          label: Text(
+                            filter,
+                            style: AppTextStyle.text12Medium.copyWith(
+                              color: isSelected
+                                  ? AppColors.white
+                                  : AppColors.primaryTextColor,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          selected: isSelected,
+                          selectedColor: AppColors.primaryColor,
+                          backgroundColor: AppColors.white,
+                          side: BorderSide(
+                            color: isSelected
+                                ? AppColors.primaryColor
+                                : AppColors.borderColor,
+                          ),
+                          onSelected: (val) {
+                            if (val) {
+                              setState(() => _selectedStatusFilter = filter);
+                            }
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                12.verticalSpace,
+
                 Obx(() {
-                  if (controller.supportTickets.isEmpty) {
+                  final filteredTickets = controller.supportTickets.where((t) {
+                    final normalizedStatus = t.displayStatus;
+                    if (_selectedStatusFilter == 'All') return true;
+                    if (_selectedStatusFilter == 'Resolved') return t.isLocked;
+                    if (_selectedStatusFilter == 'Open') return normalizedStatus == 'Open';
+                    if (_selectedStatusFilter == 'In Progress') {
+                      return normalizedStatus == 'In Progress' ||
+                          t.status.value
+                                  .toLowerCase()
+                                  .replaceAll('-', '_')
+                                  .replaceAll(' ', '_') ==
+                              'in_progress';
+                    }
+                    return normalizedStatus.toLowerCase() ==
+                        _selectedStatusFilter
+                            .toLowerCase()
+                            .replaceAll('-', '_')
+                            .replaceAll(' ', '_');
+                  }).toList();
+
+                  if (filteredTickets.isEmpty) {
                     return Container(
                       padding: EdgeInsets.all(20.h),
                       alignment: Alignment.center,
@@ -350,7 +436,9 @@ class _DriverSupportPageState extends State<DriverSupportPage> {
                         border: Border.all(color: AppColors.borderColor),
                       ),
                       child: Text(
-                        'No support tickets submitted yet.',
+                        controller.supportTickets.isEmpty
+                            ? 'No support tickets submitted yet.'
+                            : 'No $_selectedStatusFilter tickets found.',
                         style: AppTextStyle.text12Regular.copyWith(
                           color: AppColors.secondaryTextColor,
                         ),
@@ -359,87 +447,148 @@ class _DriverSupportPageState extends State<DriverSupportPage> {
                   }
 
                   return Column(
-                    children: controller.supportTickets.map((ticket) {
-                      return Container(
-                        margin: EdgeInsets.only(bottom: 10.h),
-                        padding: EdgeInsets.all(14.w),
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(16.r),
-                          border: Border.all(color: AppColors.borderColor),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  ticket.id,
-                                  style: AppTextStyle.text12Semibold.copyWith(
-                                    color: AppColors.primaryColor,
-                                  ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 8.w,
-                                    vertical: 3.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: ticket.status == 'Resolved'
-                                        ? const Color(0xFFDCFCE7)
-                                        : const Color(0xFFEFF6FF),
-                                    borderRadius: BorderRadius.circular(8.r),
-                                  ),
-                                  child: Text(
-                                    ticket.status,
-                                    style: AppTextStyle.text10Medium.copyWith(
-                                      color: ticket.status == 'Resolved'
-                                          ? const Color(0xFF16A34A)
-                                          : AppColors.primaryColor,
-                                      fontWeight: FontWeight.bold,
+                    children: filteredTickets.map((ticket) {
+                      return InkWell(
+                        onTap: () => _openSupportChat(ticket),
+                        borderRadius: BorderRadius.circular(16.r),
+                        child: Container(
+                          margin: EdgeInsets.only(bottom: 10.h),
+                          padding: EdgeInsets.all(14.w),
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(16.r),
+                            border: Border.all(color: AppColors.borderColor),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    ticket.id,
+                                    style:
+                                        AppTextStyle.text12Semibold.copyWith(
+                                      color: AppColors.primaryColor,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            6.verticalSpace,
-                            Text(
-                              ticket.subject,
-                              style: AppTextStyle.text14Semibold,
-                            ),
-                            4.verticalSpace,
-                            Text(
-                              ticket.message,
-                              style: AppTextStyle.text12Regular.copyWith(
-                                color: AppColors.secondaryTextColor,
+                                  Obx(() {
+                                    final isResolved = ticket.isLocked;
+                                    final isInProgress =
+                                        ticket.displayStatus == 'In Progress';
+                                    final Color badgeBg = isResolved
+                                        ? const Color(0xFFDCFCE7)
+                                        : isInProgress
+                                            ? const Color(0xFFFEF3C7)
+                                            : const Color(0xFFEFF6FF);
+                                    final Color badgeTextColor = isResolved
+                                        ? const Color(0xFF16A34A)
+                                        : isInProgress
+                                            ? const Color(0xFFD97706)
+                                            : AppColors.primaryColor;
+                                    return Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 8.w,
+                                        vertical: 3.h,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: badgeBg,
+                                        borderRadius:
+                                            BorderRadius.circular(8.r),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (isResolved) ...[
+                                            Icon(
+                                              Icons.lock_rounded,
+                                              size: 11.sp,
+                                              color: badgeTextColor,
+                                            ),
+                                            3.horizontalSpace,
+                                          ],
+                                          Text(
+                                            ticket.displayStatus,
+                                            style: AppTextStyle.text10Medium
+                                                .copyWith(
+                                              color: badgeTextColor,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
                               ),
-                            ),
-                            8.verticalSpace,
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.tag,
-                                  size: 14.sp,
+                              6.verticalSpace,
+                              Text(
+                                ticket.subject,
+                                style: AppTextStyle.text14Semibold,
+                              ),
+                              4.verticalSpace,
+                              Text(
+                                ticket.message,
+                                style: AppTextStyle.text12Regular.copyWith(
                                   color: AppColors.secondaryTextColor,
                                 ),
-                                4.horizontalSpace,
-                                Text(
-                                  ticket.category,
-                                  style: AppTextStyle.text10Medium.copyWith(
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              10.verticalSpace,
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.tag,
+                                    size: 14.sp,
                                     color: AppColors.secondaryTextColor,
                                   ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  'Admin will reply via email',
-                                  style: AppTextStyle.text10Medium.copyWith(
-                                    color: AppColors.primaryColor,
+                                  4.horizontalSpace,
+                                  Text(
+                                    ticket.category,
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: AppColors.secondaryTextColor,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                  const Spacer(),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 10.w,
+                                      vertical: 4.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryColor
+                                          .withValues(alpha: 0.08),
+                                      borderRadius:
+                                          BorderRadius.circular(8.r),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          CupertinoIcons.chat_bubble_2_fill,
+                                          size: 13.sp,
+                                          color: AppColors.primaryColor,
+                                        ),
+                                        5.horizontalSpace,
+                                        Obx(() => Text(
+                                              ticket.isLocked
+                                                  ? 'View Closed Chat'
+                                                  : 'Open Chat',
+                                              style: AppTextStyle
+                                                  .text11Semibold
+                                                  .copyWith(
+                                                color: AppColors.primaryColor,
+                                              ),
+                                            )),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }).toList(),
@@ -453,5 +602,9 @@ class _DriverSupportPageState extends State<DriverSupportPage> {
         ),
       ),
     );
+  }
+
+  void _openSupportChat(SupportTicketModel ticket) {
+    Get.to(() => DriverSupportChatPage(ticket: ticket));
   }
 }
