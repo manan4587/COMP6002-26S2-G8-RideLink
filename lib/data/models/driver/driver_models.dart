@@ -8,12 +8,16 @@ class DriverTripModel {
   final double fromLng;
   final double toLat;
   final double toLng;
+  final RxDouble currentDriverLat;
+  final RxDouble currentDriverLng;
   final RxString time;
   final RxDouble pricePerSeat;
   final RxInt totalSeats;
   final RxInt bookedSeats;
   final RxString status; // 'Active', 'Scheduled', 'Completed', 'Cancelled'
   final bool isRecurring;
+  final List<String> recurringDays;
+  final String communityName;
   final RxList<PassengerRequestModel> requests;
   final RxList<PassengerRequestModel> acceptedPassengers;
 
@@ -21,25 +25,32 @@ class DriverTripModel {
     required this.id,
     required this.from,
     required this.to,
-    this.fromLat = -31.8156,
-    this.fromLng = 115.8452,
-    this.toLat = -32.0044,
-    this.toLng = 115.8947,
+    this.fromLat = 0.0,
+    this.fromLng = 0.0,
+    this.toLat = 0.0,
+    this.toLng = 0.0,
+    double currentDriverLat = 0.0,
+    double currentDriverLng = 0.0,
     required String time,
     required double pricePerSeat,
     required int totalSeats,
     required int bookedSeats,
     required String status,
     this.isRecurring = false,
+    this.recurringDays = const [],
+    this.communityName = '',
     List<PassengerRequestModel> requests = const [],
     List<PassengerRequestModel> acceptedPassengers = const [],
-  })  : time = time.obs,
+  })  : currentDriverLat = currentDriverLat.obs,
+        currentDriverLng = currentDriverLng.obs,
+        time = time.obs,
         pricePerSeat = pricePerSeat.obs,
         totalSeats = totalSeats.obs,
         bookedSeats = bookedSeats.obs,
         status = status.obs,
-        requests = requests.obs,
-        acceptedPassengers = acceptedPassengers.obs;
+        requests = RxList<PassengerRequestModel>.from(requests),
+        acceptedPassengers =
+            RxList<PassengerRequestModel>.from(acceptedPassengers);
 }
 
 class PassengerRequestModel {
@@ -50,6 +61,10 @@ class PassengerRequestModel {
   final double rating;
   final String from;
   final String to;
+  final double pickupLat;
+  final double pickupLng;
+  final double dropLat;
+  final double dropLng;
   final int seats;
   final double fare;
   final String time;
@@ -57,9 +72,11 @@ class PassengerRequestModel {
   final String detour;
   final int pastTrips;
   final RxString status; // 'Pending', 'Accepted', 'Declined'
+  final RxString passengerStatus; // 'to_pickup', 'arrived', 'onboard', 'dropped_off'
   final String emergencyContactName;
   final String emergencyContactRelation;
   final String emergencyContactPhone;
+  final String pickupOtp;
 
   PassengerRequestModel({
     required this.id,
@@ -69,6 +86,10 @@ class PassengerRequestModel {
     required this.rating,
     required this.from,
     required this.to,
+    this.pickupLat = 0.0,
+    this.pickupLng = 0.0,
+    this.dropLat = 0.0,
+    this.dropLng = 0.0,
     required this.seats,
     required this.fare,
     required this.time,
@@ -76,10 +97,18 @@ class PassengerRequestModel {
     this.detour = '+4 minutes only',
     this.pastTrips = 12,
     String status = 'Pending',
+    String passengerStatus = 'to_pickup',
     this.emergencyContactName = 'Sarah Jenkins',
     this.emergencyContactRelation = 'Mother',
     this.emergencyContactPhone = '+61 412 345 678',
-  }) : status = status.obs;
+    this.pickupOtp = '1234',
+  })  : status = status.obs,
+        passengerStatus = passengerStatus.obs;
+
+  bool get isWaitingPickup =>
+      passengerStatus.value == 'to_pickup' || passengerStatus.value == 'arrived';
+  bool get isOnboard => passengerStatus.value == 'onboard';
+  bool get isDroppedOff => passengerStatus.value == 'dropped_off';
 }
 
 class SupportChatMessageModel {

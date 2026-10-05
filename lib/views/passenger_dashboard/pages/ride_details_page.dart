@@ -4,6 +4,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/map_marker_helper.dart';
+import 'package:ridelink/data/services/auth_service.dart';
+import 'package:ridelink/data/services/google_places_service.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
@@ -16,13 +19,6 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
     final ride = controller.currentSelectedRide.value ?? controller.availableRides.first;
     final int seatsNeeded = controller.requestedSeats.value;
     final double totalPrice = ride.pricePerSeat * seatsNeeded;
-
-    final LatLng pickupPoint = LatLng(ride.originLat, ride.originLng);
-    final LatLng dropoffPoint = LatLng(ride.destinationLat, ride.destinationLng);
-    final LatLng midPoint = LatLng(
-      (ride.originLat + ride.destinationLat) / 2,
-      (ride.originLng + ride.destinationLng) / 2,
-    );
 
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
@@ -61,123 +57,116 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
 
               18.verticalSpace,
 
-              // Interactive Google Map Card with Route & Markers
-              Container(
-                height: 190.h,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24.r),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24.r),
-                  child: Stack(
-                    children: [
-                      GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: midPoint,
-                          zoom: 10.5,
-                        ),
-                        markers: {
-                          Marker(
-                            markerId: const MarkerId('pickup'),
-                            position: pickupPoint,
-                            infoWindow: InfoWindow(title: 'Pickup: ${ride.origin}'),
-                          ),
-                          Marker(
-                            markerId: const MarkerId('driver'),
-                            position: midPoint,
-                            infoWindow: InfoWindow(title: 'Driver: ${ride.driverName}'),
-                          ),
-                          Marker(
-                            markerId: const MarkerId('dropoff'),
-                            position: dropoffPoint,
-                            infoWindow: InfoWindow(title: 'Drop-off: ${ride.destination}'),
-                          ),
-                        },
-                        polylines: {
-                          Polyline(
-                            polylineId: const PolylineId('route_preview'),
-                            points: [
-                              pickupPoint,
-                              midPoint,
-                              dropoffPoint,
-                            ],
-                            color: const Color(0xFF2563EB),
-                            width: 4,
-                          ),
-                        },
-                        zoomControlsEnabled: false,
-                        myLocationButtonEnabled: false,
-                      ),
+              // Interactive Google Map Card with Real Road Directions
+              _RideRouteMapCard(ride: ride),
 
-                      // Overlay Badge to clearly denote Live Route
-                      Positioned(
-                        top: 12.h,
-                        left: 12.w,
-                        child: Container(
+              16.verticalSpace,
+
+              // Driver Card with Real-time Online Status Stream
+              StreamBuilder<bool>(
+                stream: AuthService.instance.streamUserOnlineStatus(ride.driverId),
+                initialData: ride.isDriverOnline,
+                builder: (context, snapshot) {
+                  final bool isDriverOnline = snapshot.data ?? true;
+
+                  return Column(
+                    children: [
+                      _DetailCard(
+                        icon: isDriverOnline
+                            ? CupertinoIcons.shield_lefthalf_fill
+                            : CupertinoIcons.exclamationmark_shield_fill,
+                        iconColor: isDriverOnline
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFFD97706),
+                        iconBg: isDriverOnline
+                            ? const Color(0xFFEFF6FF)
+                            : const Color(0xFFFEF3C7),
+                        title: '${ride.driverName} • Verified Driver',
+                        subtitle:
+                            '${ride.carModel} • ${ride.carPlate}\nTrust Rating ${ride.rating.toStringAsFixed(2)} ★',
+                        trailingBadge: Container(
                           padding: EdgeInsets.symmetric(
-                            horizontal: 10.w,
-                            vertical: 5.h,
+                            horizontal: 8.w,
+                            vertical: 3.h,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.95),
-                            borderRadius: BorderRadius.circular(20.r),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 6,
-                              ),
-                            ],
+                            color: isDriverOnline
+                                ? const Color(0xFFDCFCE7)
+                                : const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(10.r),
+                            border: Border.all(
+                              color: isDriverOnline
+                                  ? const Color(0xFF86EFAC)
+                                  : const Color(0xFFFECACA),
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                width: 8.w,
-                                height: 8.w,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF16A34A),
+                                width: 6.w,
+                                height: 6.w,
+                                decoration: BoxDecoration(
                                   shape: BoxShape.circle,
+                                  color: isDriverOnline
+                                      ? const Color(0xFF16A34A)
+                                      : const Color(0xFFDC2626),
                                 ),
                               ),
-                              6.horizontalSpace,
+                              5.horizontalSpace,
                               Text(
-                                'Live Corridor Preview',
+                                isDriverOnline ? 'Online' : 'Offline',
                                 style: AppTextStyle.text10Medium.copyWith(
+                                  color: isDriverOnline
+                                      ? const Color(0xFF15803D)
+                                      : const Color(0xFFB91C1C),
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.primaryTextColor,
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ),
+
+                      // Driver Offline Notice
+                      if (!isDriverOnline) ...[
+                        10.verticalSpace,
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(12.w),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(14.r),
+                            border: Border.all(
+                              color: const Color(0xFFFDE68A),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                CupertinoIcons.info_circle_fill,
+                                color: const Color(0xFFD97706),
+                                size: 16.sp,
+                              ),
+                              10.horizontalSpace,
+                              Expanded(
+                                child: Text(
+                                  'Driver is currently offline. You can still send a request, but it might take some extra time for ${ride.driverName} to accept.',
+                                  style: AppTextStyle.text12Regular.copyWith(
+                                    color: const Color(0xFF92400E),
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
-                  ),
-                ),
-              ),
-
-              16.verticalSpace,
-
-              // Driver Card
-              _DetailCard(
-                icon: CupertinoIcons.shield_lefthalf_fill,
-                iconColor: const Color(0xFF2563EB),
-                iconBg: const Color(0xFFEFF6FF),
-                title: '${ride.driverName} • Verified Driver',
-                subtitle:
-                    '${ride.carModel} • ${ride.carPlate}\nTrust Rating ${ride.rating.toStringAsFixed(2)} ★',
+                  );
+                },
               ),
 
               12.verticalSpace,
@@ -480,6 +469,7 @@ class _DetailCard extends StatelessWidget {
   final Color iconBg;
   final String title;
   final String subtitle;
+  final Widget? trailingBadge;
 
   const _DetailCard({
     required this.icon,
@@ -487,6 +477,7 @@ class _DetailCard extends StatelessWidget {
     required this.iconBg,
     required this.title,
     required this.subtitle,
+    this.trailingBadge,
   });
 
   @override
@@ -518,11 +509,20 @@ class _DetailCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: AppTextStyle.text14Semibold.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: AppTextStyle.text14Semibold.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ?trailingBadge,
+                  ],
                 ),
                 3.verticalSpace,
                 Text(
@@ -536,6 +536,278 @@ class _DetailCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RideRouteMapCard extends StatefulWidget {
+  final RideModel ride;
+
+  const _RideRouteMapCard({required this.ride});
+
+  @override
+  State<_RideRouteMapCard> createState() => _RideRouteMapCardState();
+}
+
+class _RideRouteMapCardState extends State<_RideRouteMapCard> {
+  GoogleMapController? _mapController;
+  List<LatLng> _routePoints = [];
+  late LatLng _pickup;
+  late LatLng _dropoff;
+  bool _isLoadingRoute = true;
+  BitmapDescriptor? _pickupPersonMarker;
+  BitmapDescriptor? _dropPinMarker;
+
+  @override
+  void initState() {
+    super.initState();
+    _pickup = LatLng(widget.ride.originLat, widget.ride.originLng);
+    _dropoff = LatLng(widget.ride.destinationLat, widget.ride.destinationLng);
+    _loadCustomMarkers();
+    _loadRealRoute();
+  }
+
+  Future<void> _loadCustomMarkers() async {
+    final person = await MapMarkerHelper.getPersonMarker();
+    final pin = await MapMarkerHelper.getDropPinMarker();
+    if (mounted) {
+      setState(() {
+        _pickupPersonMarker = person;
+        _dropPinMarker = pin;
+      });
+    }
+  }
+
+  Future<void> _loadRealRoute() async {
+    // If coordinates are default (Perth) or 0,0, geocode real address
+    if ((_pickup.latitude == 0.0 && _pickup.longitude == 0.0) ||
+        (_pickup.latitude == -31.8156 && _pickup.longitude == 115.8452)) {
+      final pGeo = await GooglePlacesService.instance.getCoordinatesForAddress(
+        widget.ride.origin,
+      );
+      if (pGeo != null) {
+        _pickup = LatLng(pGeo.latitude, pGeo.longitude);
+      }
+    }
+    if ((_dropoff.latitude == 0.0 && _dropoff.longitude == 0.0) ||
+        (_dropoff.latitude == -32.0044 && _dropoff.longitude == 115.8947)) {
+      final dGeo = await GooglePlacesService.instance.getCoordinatesForAddress(
+        widget.ride.destination,
+      );
+      if (dGeo != null) {
+        _dropoff = LatLng(dGeo.latitude, dGeo.longitude);
+      }
+    }
+
+    // Fetch driving directions
+    final points = await GooglePlacesService.instance.getDirectionsRoute(
+      _pickup,
+      _dropoff,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _routePoints = points;
+      _isLoadingRoute = false;
+    });
+
+    _fitBounds();
+  }
+
+  void _fitBounds() {
+    if (_mapController == null) return;
+    final allPoints =
+        _routePoints.isNotEmpty ? _routePoints : [_pickup, _dropoff];
+    double minLat = allPoints.first.latitude;
+    double maxLat = allPoints.first.latitude;
+    double minLng = allPoints.first.longitude;
+    double maxLng = allPoints.first.longitude;
+
+    for (final p in allPoints) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    if (minLat == maxLat && minLng == maxLng) {
+      minLat -= 0.01;
+      maxLat += 0.01;
+      minLng -= 0.01;
+      maxLng += 0.01;
+    }
+
+    final bounds = LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 36),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoadingRoute || _routePoints.isEmpty) {
+      return Container(
+        height: 195.h,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(24.r),
+          border: Border.all(
+            color: const Color(0xFFE2E8F0),
+            width: 1.2,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 32.w,
+                height: 32.w,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 3.0,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                ),
+              ),
+              12.verticalSpace,
+              Text(
+                'Calculating Road Route...',
+                style: AppTextStyle.text12Regular.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final LatLng midPoint = LatLng(
+      (_pickup.latitude + _dropoff.latitude) / 2,
+      (_pickup.longitude + _dropoff.longitude) / 2,
+    );
+
+    final List<LatLng> activePoints = _routePoints.isNotEmpty
+        ? _routePoints
+        : [_pickup, midPoint, _dropoff];
+
+    return Container(
+      height: 195.h,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24.r),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24.r),
+        child: Stack(
+          children: [
+            GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: midPoint,
+                zoom: 10.5,
+              ),
+              onMapCreated: (map) {
+                _mapController = map;
+                _fitBounds();
+              },
+              markers: {
+                Marker(
+                  markerId: const MarkerId('pickup'),
+                  position: _pickup,
+                  infoWindow: InfoWindow(title: 'Pickup: ${widget.ride.origin}'),
+                  icon: _pickupPersonMarker ??
+                      BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueGreen,
+                      ),
+                ),
+                Marker(
+                  markerId: const MarkerId('dropoff'),
+                  position: _dropoff,
+                  infoWindow: InfoWindow(
+                    title: 'Drop-off: ${widget.ride.destination}',
+                  ),
+                  icon: _dropPinMarker ??
+                      BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueRed,
+                      ),
+                ),
+              },
+              polylines: {
+                Polyline(
+                  polylineId: const PolylineId('route_preview'),
+                  points: activePoints,
+                  color: const Color(0xFF2563EB),
+                  width: 5,
+                ),
+              },
+              zoomControlsEnabled: false,
+              myLocationButtonEnabled: false,
+              compassEnabled: false,
+              mapToolbarEnabled: false,
+              indoorViewEnabled: false,
+            ),
+
+            // Overlay Badge to clearly denote Live Route
+            Positioned(
+              top: 12.h,
+              left: 12.w,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 10.w,
+                  vertical: 5.h,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(20.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8.w,
+                      height: 8.w,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF16A34A),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    6.horizontalSpace,
+                    Text(
+                      'Live Route Preview',
+                      style: AppTextStyle.text10Medium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

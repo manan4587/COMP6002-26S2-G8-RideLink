@@ -60,22 +60,75 @@ class SuggestedRidesPage extends GetView<PassengerDashboardController> {
               18.verticalSpace,
 
               // List of AI Suggested Rides
-              Obx(
-                () => ListView.separated(
+              Obx(() {
+                final rides = controller.filteredRides;
+                if (rides.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 20.w,
+                      vertical: 36.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(20.r),
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(16.r),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEFF6FF),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            CupertinoIcons.car_detailed,
+                            color: AppColors.primaryColor,
+                            size: 36.sp,
+                          ),
+                        ),
+                        16.verticalSpace,
+                        Text(
+                          'No Rides Available Right Now',
+                          style: AppTextStyle.text16Semibold.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        6.verticalSpace,
+                        Text(
+                          'There are currently no active driver routes matching your criteria. Check back soon or try another route!',
+                          style: AppTextStyle.text12Regular.copyWith(
+                            color: AppColors.secondaryTextColor,
+                            height: 1.4,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: controller.availableRides.length,
+                  itemCount: rides.length,
                   separatorBuilder: (context, index) => 14.verticalSpace,
                   itemBuilder: (context, index) {
-                    final ride = controller.availableRides[index];
+                    final ride = rides[index];
                     return _SuggestedRideCard(
                       ride: ride,
                       requestedSeats: controller.requestedSeats.value,
                       onView: () => controller.selectRideForDetails(ride),
                     );
                   },
-                ),
-              ),
+                );
+              }),
 
               24.verticalSpace,
             ],

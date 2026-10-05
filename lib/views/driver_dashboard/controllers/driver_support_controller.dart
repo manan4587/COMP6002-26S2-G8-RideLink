@@ -96,7 +96,11 @@ class DriverSupportController extends GetxController {
 
       loaded.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       supportTickets.assignAll(loaded);
-    });
+    },
+    onError: (err) {
+      debugPrint('[DriverSupportController] Support tickets stream error: $err');
+    },
+  );
   }
 
   // Submit Support Ticket to Firestore

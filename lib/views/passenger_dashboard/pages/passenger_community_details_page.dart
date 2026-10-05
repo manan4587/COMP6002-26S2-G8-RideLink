@@ -359,81 +359,18 @@ class PassengerCommunityDetailsPage
 
                       SizedBox(height: 28.h),
 
-                      // Action Button: Join Next Ride (gradient blue as in reference image)
-                      Container(
-                        width: double.infinity,
-                        height: 52.h,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                              blurRadius: 14,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(20.r),
-                            onTap: () {
-                              // If there is an available ride matching this community route, select it
-                              if (controller.availableRides.isNotEmpty) {
-                                final matchRide =
-                                    controller.availableRides.first;
-                                controller.selectRideForDetails(matchRide);
-                              } else {
-                                AppSnackBar.success(
-                                  message:
-                                      'Looking for upcoming rides in ${community.name}...',
-                                );
-                                controller.switchTab(1); // Jump to Search
-                                Get.back();
-                              }
-                            },
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  CupertinoIcons.checkmark_alt,
-                                  color: Colors.white,
-                                  size: 20.sp,
-                                ),
-                                SizedBox(width: 8.w),
-                                Text(
-                                  'Join Next Ride',
-                                  style: AppTextStyle.buttonText.copyWith(
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      SizedBox(height: 16.h),
-
-                      // Community membership status & action
+                      // Community membership status & dynamic action buttons
                       if (community.isJoined.value) ...[
                         // Status Banner: Member of this community
                         Container(
                           width: double.infinity,
                           padding: EdgeInsets.symmetric(
                             horizontal: 14.w,
-                            vertical: 10.h,
+                            vertical: 12.h,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFECFDF5),
-                            borderRadius: BorderRadius.circular(14.r),
+                            borderRadius: BorderRadius.circular(16.r),
                             border: Border.all(color: const Color(0xFFA7F3D0)),
                           ),
                           child: Row(
@@ -442,27 +379,91 @@ class PassengerCommunityDetailsPage
                               const Icon(
                                 CupertinoIcons.checkmark_seal_fill,
                                 color: Color(0xFF10B981),
-                                size: 18,
+                                size: 20,
                               ),
                               8.horizontalSpace,
                               Text(
                                 'You are a member of this community',
                                 style: AppTextStyle.text14Medium.copyWith(
                                   color: const Color(0xFF047857),
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        10.verticalSpace,
-                        // Leave Community Button
+
+                        14.verticalSpace,
+
+                        // Member Action: Join Next Ride
+                        Container(
+                          width: double.infinity,
+                          height: 52.h,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20.r),
+                              onTap: () {
+                                if (controller.availableRides.isNotEmpty) {
+                                  final matchRide =
+                                      controller.availableRides.first;
+                                  controller.selectRideForDetails(matchRide);
+                                } else {
+                                  AppSnackBar.success(
+                                    message:
+                                        'Looking for upcoming rides in ${community.name}...',
+                                  );
+                                  controller.switchTab(1); // Jump to Search
+                                  Get.back();
+                                }
+                              },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.checkmark_alt,
+                                    color: Colors.white,
+                                    size: 20.sp,
+                                  ),
+                                  SizedBox(width: 8.w),
+                                  Text(
+                                    'Join Next Ride',
+                                    style: AppTextStyle.buttonText.copyWith(
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        14.verticalSpace,
+
+                        // Leave Community Button (Requires Confirmation Dialog)
                         OutlinedButton.icon(
                           onPressed: () =>
-                              controller.confirmLeaveCommunity(community),
+                              controller.confirmLeaveCommunity(context, community),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFFFECACA)),
-                            minimumSize: Size(double.infinity, 46.h),
+                            minimumSize: Size(double.infinity, 48.h),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16.r),
                             ),
@@ -482,28 +483,49 @@ class PassengerCommunityDetailsPage
                           ),
                         ),
                       ] else ...[
-                        // Join Community Button
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              controller.toggleCommunityJoin(community),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF2563EB)),
-                            minimumSize: Size(double.infinity, 46.h),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16.r),
+                        // Non-Member Primary Action: Join Community Button
+                        Container(
+                          width: double.infinity,
+                          height: 52.h,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
                             ),
-                            backgroundColor: Colors.transparent,
+                            borderRadius: BorderRadius.circular(20.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          icon: Icon(
-                            CupertinoIcons.person_badge_plus,
-                            size: 18.sp,
-                            color: const Color(0xFF2563EB),
-                          ),
-                          label: Text(
-                            'Join Community',
-                            style: AppTextStyle.text14Semibold.copyWith(
-                              color: const Color(0xFF2563EB),
-                              fontWeight: FontWeight.w600,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20.r),
+                              onTap: () => controller.joinCommunity(community),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.person_badge_plus,
+                                    color: Colors.white,
+                                    size: 20.sp,
+                                  ),
+                                  SizedBox(width: 8.w),
+                                  Text(
+                                    'Join Community',
+                                    style: AppTextStyle.buttonText.copyWith(
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),

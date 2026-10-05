@@ -170,6 +170,7 @@ class PassengerDashboardController extends GetxController {
   RxString get seatsNote => searchController.seatsNote;
   RxString get selectedFilter => searchController.selectedFilter;
   RxBool get hasSearched => searchController.hasSearched;
+  RxBool get isSearching => searchController.isSearching;
   RxList<RideModel> get availableRides => searchController.availableRides;
   List<RideModel> get filteredRides => searchController.filteredRides;
   void swapLocations() => searchController.swapLocations();
@@ -178,6 +179,7 @@ class PassengerDashboardController extends GetxController {
   // -------------------------------------------------------------
   // TRIPS & BOOKINGS DELEGATES
   // -------------------------------------------------------------
+  RxBool get isLoadingBookings => tripsController.isLoadingBookings;
   RxList<PassengerPendingRequestModel> get pendingRequests =>
       tripsController.pendingRequests;
   RxList<BookingModel> get myBookings => tripsController.myBookings;
@@ -192,12 +194,10 @@ class PassengerDashboardController extends GetxController {
       tripsController.selectRideForDetails(ride);
   void requestToJoinRide(RideModel ride, {int? seats, String? notes}) =>
       tripsController.requestToJoinRide(ride, seats: seats, notes: notes);
-  void cancelPendingRequest(dynamic req) =>
-      tripsController.cancelPendingRequest(req);
-  void cancelBooking(dynamic booking) => tripsController.cancelBooking(booking);
-  void approvePendingRequest(String requestId) =>
-      tripsController.approvePendingRequest(requestId);
-  void simulateDriverApproval() => tripsController.simulateDriverApproval();
+  void cancelPendingRequest(dynamic req, {String reason = 'Cancelled by passenger'}) =>
+      tripsController.cancelPendingRequest(req, reason: reason);
+  void cancelBooking(dynamic booking, {String reason = 'Cancelled by passenger'}) =>
+      tripsController.cancelBooking(booking, reason: reason);
   void bookRide(RideModel ride, int seats) =>
       tripsController.bookRide(ride, seats);
   void rateTrip(CompletedTripModel trip, double rating, String comment) =>
@@ -219,10 +219,12 @@ class PassengerDashboardController extends GetxController {
   Rx<CommunityModel?> get selectedCommunity => communityController.selectedCommunity;
   RxList<CommunityModel> get communities => communityController.communities;
   RxBool get isCommunitiesLoading => communityController.isLoading;
+  void joinCommunity(CommunityModel comm) =>
+      communityController.joinCommunity(comm);
   void toggleCommunityJoin(CommunityModel comm) =>
       communityController.toggleCommunityJoin(comm);
-  void confirmLeaveCommunity(CommunityModel comm) =>
-      communityController.confirmLeaveCommunity(comm);
+  Future<void> confirmLeaveCommunity(BuildContext? context, CommunityModel comm) =>
+      communityController.confirmLeaveCommunity(context, comm);
   void openCommunityDetails(CommunityModel comm) =>
       communityController.openCommunityDetails(comm);
 
@@ -251,4 +253,29 @@ class PassengerDashboardController extends GetxController {
 
   void resolveSupportTicket(String ticketId) =>
       supportController.resolveSupportTicket(ticketId);
+
+  /// Cancels all active Firestore listeners across child controllers
+  void cleanupAll() {
+    if (Get.isRegistered<PassengerHomeController>()) {
+      homeController.clearState();
+    }
+    if (Get.isRegistered<PassengerTripsController>()) {
+      tripsController.clearState();
+    }
+    if (Get.isRegistered<PassengerCommunityController>()) {
+      communityController.clearState();
+    }
+    if (Get.isRegistered<PassengerSupportController>()) {
+      supportController.clearState();
+    }
+    if (Get.isRegistered<PassengerProfileController>()) {
+      profileController.clearState();
+    }
+  }
+
+  @override
+  void onClose() {
+    cleanupAll();
+    super.onClose();
+  }
 }

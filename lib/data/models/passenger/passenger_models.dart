@@ -17,16 +17,29 @@ class RideModel {
   final double originLng;
   final double destinationLat;
   final double destinationLng;
+  final double currentDriverLat;
+  final double currentDriverLng;
   final String departureTime;
   final String estimatedDuration;
   final double pricePerSeat;
   final int seatsAvailable;
   final bool isVerified;
+  final bool isDriverOnline;
   final List<String> stops;
   final int matchPercentage;
   final int detourMinutes;
   final String pickupSuggestion;
   final String dropOffPlan;
+  final bool isEnRouteMatch;
+  final double enRouteDetourKm;
+  final double? enRouteSubFare;
+  final double searchedPickupLat;
+  final double searchedPickupLng;
+  final double searchedDropLat;
+  final double searchedDropLng;
+  final String searchedPickupAddress;
+  final String searchedDropAddress;
+  final String status;
 
   RideModel({
     required this.id,
@@ -40,21 +53,116 @@ class RideModel {
     required this.carPlate,
     required this.origin,
     required this.destination,
-    this.originLat = -31.8156,
-    this.originLng = 115.8452,
-    this.destinationLat = -32.0044,
-    this.destinationLng = 115.8947,
+    this.originLat = 0.0,
+    this.originLng = 0.0,
+    this.destinationLat = 0.0,
+    this.destinationLng = 0.0,
+    this.currentDriverLat = 0.0,
+    this.currentDriverLng = 0.0,
     required this.departureTime,
     required this.estimatedDuration,
     required this.pricePerSeat,
     required this.seatsAvailable,
     this.isVerified = true,
+    this.isDriverOnline = true,
     this.stops = const [],
     this.matchPercentage = 95,
     this.detourMinutes = 4,
     this.pickupSuggestion = 'Shell Station, Landsdale',
     this.dropOffPlan = 'Landsdale → Curtin University',
+    this.isEnRouteMatch = false,
+    this.enRouteDetourKm = 0.0,
+    this.enRouteSubFare,
+    this.searchedPickupLat = 0.0,
+    this.searchedPickupLng = 0.0,
+    this.searchedDropLat = 0.0,
+    this.searchedDropLng = 0.0,
+    this.searchedPickupAddress = '',
+    this.searchedDropAddress = '',
+    this.status = 'scheduled',
   });
+
+  RideModel copyWith({
+    String? id,
+    String? driverId,
+    String? driverName,
+    String? driverAvatar,
+    String? driverPhone,
+    double? rating,
+    int? totalRides,
+    String? carModel,
+    String? carPlate,
+    String? origin,
+    String? destination,
+    double? originLat,
+    double? originLng,
+    double? destinationLat,
+    double? destinationLng,
+    double? currentDriverLat,
+    double? currentDriverLng,
+    String? departureTime,
+    String? estimatedDuration,
+    double? pricePerSeat,
+    int? seatsAvailable,
+    bool? isVerified,
+    bool? isDriverOnline,
+    List<String>? stops,
+    int? matchPercentage,
+    int? detourMinutes,
+    String? pickupSuggestion,
+    String? dropOffPlan,
+    bool? isEnRouteMatch,
+    double? enRouteDetourKm,
+    double? enRouteSubFare,
+    double? searchedPickupLat,
+    double? searchedPickupLng,
+    double? searchedDropLat,
+    double? searchedDropLng,
+    String? searchedPickupAddress,
+    String? searchedDropAddress,
+    String? status,
+  }) {
+    return RideModel(
+      id: id ?? this.id,
+      driverId: driverId ?? this.driverId,
+      driverName: driverName ?? this.driverName,
+      driverAvatar: driverAvatar ?? this.driverAvatar,
+      driverPhone: driverPhone ?? this.driverPhone,
+      rating: rating ?? this.rating,
+      totalRides: totalRides ?? this.totalRides,
+      carModel: carModel ?? this.carModel,
+      carPlate: carPlate ?? this.carPlate,
+      origin: origin ?? this.origin,
+      destination: destination ?? this.destination,
+      originLat: originLat ?? this.originLat,
+      originLng: originLng ?? this.originLng,
+      destinationLat: destinationLat ?? this.destinationLat,
+      destinationLng: destinationLng ?? this.destinationLng,
+      currentDriverLat: currentDriverLat ?? this.currentDriverLat,
+      currentDriverLng: currentDriverLng ?? this.currentDriverLng,
+      departureTime: departureTime ?? this.departureTime,
+      estimatedDuration: estimatedDuration ?? this.estimatedDuration,
+      pricePerSeat: pricePerSeat ?? this.pricePerSeat,
+      seatsAvailable: seatsAvailable ?? this.seatsAvailable,
+      isVerified: isVerified ?? this.isVerified,
+      isDriverOnline: isDriverOnline ?? this.isDriverOnline,
+      stops: stops ?? this.stops,
+      matchPercentage: matchPercentage ?? this.matchPercentage,
+      detourMinutes: detourMinutes ?? this.detourMinutes,
+      pickupSuggestion: pickupSuggestion ?? this.pickupSuggestion,
+      dropOffPlan: dropOffPlan ?? this.dropOffPlan,
+      isEnRouteMatch: isEnRouteMatch ?? this.isEnRouteMatch,
+      enRouteDetourKm: enRouteDetourKm ?? this.enRouteDetourKm,
+      enRouteSubFare: enRouteSubFare ?? this.enRouteSubFare,
+      searchedPickupLat: searchedPickupLat ?? this.searchedPickupLat,
+      searchedPickupLng: searchedPickupLng ?? this.searchedPickupLng,
+      searchedDropLat: searchedDropLat ?? this.searchedDropLat,
+      searchedDropLng: searchedDropLng ?? this.searchedDropLng,
+      searchedPickupAddress: searchedPickupAddress ?? this.searchedPickupAddress,
+      searchedDropAddress: searchedDropAddress ?? this.searchedDropAddress,
+      status: status ?? this.status,
+    );
+  }
 }
 
 class PassengerPendingRequestModel {

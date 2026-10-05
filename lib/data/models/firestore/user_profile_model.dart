@@ -11,9 +11,11 @@ class UserProfileModel {
   final int ratingCount;
   final int tripsCompleted;
   final bool isVerifiedDriver;
+  final bool isOnline;
   final VehicleInfo? vehicle;
   final List<SavedLocationItem> savedLocations;
   final List<EmergencyContactItem> emergencyContacts;
+  final Map<String, dynamic>? driverDocs;
   final String? fcmToken;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -31,9 +33,11 @@ class UserProfileModel {
     this.ratingCount = 0,
     this.tripsCompleted = 0,
     this.isVerifiedDriver = false,
+    this.isOnline = true,
     this.vehicle,
     this.savedLocations = const [],
     this.emergencyContacts = const [],
+    this.driverDocs,
     this.fcmToken,
     this.createdAt,
     this.updatedAt,
@@ -69,8 +73,8 @@ class UserProfileModel {
               (map['driverStats']?['tripsCompleted'] as num?)?.toInt() ??
               (map['tripsCompleted'] as num?)?.toInt() ??
               0,
-      isVerifiedDriver:
-          map['driverStats']?['isVerifiedDriver'] as bool? ?? false,
+      isVerifiedDriver: map['is_verified_driver'] as bool? ?? false,
+      isOnline: map['isOnline'] as bool? ?? true,
       vehicle: map['vehicle'] != null
           ? VehicleInfo.fromMap(map['vehicle'] as Map<String, dynamic>)
           : null,
@@ -83,10 +87,8 @@ class UserProfileModel {
                   EmergencyContactItem.fromMap(e as Map<String, dynamic>))
               .toList() ??
           [],
-      fcmToken: (map['fcmToken'] as String?) ??
-          ((map['fcmTokens'] is List && (map['fcmTokens'] as List).isNotEmpty)
-              ? (map['fcmTokens'] as List).first.toString()
-              : null),
+      driverDocs: null,
+      fcmToken: map['fcmToken'] as String?,
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt'].toString())
           : null,
@@ -106,13 +108,17 @@ class UserProfileModel {
       'activeRole': activeRole,
       'roles': roles,
       'isEmailVerified': isEmailVerified,
+      'isOnline': isOnline,
+      'is_verified_driver': isVerifiedDriver,
       'passengerStats': {
         'rating': rating,
         'ratingCount': ratingCount,
         'tripsCompleted': tripsCompleted,
       },
       'driverStats': {
-        'isVerifiedDriver': isVerifiedDriver,
+        'rating': rating,
+        'ratingCount': ratingCount,
+        'tripsCompleted': tripsCompleted,
       },
       if (vehicle != null) 'vehicle': vehicle!.toMap(),
       'savedLocations': savedLocations.map((e) => e.toMap()).toList(),
@@ -149,13 +155,9 @@ class VehicleInfo {
       model: map['model'] as String? ?? '',
       year: (map['year'] as num?)?.toInt() ?? 2022,
       color: map['color'] as String? ?? '',
-      licensePlate: (map['licensePlate'] ??
-              map['number'] ??
-              map['vehicleNumber'] ??
-              map['plate']) as String? ??
-          '',
+      licensePlate: map['licensePlate'] as String? ?? '',
       totalSeats: (map['totalSeats'] as num?)?.toInt() ?? 4,
-      type: (map['type'] ?? map['vehicleType']) as String? ?? 'Sedan',
+      type: map['type'] as String? ?? 'Sedan',
     );
   }
 
@@ -163,10 +165,8 @@ class VehicleInfo {
     return {
       'make': make,
       'model': model,
-      'year': year,
       'color': color,
       'licensePlate': licensePlate,
-      'totalSeats': totalSeats,
       'type': type,
     };
   }

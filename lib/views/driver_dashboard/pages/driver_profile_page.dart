@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/enums/verification_status.dart';
 import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
@@ -351,11 +352,13 @@ class DriverProfilePage extends GetView<DriverProfileController> {
               Obx(() {
                 final type = controller.vehicleType.value;
                 final plate = controller.vehicleNumber.value;
+                final color = controller.vehicleColor.value;
                 final hasVehicle =
                     (type.isNotEmpty && type != 'N/A') ||
                     (plate.isNotEmpty && plate != 'N/A');
+                final colorStr = (color.isNotEmpty && color != 'N/A') ? ' • $color' : '';
                 final subtitle = hasVehicle
-                    ? '${type != "N/A" ? type : "N/A"} • Plate ${plate != "N/A" ? plate : "N/A"}'
+                    ? '${type != "N/A" ? type : "Vehicle"} • Plate ${plate != "N/A" ? plate : "N/A"}$colorStr'
                     : 'N/A';
                 return _DriverSettingsTile(
                   icon: CupertinoIcons.car,
@@ -367,9 +370,9 @@ class DriverProfilePage extends GetView<DriverProfileController> {
               Obx(() {
                 final isVerified = controller.isVerifiedByAdmin.value;
                 final hasMissing =
-                    controller.dlStatus.value == 'Not Uploaded' ||
-                    controller.vrStatus.value == 'Not Uploaded' ||
-                    controller.viStatus.value == 'Not Uploaded';
+                    controller.dlStatus.value == DocumentVerificationStatus.notUploaded ||
+                    controller.vrStatus.value == DocumentVerificationStatus.notUploaded ||
+                    controller.viStatus.value == DocumentVerificationStatus.notUploaded;
 
                 final String subtitle = isVerified
                     ? 'All Credentials Verified by Admin'

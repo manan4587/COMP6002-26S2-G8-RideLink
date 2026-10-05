@@ -24,7 +24,7 @@ class CommunityService {
 
   /// Seed initial community documents if the collection is empty
   Future<void> seedDefaultCommunitiesIfEmpty() async {
-    if (_isSeeding) return;
+    if (_isSeeding || _auth.currentUser == null) return;
     _isSeeding = true;
     try {
       final snapshot = await _communitiesRef.limit(1).get();
@@ -163,19 +163,29 @@ class CommunityService {
 
   /// Stream all communities in real time from Firestore
   Stream<List<CommunityModel>> streamCommunities() {
+    if (_auth.currentUser == null) {
+      return const Stream.empty();
+    }
     return _communitiesRef.snapshots().asyncMap((snapshot) async {
-      if (snapshot.docs.isEmpty) {
-        await seedDefaultCommunitiesIfEmpty();
+      try {
+        if (snapshot.docs.isEmpty) {
+          if (_auth.currentUser != null) {
+            await seedDefaultCommunitiesIfEmpty();
+          }
+          return <CommunityModel>[];
+        }
+        final currentUid = _auth.currentUser?.uid;
+        return snapshot.docs.map((doc) {
+          return CommunityModel.fromMap(
+            doc.data(),
+            doc.id,
+            currentUserId: currentUid,
+          );
+        }).toList();
+      } catch (e) {
+        debugPrint('[CommunityService] Error processing communities: $e');
         return <CommunityModel>[];
       }
-      final currentUid = _auth.currentUser?.uid;
-      return snapshot.docs.map((doc) {
-        return CommunityModel.fromMap(
-          doc.data(),
-          doc.id,
-          currentUserId: currentUid,
-        );
-      }).toList();
     });
   }
 

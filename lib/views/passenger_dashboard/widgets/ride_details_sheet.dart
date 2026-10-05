@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 import 'package:ridelink/widgets/app_button.dart';
@@ -55,87 +56,162 @@ class RideDetailsSheet extends StatelessWidget {
             ),
             SizedBox(height: 16.h),
 
-            // Header: Driver Details
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 26.r,
-                  backgroundColor: const Color(0xFFEFF6FF),
-                  child: Text(
-                    ride.driverName.substring(0, 1),
-                    style: AppTextStyle.text18Semibold.copyWith(
-                      color: AppColors.primaryColor,
+            // Header: Driver Details with Real-time Online Indicator
+            StreamBuilder<bool>(
+              stream: AuthService.instance.streamUserOnlineStatus(ride.driverId),
+              initialData: ride.isDriverOnline,
+              builder: (context, snapshot) {
+                final bool isDriverOnline = snapshot.data ?? true;
+
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 26.r,
+                              backgroundColor: const Color(0xFFEFF6FF),
+                              child: Text(
+                                ride.driverName.isNotEmpty
+                                    ? ride.driverName.substring(0, 1)
+                                    : 'D',
+                                style: AppTextStyle.text18Semibold.copyWith(
+                                  color: AppColors.primaryColor,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 14.r,
+                                height: 14.r,
+                                decoration: BoxDecoration(
+                                  color: isDriverOnline
+                                      ? const Color(0xFF16A34A)
+                                      : const Color(0xFFDC2626),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    ride.driverName,
+                                    style: AppTextStyle.text16Semibold,
+                                  ),
+                                  SizedBox(width: 6.w),
+                                  if (ride.isVerified)
+                                    Icon(
+                                      Icons.verified,
+                                      size: 16.sp,
+                                      color: AppColors.primaryColor,
+                                    ),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.star,
+                                    size: 14.sp,
+                                    color: const Color(0xFFFFB900),
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    '${ride.rating} (${ride.totalRides} trips) • ${isDriverOnline ? 'Online' : 'Offline'}',
+                                    style: AppTextStyle.text12Regular.copyWith(
+                                      color: isDriverOnline
+                                          ? const Color(0xFF16A34A)
+                                          : const Color(0xFFDC2626),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 10.w,
+                            vertical: 6.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(color: AppColors.borderColor),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                '\$${ride.pricePerSeat.toStringAsFixed(0)}',
+                                style: AppTextStyle.text18Semibold.copyWith(
+                                  color: AppColors.primaryColor,
+                                ),
+                              ),
+                              Text(
+                                'per seat',
+                                style: AppTextStyle.text10Medium.copyWith(
+                                  color: AppColors.secondaryTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            ride.driverName,
-                            style: AppTextStyle.text16Semibold,
+
+                    if (!isDriverOnline) ...[
+                      12.verticalSpace,
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(
+                            color: const Color(0xFFFDE68A),
+                            width: 1,
                           ),
-                          SizedBox(width: 6.w),
-                          if (ride.isVerified)
+                        ),
+                        child: Row(
+                          children: [
                             Icon(
-                              Icons.verified,
-                              size: 16.sp,
-                              color: AppColors.primaryColor,
+                              CupertinoIcons.info_circle_fill,
+                              color: const Color(0xFFD97706),
+                              size: 15.sp,
                             ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.star,
-                            size: 14.sp,
-                            color: const Color(0xFFFFB900),
-                          ),
-                          SizedBox(width: 4.w),
-                          Text(
-                            '${ride.rating} (${ride.totalRides} trips)',
-                            style: AppTextStyle.text12Regular.copyWith(
-                              color: AppColors.secondaryTextColor,
+                            8.horizontalSpace,
+                            Expanded(
+                              child: Text(
+                                'Driver is currently offline. Your request will notify them, but approval may take slightly longer.',
+                                style: AppTextStyle.text12Regular.copyWith(
+                                  color: const Color(0xFF92400E),
+                                  height: 1.3,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 10.w,
-                    vertical: 6.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(color: AppColors.borderColor),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        '\$${ride.pricePerSeat.toStringAsFixed(0)}',
-                        style: AppTextStyle.text18Semibold.copyWith(
-                          color: AppColors.primaryColor,
-                        ),
-                      ),
-                      Text(
-                        'per seat',
-                        style: AppTextStyle.text10Medium.copyWith(
-                          color: AppColors.secondaryTextColor,
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
+
 
             SizedBox(height: 18.h),
             const Divider(color: AppColors.borderColor, height: 1),
@@ -287,6 +363,48 @@ class RideDetailsSheet extends StatelessWidget {
               ),
             ],
 
+            if (ride.isEnRouteMatch) ...[
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(14.r),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.alt_route_rounded,
+                      color: Color(0xFF16A34A),
+                      size: 20,
+                    ),
+                    10.horizontalSpace,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'En-Route Ride Corridor',
+                            style: AppTextStyle.text12Semibold.copyWith(
+                              color: const Color(0xFF15803D),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Driver picks you up along their way (~${ride.detourMinutes} min detour). Proportional sub-route fare applies.',
+                            style: AppTextStyle.text10Medium.copyWith(
+                              color: const Color(0xFF166534),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              14.verticalSpace,
+            ],
+
             SizedBox(height: 20.h),
             const Divider(color: AppColors.borderColor, height: 1),
             SizedBox(height: 16.h),
@@ -342,7 +460,10 @@ class RideDetailsSheet extends StatelessWidget {
 
             // Total Price Calculation Card
             Obx(() {
-              final double total = ride.pricePerSeat * selectedSeats.value;
+              final double seatPrice = (ride.isEnRouteMatch && ride.enRouteSubFare != null)
+                  ? ride.enRouteSubFare!
+                  : ride.pricePerSeat;
+              final double total = seatPrice * selectedSeats.value;
               return Container(
                 padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
                 decoration: BoxDecoration(
@@ -360,7 +481,9 @@ class RideDetailsSheet extends StatelessWidget {
                     Text(
                       '\$${total.toStringAsFixed(2)}',
                       style: AppTextStyle.text18Semibold.copyWith(
-                        color: AppColors.primaryColor,
+                        color: (ride.isEnRouteMatch && ride.enRouteSubFare != null)
+                            ? const Color(0xFF16A34A)
+                            : AppColors.primaryColor,
                       ),
                     ),
                   ],
@@ -373,6 +496,7 @@ class RideDetailsSheet extends StatelessWidget {
             // Book Button
             AppButton(
               onPressed: () {
+                Navigator.of(context).pop();
                 controller.bookRide(ride, selectedSeats.value);
               },
               label: 'Confirm & Book Seat',

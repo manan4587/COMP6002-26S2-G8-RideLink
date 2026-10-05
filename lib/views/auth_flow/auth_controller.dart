@@ -1,16 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/enums/user_type.dart';
 import 'package:ridelink/core/services/notification_service.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/preferences.dart';
-import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/core/utils/validation_mixin.dart';
 import 'package:ridelink/data/repositories/auth_repository.dart';
 import 'package:ridelink/data/services/auth_service.dart';
@@ -21,6 +19,7 @@ import 'package:ridelink/views/driver_dashboard/controllers/driver_profile_contr
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 import 'package:ridelink/widgets/app_button.dart';
 import 'package:ridelink/widgets/app_text_field.dart';
+import 'package:ridelink/widgets/document_upload_picker_sheet.dart';
 
 class AuthController extends GetxController with ValidationMixin {
   final TextEditingController fullNameController = TextEditingController();
@@ -48,22 +47,30 @@ class AuthController extends GetxController with ValidationMixin {
   final RxBool isLoginPasswordVisible = false.obs;
   final RxBool isSignupPasswordVisible = false.obs;
 
-  // Driver verification documents (file name, base64 string & local file path)
+  // Driver verification documents (file name & file path/URL & status)
   final RxString drivingLicencePath = ''.obs;
-  final RxString drivingLicenceBase64 = ''.obs;
   final RxString drivingLicenceFilePath = ''.obs;
+  final Rx<DocumentVerificationStatus> drivingLicenceStatus =
+      DocumentVerificationStatus.notUploaded.obs;
 
   final RxString vehicleRegistrationPath = ''.obs;
-  final RxString vehicleRegistrationBase64 = ''.obs;
   final RxString vehicleRegistrationFilePath = ''.obs;
+  final Rx<DocumentVerificationStatus> vehicleRegistrationStatus =
+      DocumentVerificationStatus.notUploaded.obs;
 
   final RxString vehicleInsurancePath = ''.obs;
-  final RxString vehicleInsuranceBase64 = ''.obs;
   final RxString vehicleInsuranceFilePath = ''.obs;
+  final Rx<DocumentVerificationStatus> vehicleInsuranceStatus =
+      DocumentVerificationStatus.notUploaded.obs;
 
   final RxString policeCheckPath = ''.obs;
-  final RxString policeCheckBase64 = ''.obs;
   final RxString policeCheckFilePath = ''.obs;
+  final Rx<DocumentVerificationStatus> policeCheckStatus =
+      DocumentVerificationStatus.optional.obs;
+
+  // Track documents currently uploading to prevent duplicate uploads and show loaders
+  final RxSet<String> uploadingDocIds = <String>{}.obs;
+  bool isDocUploading(String docId) => uploadingDocIds.contains(docId);
 
   final AuthRepository authRepository = AuthRepository();
   final AuthService _authService = AuthService.instance;
@@ -96,17 +103,17 @@ class AuthController extends GetxController with ValidationMixin {
     vehicleColorController.clear();
     vehicleSeats.value = 4;
     drivingLicencePath.value = '';
-    drivingLicenceBase64.value = '';
     drivingLicenceFilePath.value = '';
+    drivingLicenceStatus.value = DocumentVerificationStatus.notUploaded;
     vehicleRegistrationPath.value = '';
-    vehicleRegistrationBase64.value = '';
     vehicleRegistrationFilePath.value = '';
+    vehicleRegistrationStatus.value = DocumentVerificationStatus.notUploaded;
     vehicleInsurancePath.value = '';
-    vehicleInsuranceBase64.value = '';
     vehicleInsuranceFilePath.value = '';
+    vehicleInsuranceStatus.value = DocumentVerificationStatus.notUploaded;
     policeCheckPath.value = '';
-    policeCheckBase64.value = '';
     policeCheckFilePath.value = '';
+    policeCheckStatus.value = DocumentVerificationStatus.optional;
     selectedUserType.value = UserType.passenger;
     isLoading.value = false;
     isGoogleLoading.value = false;
@@ -571,180 +578,118 @@ class AuthController extends GetxController with ValidationMixin {
     }
   }
 
-  Future<void> _pickDocumentImage({
+  Future<void> _pickAndUploadDocument({
     required String title,
-    required void Function(String fileName, String base64, String filePath)
-        onSelected,
+    required String docId,
+    required RxString pathObs,
+    required RxString filePathObs,
+    required Rx<DocumentVerificationStatus> statusObs,
   }) async {
-    Get.bottomSheet(
-      Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40.w,
-                  height: 4.h,
-                  margin: EdgeInsets.only(bottom: 16.h),
-                  decoration: BoxDecoration(
-                    color: AppColors.hintTextColor.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2.r),
-                  ),
-                ),
-              ),
-              Text(
-                'Upload $title',
-                style: AppTextStyle.text18Semibold.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              8.verticalSpace,
-              Text(
-                'Please provide a clear and legible photo or scan of your $title.',
-                style: AppTextStyle.text12Regular.copyWith(
-                  color: AppColors.secondaryTextColor,
-                ),
-              ),
-              16.verticalSpace,
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  padding: EdgeInsets.all(10.r),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryColor.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    CupertinoIcons.camera_fill,
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-                title: Text(
-                  'Take Photo',
-                  style: AppTextStyle.text14Medium,
-                ),
-                subtitle: Text(
-                  'Use your camera to take a photo',
-                  style: AppTextStyle.text10Regular.copyWith(
-                    color: AppColors.secondaryTextColor,
-                  ),
-                ),
-                onTap: () async {
-                  Get.back();
-                  final image = await Utils.pickImage(ImageSource.camera);
-                  if (image != null && image.path.isNotEmpty) {
-                    final base64 = await Utils.xFileToBase64(image);
-                    final name = image.name.isNotEmpty
-                        ? image.name
-                        : '${title.toLowerCase().replaceAll(' ', '_')}.jpg';
-                    onSelected(name, base64 ?? '', image.path);
-                    AppSnackBar.success(message: '$title photo attached.');
-                  }
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  padding: EdgeInsets.all(10.r),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryColor.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    CupertinoIcons.photo_fill,
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-                title: Text(
-                  'Choose from Gallery',
-                  style: AppTextStyle.text14Medium,
-                ),
-                subtitle: Text(
-                  'Upload an image from your photo library',
-                  style: AppTextStyle.text10Regular.copyWith(
-                    color: AppColors.secondaryTextColor,
-                  ),
-                ),
-                onTap: () async {
-                  Get.back();
-                  final image = await Utils.pickImage(ImageSource.gallery);
-                  if (image != null && image.path.isNotEmpty) {
-                    final base64 = await Utils.xFileToBase64(image);
-                    final name = image.name.isNotEmpty
-                        ? image.name
-                        : '${title.toLowerCase().replaceAll(' ', '_')}.jpg';
-                    onSelected(name, base64 ?? '', image.path);
-                    AppSnackBar.success(message: '$title photo attached.');
-                  }
-                },
-              ),
-              12.verticalSpace,
-            ],
-          ),
-        ),
-      ),
-      isScrollControlled: true,
+    if (statusObs.value.isVerified) {
+      AppSnackBar.info(
+        message: '$title has already been verified and cannot be changed.',
+      );
+      return;
+    }
+    if (isDocUploading(docId)) {
+      AppSnackBar.info(message: 'Document is already uploading. Please wait.');
+      return;
+    }
+
+    await DocumentUploadPickerSheet.show(
+      title: title,
+      onSelected: (fileName, filePath) async {
+        pathObs.value = fileName;
+        filePathObs.value = filePath;
+
+        final user = _authService.currentUser;
+        if (user != null) {
+          try {
+            uploadingDocIds.add(docId);
+            AppSnackBar.info(message: 'Uploading $title to Firebase Storage...');
+
+            final downloadUrl = await DriverVerificationService.instance
+                .uploadDriverDocument(
+                  userId: user.uid,
+                  docType: docId,
+                  title: title,
+                  fileName: fileName,
+                  file: File(filePath),
+                  status: DocumentVerificationStatus.pending.value,
+                );
+
+            if (downloadUrl.isNotEmpty) {
+              statusObs.value = DocumentVerificationStatus.pending;
+              AppSnackBar.success(message: '$title uploaded successfully.');
+
+              if (Get.isRegistered<DriverProfileController>()) {
+                Get.find<DriverProfileController>().reloadProfile();
+              }
+            }
+          } catch (e) {
+            AppSnackBar.error(message: 'Failed to upload $title: $e');
+          } finally {
+            uploadingDocIds.remove(docId);
+          }
+        } else {
+          statusObs.value = DocumentVerificationStatus.pending;
+          AppSnackBar.success(message: '$title photo attached.');
+        }
+      },
     );
   }
 
   Future<void> onSelectDrivingLicence() async {
-    await _pickDocumentImage(
+    await _pickAndUploadDocument(
       title: 'Driving Licence',
-      onSelected: (fileName, base64, filePath) {
-        drivingLicencePath.value = fileName;
-        drivingLicenceBase64.value = base64;
-        drivingLicenceFilePath.value = filePath;
-      },
+      docId: DriverDocumentId.drivingLicence,
+      pathObs: drivingLicencePath,
+      filePathObs: drivingLicenceFilePath,
+      statusObs: drivingLicenceStatus,
     );
   }
 
   Future<void> onSelectVehicleRegistration() async {
-    await _pickDocumentImage(
+    await _pickAndUploadDocument(
       title: 'Vehicle Registration',
-      onSelected: (fileName, base64, filePath) {
-        vehicleRegistrationPath.value = fileName;
-        vehicleRegistrationBase64.value = base64;
-        vehicleRegistrationFilePath.value = filePath;
-      },
+      docId: DriverDocumentId.vehicleRegistration,
+      pathObs: vehicleRegistrationPath,
+      filePathObs: vehicleRegistrationFilePath,
+      statusObs: vehicleRegistrationStatus,
     );
   }
 
   Future<void> onSelectVehicleInsurance() async {
-    await _pickDocumentImage(
+    await _pickAndUploadDocument(
       title: 'Vehicle Insurance',
-      onSelected: (fileName, base64, filePath) {
-        vehicleInsurancePath.value = fileName;
-        vehicleInsuranceBase64.value = base64;
-        vehicleInsuranceFilePath.value = filePath;
-      },
+      docId: DriverDocumentId.vehicleInsurance,
+      pathObs: vehicleInsurancePath,
+      filePathObs: vehicleInsuranceFilePath,
+      statusObs: vehicleInsuranceStatus,
     );
   }
 
   Future<void> onSelectPoliceCheck() async {
-    await _pickDocumentImage(
+    await _pickAndUploadDocument(
       title: 'Police Check',
-      onSelected: (fileName, base64, filePath) {
-        policeCheckPath.value = fileName;
-        policeCheckBase64.value = base64;
-        policeCheckFilePath.value = filePath;
-      },
+      docId: DriverDocumentId.policeCheck,
+      pathObs: policeCheckPath,
+      filePathObs: policeCheckFilePath,
+      statusObs: policeCheckStatus,
     );
   }
 
   Future<void> onSubmitForVerification() async {
-    if ((drivingLicenceBase64.value.isEmpty &&
-            drivingLicenceFilePath.value.isEmpty) ||
-        (vehicleRegistrationBase64.value.isEmpty &&
-            vehicleRegistrationFilePath.value.isEmpty) ||
-        (vehicleInsuranceBase64.value.isEmpty &&
-            vehicleInsuranceFilePath.value.isEmpty)) {
+    if (uploadingDocIds.isNotEmpty) {
+      AppSnackBar.warning(
+        message: 'Please wait until document upload finishes.',
+      );
+      return;
+    }
+
+    if (drivingLicenceFilePath.value.isEmpty ||
+        vehicleRegistrationFilePath.value.isEmpty ||
+        vehicleInsuranceFilePath.value.isEmpty) {
       AppSnackBar.warning(
         message:
             'Please attach Driving Licence, Vehicle Registration, and Vehicle Insurance before submitting.',
@@ -763,59 +708,75 @@ class AuthController extends GetxController with ValidationMixin {
       isLoading.value = true;
 
       final Map<String, Map<String, dynamic>> docs = {
-        'driving_licence': {
-          'title': 'Driving Licence (DL)',
+        DriverDocumentId.drivingLicence: {
+          'title': 'Driving Licence',
           'fileName': drivingLicencePath.value,
-          'base64': drivingLicenceBase64.value,
           'filePath': drivingLicenceFilePath.value,
         },
-        'vehicle_registration': {
-          'title': 'Vehicle Registration (VR)',
+        DriverDocumentId.vehicleRegistration: {
+          'title': 'Vehicle Registration',
           'fileName': vehicleRegistrationPath.value,
-          'base64': vehicleRegistrationBase64.value,
           'filePath': vehicleRegistrationFilePath.value,
         },
-        'vehicle_insurance': {
-          'title': 'Vehicle Insurance (VI)',
+        DriverDocumentId.vehicleInsurance: {
+          'title': 'Vehicle Insurance',
           'fileName': vehicleInsurancePath.value,
-          'base64': vehicleInsuranceBase64.value,
           'filePath': vehicleInsuranceFilePath.value,
         },
       };
 
-      if (policeCheckBase64.value.isNotEmpty ||
-          policeCheckFilePath.value.isNotEmpty) {
-        docs['police_check'] = {
-          'title': 'Police Check (PC)',
+      if (policeCheckFilePath.value.isNotEmpty) {
+        docs[DriverDocumentId.policeCheck] = {
+          'title': 'Police Check',
           'fileName': policeCheckPath.value,
-          'base64': policeCheckBase64.value,
           'filePath': policeCheckFilePath.value,
         };
       }
 
-      final vehicleInfo = {
-        'make': vehicleMakeModelController.text.trim(),
-        'model': vehicleMakeModelController.text.trim(),
-        'licensePlate': vehiclePlateController.text.trim(),
-        'color': vehicleColorController.text.trim(),
-        'totalSeats': vehicleSeats.value,
-        'year': 2022,
-      };
+      final plate = vehiclePlateController.text.trim();
+      final makeModel = vehicleMakeModelController.text.trim();
+      final color = vehicleColorController.text.trim();
+
+      final Map<String, dynamic> vehicleInfo = {};
+      if (plate.isNotEmpty) {
+        vehicleInfo['licensePlate'] = plate;
+      }
+      if (makeModel.isNotEmpty) {
+        vehicleInfo['make'] = makeModel;
+        vehicleInfo['model'] = makeModel;
+      }
+      if (color.isNotEmpty) {
+        vehicleInfo['color'] = color;
+      }
+      if (vehicleInfo.isNotEmpty) {
+        vehicleInfo['type'] = 'Sedan';
+      }
 
       await DriverVerificationService.instance.submitAllDriverDocuments(
         userId: uid,
         documents: docs,
-        vehicleInfo: vehicleInfo,
+        vehicleInfo: vehicleInfo.isNotEmpty ? vehicleInfo : null,
       );
 
       // Update in-memory driver profile if already registered
       if (Get.isRegistered<DriverProfileController>()) {
         final driverProfileCtrl = Get.find<DriverProfileController>();
-        driverProfileCtrl.updateVehicleInfo(
-          number: vehiclePlateController.text.trim(),
-          type: 'Sedan (${vehicleSeats.value} seats)',
-          model: vehicleMakeModelController.text.trim(),
-        );
+        if (plate.isNotEmpty) {
+          driverProfileCtrl.updateVehicleInfo(
+            number: plate,
+            type: 'Sedan',
+            model: makeModel,
+            color: color,
+          );
+        }
+        driverProfileCtrl.reloadProfile();
+      }
+
+      drivingLicenceStatus.value = DocumentVerificationStatus.pending;
+      vehicleRegistrationStatus.value = DocumentVerificationStatus.pending;
+      vehicleInsuranceStatus.value = DocumentVerificationStatus.pending;
+      if (policeCheckFilePath.value.isNotEmpty) {
+        policeCheckStatus.value = DocumentVerificationStatus.pending;
       }
 
       AppSnackBar.success(
@@ -830,6 +791,79 @@ class AuthController extends GetxController with ValidationMixin {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> loadExistingDriverDocuments() async {
+    final user = _authService.currentUser;
+    if (user == null) return;
+    try {
+      final docs =
+          await DriverVerificationService.instance.getDriverDocs(user.uid);
+      if (docs.isEmpty) return;
+
+      for (final entry in docs.entries) {
+        final key = entry.key;
+        final val = entry.value;
+        String fileName = '';
+        String url = '';
+        String rawStatus = 'pending';
+        if (val is Map) {
+          fileName = val['file_name']?.toString() ??
+              val['fileName']?.toString() ??
+              '';
+          url = val['file_url']?.toString() ??
+              val['downloadUrl']?.toString() ??
+              '';
+          rawStatus = val['status']?.toString() ?? 'pending';
+        } else if (val is String) {
+          url = val;
+        }
+
+        final status = DocumentVerificationStatus.fromString(rawStatus);
+
+        if (key == DriverDocumentId.drivingLicence) {
+          if (drivingLicencePath.value.isEmpty && fileName.isNotEmpty) {
+            drivingLicencePath.value = fileName;
+          }
+          if (drivingLicenceFilePath.value.isEmpty && url.isNotEmpty) {
+            drivingLicenceFilePath.value = url;
+          }
+          if (url.isNotEmpty) {
+            drivingLicenceStatus.value = status;
+          }
+        } else if (key == DriverDocumentId.vehicleRegistration) {
+          if (vehicleRegistrationPath.value.isEmpty && fileName.isNotEmpty) {
+            vehicleRegistrationPath.value = fileName;
+          }
+          if (vehicleRegistrationFilePath.value.isEmpty && url.isNotEmpty) {
+            vehicleRegistrationFilePath.value = url;
+          }
+          if (url.isNotEmpty) {
+            vehicleRegistrationStatus.value = status;
+          }
+        } else if (key == DriverDocumentId.vehicleInsurance) {
+          if (vehicleInsurancePath.value.isEmpty && fileName.isNotEmpty) {
+            vehicleInsurancePath.value = fileName;
+          }
+          if (vehicleInsuranceFilePath.value.isEmpty && url.isNotEmpty) {
+            vehicleInsuranceFilePath.value = url;
+          }
+          if (url.isNotEmpty) {
+            vehicleInsuranceStatus.value = status;
+          }
+        } else if (key == DriverDocumentId.policeCheck) {
+          if (policeCheckPath.value.isEmpty && fileName.isNotEmpty) {
+            policeCheckPath.value = fileName;
+          }
+          if (policeCheckFilePath.value.isEmpty && url.isNotEmpty) {
+            policeCheckFilePath.value = url;
+          }
+          if (url.isNotEmpty) {
+            policeCheckStatus.value = status;
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> onSkipDriverVerification() async {

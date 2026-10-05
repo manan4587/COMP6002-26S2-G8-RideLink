@@ -47,18 +47,8 @@ class _RideChatPageState extends State<RideChatPage> {
 
   StreamSubscription? _chatSubscription;
 
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      text: 'Hi there! I am heading towards your pickup location now.',
-      isMe: false,
-      time: '08:14 AM',
-    ),
-    ChatMessage(
-      text: 'Thanks! I am waiting near the Shell station entrance.',
-      isMe: true,
-      time: '08:16 AM',
-    ),
-  ];
+  final List<ChatMessage> _messages = [];
+  bool _isLoading = true;
 
   final List<String> _quickReplies = [
     'I am at the pickup point',
@@ -80,15 +70,19 @@ class _RideChatPageState extends State<RideChatPage> {
   }
 
   void _subscribeToTripChat() {
-    if (_tripId.isEmpty || _tripId == 'trip_general') return;
+    if (_tripId.isEmpty || _tripId == 'trip_general') {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
 
     _chatSubscription =
         TripService.instance.streamTripChatMessages(_tripId).listen((list) {
-      if (list.isEmpty) return;
-
       final myUid = AuthService.instance.currentUser?.uid;
       final loaded = list.map((m) {
-        final isMe = m.senderRole == 'passenger' || (myUid != null && m.senderId == myUid);
+        final isMe =
+            m.senderRole == 'passenger' || (myUid != null && m.senderId == myUid);
         final hour = m.timestamp.hour.toString().padLeft(2, '0');
         final minute = m.timestamp.minute.toString().padLeft(2, '0');
         return ChatMessage(
@@ -102,8 +96,15 @@ class _RideChatPageState extends State<RideChatPage> {
         setState(() {
           _messages.clear();
           _messages.addAll(loaded);
+          _isLoading = false;
         });
         _scrollToBottom();
+      }
+    }, onError: (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     });
   }
@@ -288,16 +289,74 @@ class _RideChatPageState extends State<RideChatPage> {
 
             // Message List
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final msg = _messages[index];
-                  return _buildMessageBubble(msg);
-                },
-              ),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primaryColor,
+                      ),
+                    )
+                  : _messages.isEmpty
+                      ? Center(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 32.w),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 64.r,
+                                    height: 64.r,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFDBEAFE),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      CupertinoIcons.chat_bubble_2_fill,
+                                      color: AppColors.primaryColor,
+                                      size: 30,
+                                    ),
+                                  ),
+                                  14.verticalSpace,
+                                  Text(
+                                    'No messages yet',
+                                    style: AppTextStyle.text16Semibold.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  6.verticalSpace,
+                                  Text(
+                                    'Send a quick note or tap one of the suggested messages below to coordinate pickup with $_driverName.',
+                                    textAlign: TextAlign.center,
+                                    style: AppTextStyle.text12Regular.copyWith(
+                                      color: const Color(0xFF64748B),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16.w,
+                            vertical: 14.h,
+                          ),
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final msg = _messages[index];
+                            return _buildMessageBubble(msg);
+                          },
+                        ),
             ),
 
             // Quick Reply Suggestions

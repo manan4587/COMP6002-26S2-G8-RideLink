@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,14 +7,31 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_assets.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
-import 'package:ridelink/core/utils/utils.dart';
+import 'package:ridelink/core/enums/verification_status.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/auth_flow/auth_controller.dart';
 import 'package:ridelink/widgets/app_button.dart';
 import 'package:ridelink/widgets/app_main_container.dart';
 
-class DriverVerificationUploadView extends GetView<AuthController> {
+class DriverVerificationUploadView extends StatefulWidget {
   const DriverVerificationUploadView({super.key});
+
+  @override
+  State<DriverVerificationUploadView> createState() =>
+      _DriverVerificationUploadViewState();
+}
+
+class _DriverVerificationUploadViewState
+    extends State<DriverVerificationUploadView> {
+  final AuthController controller = Get.find<AuthController>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.loadExistingDriverDocuments();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,10 +136,11 @@ class DriverVerificationUploadView extends GetView<AuthController> {
                     icon: AppAssets.drivingLicense,
                     isRequired: true,
                     uploadedFileName: controller.drivingLicencePath.value,
-                    base64Data: controller.drivingLicenceBase64.value,
-                    status: controller.drivingLicenceBase64.value.isNotEmpty
-                        ? 'In Review'
-                        : 'Not Uploaded',
+                    filePath: controller.drivingLicenceFilePath.value,
+                    status: controller.drivingLicenceStatus.value,
+                    isUploading: controller.isDocUploading(
+                      DriverDocumentId.drivingLicence,
+                    ),
                     onTap: controller.onSelectDrivingLicence,
                   ),
                 ),
@@ -133,10 +153,11 @@ class DriverVerificationUploadView extends GetView<AuthController> {
                     icon: AppAssets.vehicleRegistration,
                     isRequired: true,
                     uploadedFileName: controller.vehicleRegistrationPath.value,
-                    base64Data: controller.vehicleRegistrationBase64.value,
-                    status: controller.vehicleRegistrationBase64.value.isNotEmpty
-                        ? 'In Review'
-                        : 'Not Uploaded',
+                    filePath: controller.vehicleRegistrationFilePath.value,
+                    status: controller.vehicleRegistrationStatus.value,
+                    isUploading: controller.isDocUploading(
+                      DriverDocumentId.vehicleRegistration,
+                    ),
                     onTap: controller.onSelectVehicleRegistration,
                   ),
                 ),
@@ -149,10 +170,11 @@ class DriverVerificationUploadView extends GetView<AuthController> {
                     icon: AppAssets.vehicleInsurance,
                     isRequired: true,
                     uploadedFileName: controller.vehicleInsurancePath.value,
-                    base64Data: controller.vehicleInsuranceBase64.value,
-                    status: controller.vehicleInsuranceBase64.value.isNotEmpty
-                        ? 'In Review'
-                        : 'Not Uploaded',
+                    filePath: controller.vehicleInsuranceFilePath.value,
+                    status: controller.vehicleInsuranceStatus.value,
+                    isUploading: controller.isDocUploading(
+                      DriverDocumentId.vehicleInsurance,
+                    ),
                     onTap: controller.onSelectVehicleInsurance,
                   ),
                 ),
@@ -165,10 +187,11 @@ class DriverVerificationUploadView extends GetView<AuthController> {
                     icon: AppAssets.policCheck,
                     isRequired: false,
                     uploadedFileName: controller.policeCheckPath.value,
-                    base64Data: controller.policeCheckBase64.value,
-                    status: controller.policeCheckBase64.value.isNotEmpty
-                        ? 'In Review'
-                        : 'Not Uploaded',
+                    filePath: controller.policeCheckFilePath.value,
+                    status: controller.policeCheckStatus.value,
+                    isUploading: controller.isDocUploading(
+                      DriverDocumentId.policeCheck,
+                    ),
                     onTap: controller.onSelectPoliceCheck,
                   ),
                 ),
@@ -298,8 +321,9 @@ class _DriverDocsUploadCard extends StatelessWidget {
     required this.icon,
     required this.isRequired,
     required this.uploadedFileName,
-    this.base64Data,
-    this.status,
+    this.filePath,
+    required this.status,
+    this.isUploading = false,
     required this.onTap,
   });
 
@@ -308,219 +332,385 @@ class _DriverDocsUploadCard extends StatelessWidget {
   final String icon;
   final bool isRequired;
   final String uploadedFileName;
-  final String? base64Data;
-  final String? status;
+  final String? filePath;
+  final DocumentVerificationStatus status;
+  final bool isUploading;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final bool isUploaded = uploadedFileName.isNotEmpty;
-    final bool hasBase64 = base64Data != null && base64Data!.isNotEmpty;
-    final String normStatus = (status ?? '').trim().toLowerCase();
-    final bool isInReview =
-        isUploaded && (normStatus == 'pending' || normStatus == 'in review');
+    final bool hasFile = filePath != null && filePath!.isNotEmpty;
+    final bool isApproved = status.isVerified;
+    final bool isRejected = status.isRejected;
+    final bool isInReview = status.isPending;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(
-          width: isUploaded ? 1.5 : 1.2,
-          color: isInReview
-              ? const Color(0xFFF59E0B)
-              : (isUploaded ? const Color(0xFF10B981) : AppColors.borderColor),
-        ),
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: isInReview
-                ? const Color(0xFFF59E0B).withValues(alpha: 0.06)
-                : (isUploaded
-                      ? const Color(0xFF10B981).withValues(alpha: 0.06)
-                      : AppColors.primaryTextColor.withValues(alpha: 0.02)),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+    final Color borderColor = status.cardBorderColor;
+    final Color shadowColor = status.cardShadowColor;
+
+    return GestureDetector(
+      onTap: (isUploading || isApproved) ? null : onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          border: Border.all(
+            width: isApproved || isRejected || isInReview ? 1.5 : 1.2,
+            color: borderColor,
           ),
-        ],
-      ),
-      padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 14.w),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              // Icon Badge or Document Preview
-              if (hasBase64)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10.r),
-                  child: SizedBox(
-                    height: 48.h,
-                    width: 48.w,
-                    child: Utils.imageFromBase64(
-                      base64Data!,
-                      fit: BoxFit.cover,
-                      errorWidget: Container(
-                        color: const Color(0xFFECFDF5),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.description_rounded,
-                          color: Color(0xFF059669),
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-              else
-                Container(
-                  height: 42.h,
-                  width: 42.w,
-                  padding: EdgeInsets.all(9.r),
-                  decoration: BoxDecoration(
-                    color: isUploaded
-                        ? const Color(0xFFECFDF5)
-                        : const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(
-                      color: isUploaded
-                          ? const Color(0xFF10B981).withValues(alpha: 0.3)
-                          : AppColors.borderColor,
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: SvgPicture.asset(
-                    icon,
-                    colorFilter: ColorFilter.mode(
-                      isUploaded
-                          ? const Color(0xFF059669)
-                          : AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ),
-              12.horizontalSpace,
-
-              // Labels
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            label,
-                            style: AppTextStyle.text14Semibold.copyWith(
-                              color: AppColors.primaryTextColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        8.horizontalSpace,
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 6.w,
-                            vertical: 2.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isRequired
-                                ? const Color(0xFFEFF6FF)
-                                : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(6.r),
-                          ),
-                          child: Text(
-                            isRequired ? 'Required' : 'Optional',
-                            style: AppTextStyle.text10Medium.copyWith(
-                              color: isRequired
-                                  ? AppColors.primaryColor
-                                  : AppColors.secondaryTextColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        if (isInReview) ...[
-                          6.horizontalSpace,
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6.w,
-                              vertical: 2.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(6.r),
-                              border: Border.all(
-                                color: const Color(0xFFFDE68A),
-                                width: 0.8,
+          borderRadius: BorderRadius.circular(16.r),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 14.w),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                // Icon Badge or Document Preview
+                if (hasFile)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10.r),
+                    child: SizedBox(
+                      height: 48.h,
+                      width: 48.w,
+                      child: filePath!.startsWith('http://') ||
+                              filePath!.startsWith('https://')
+                          ? Image.network(
+                              filePath!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                color: const Color(0xFFECFDF5),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.description_rounded,
+                                  color: Color(0xFF059669),
+                                ),
+                              ),
+                            )
+                          : Image.file(
+                              File(filePath!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                color: const Color(0xFFECFDF5),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.description_rounded,
+                                  color: Color(0xFF059669),
+                                ),
                               ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.hourglass_bottom_rounded,
-                                  size: 10.sp,
-                                  color: const Color(0xFFD97706),
-                                ),
-                                3.horizontalSpace,
-                                Text(
-                                  'In Review',
-                                  style: AppTextStyle.text10Medium.copyWith(
-                                    color: const Color(0xFFD97706),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
                     ),
-                    3.verticalSpace,
-                    Text(
-                      description,
-                      style: AppTextStyle.text12Regular.copyWith(
-                        color: AppColors.secondaryTextColor,
+                  )
+                else
+                  Container(
+                    height: 42.h,
+                    width: 42.w,
+                    padding: EdgeInsets.all(9.r),
+                    decoration: BoxDecoration(
+                      color: isApproved || isRejected || isInReview
+                          ? status.backgroundColor
+                          : const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(
+                        color: isApproved || isRejected || isInReview
+                            ? status.cardBorderColor.withValues(alpha: 0.3)
+                            : AppColors.borderColor,
                       ),
                     ),
-                  ],
+                    alignment: Alignment.center,
+                    child: SvgPicture.asset(
+                      icon,
+                      colorFilter: ColorFilter.mode(
+                        isApproved || isRejected || isInReview
+                            ? status.primaryColor
+                            : AppColors.primaryColor,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+                12.horizontalSpace,
+
+                // Labels
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              label,
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                color: AppColors.primaryTextColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          8.horizontalSpace,
+                          if (isUploading)
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(6.r),
+                                border: Border.all(
+                                  color: const Color(0xFFBFDBFE),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 9.w,
+                                    height: 9.w,
+                                    child: const CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: AppColors.primaryColor,
+                                    ),
+                                  ),
+                                  4.horizontalSpace,
+                                  Text(
+                                    'Uploading...',
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: AppColors.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (isApproved)
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: status.backgroundColor,
+                                borderRadius: BorderRadius.circular(6.r),
+                                border: Border.all(
+                                  color: status.borderColor,
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    size: 10.sp,
+                                    color: status.primaryColor,
+                                  ),
+                                  3.horizontalSpace,
+                                  Text(
+                                    status.label,
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: status.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (isRejected)
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: status.backgroundColor,
+                                borderRadius: BorderRadius.circular(6.r),
+                                border: Border.all(
+                                  color: status.borderColor,
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline_rounded,
+                                    size: 10.sp,
+                                    color: status.primaryColor,
+                                  ),
+                                  3.horizontalSpace,
+                                  Text(
+                                    status.label,
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: status.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (isInReview)
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: status.backgroundColor,
+                                borderRadius: BorderRadius.circular(6.r),
+                                border: Border.all(
+                                  color: status.borderColor,
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.hourglass_bottom_rounded,
+                                    size: 10.sp,
+                                    color: status.primaryColor,
+                                  ),
+                                  3.horizontalSpace,
+                                  Text(
+                                    status.label,
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: status.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isRequired
+                                    ? const Color(0xFFEFF6FF)
+                                    : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6.r),
+                              ),
+                              child: Text(
+                                isRequired ? 'Required' : 'Optional',
+                                style: AppTextStyle.text10Medium.copyWith(
+                                  color: isRequired
+                                      ? AppColors.primaryColor
+                                      : AppColors.secondaryTextColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      3.verticalSpace,
+                      Text(
+                        description,
+                        style: AppTextStyle.text12Regular.copyWith(
+                          color: AppColors.secondaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          12.verticalSpace,
+            12.verticalSpace,
 
-          // Upload Action Button / Attached State
-          GestureDetector(
-            onTap: onTap,
-            child: Container(
+            // Upload Action Button / Attached State
+            Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(vertical: 9.h, horizontal: 12.w),
               decoration: BoxDecoration(
-                color: isUploaded
-                    ? const Color(0xFFECFDF5)
-                    : AppColors.containerFillColor,
+                color: isUploading
+                    ? const Color(0xFFEFF6FF)
+                    : (isApproved || isRejected || isInReview
+                          ? status.backgroundColor
+                          : AppColors.containerFillColor),
                 borderRadius: BorderRadius.circular(10.r),
                 border: Border.all(
-                  color: isUploaded
-                      ? const Color(0xFF10B981)
-                      : AppColors.borderColor,
+                  color: isUploading
+                      ? const Color(0xFFBFDBFE)
+                      : (isApproved || isRejected || isInReview
+                            ? status.borderColor
+                            : AppColors.borderColor),
                   width: 1,
                 ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (isUploaded) ...[
+                  if (isUploading) ...[
+                    SizedBox(
+                      width: 14.w,
+                      height: 14.w,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                    8.horizontalSpace,
+                    Text(
+                      'Uploading to Storage...',
+                      style: AppTextStyle.text12Semibold.copyWith(
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ] else if (isApproved) ...[
                     Icon(
                       Icons.check_circle_rounded,
                       size: 16.sp,
-                      color: const Color(0xFF059669),
+                      color: status.primaryColor,
+                    ),
+                    8.horizontalSpace,
+                    Text(
+                      'Verified Document',
+                      style: AppTextStyle.text12Semibold.copyWith(
+                        color: status.primaryColor,
+                      ),
+                    ),
+                  ] else if (isRejected) ...[
+                    Icon(
+                      Icons.refresh_rounded,
+                      size: 16.sp,
+                      color: status.primaryColor,
                     ),
                     8.horizontalSpace,
                     Flexible(
                       child: Text(
-                        'Attached: $uploadedFileName',
+                        'Rejected • Tap to re-upload',
                         style: AppTextStyle.text12Semibold.copyWith(
-                          color: const Color(0xFF059669),
+                          color: status.primaryColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ] else if (isInReview) ...[
+                    Icon(
+                      Icons.hourglass_bottom_rounded,
+                      size: 16.sp,
+                      color: status.primaryColor,
+                    ),
+                    8.horizontalSpace,
+                    Flexible(
+                      child: Text(
+                        uploadedFileName.isNotEmpty
+                            ? 'Attached: $uploadedFileName'
+                            : 'Document In Review',
+                        style: AppTextStyle.text12Semibold.copyWith(
+                          color: status.primaryColor,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -529,7 +719,7 @@ class _DriverDocsUploadCard extends StatelessWidget {
                     Text(
                       '• Tap to change',
                       style: AppTextStyle.text10Medium.copyWith(
-                        color: const Color(0xFF059669),
+                        color: status.primaryColor,
                       ),
                     ),
                   ] else ...[
@@ -553,8 +743,8 @@ class _DriverDocsUploadCard extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

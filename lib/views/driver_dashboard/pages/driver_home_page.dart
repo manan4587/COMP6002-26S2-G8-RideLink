@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/utils.dart';
+import 'package:ridelink/data/services/device_location_service.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
@@ -21,6 +22,12 @@ class DriverHomePage extends StatelessWidget {
         Get.find<DriverProfileController>();
     final DriverDashboardController dashboardController =
         Get.find<DriverDashboardController>();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!dashboardController.hasLocationPermission.value) {
+        dashboardController.requestLocationPermissionPrompt(context: context);
+      }
+    });
 
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
@@ -168,7 +175,100 @@ class DriverHomePage extends StatelessWidget {
                 ],
               ),
 
-              SizedBox(height: 20.h),
+              SizedBox(height: 16.h),
+
+              // Location Permission Needed Banner (shown if location is not granted or blocked)
+              Obx(() {
+                final status = dashboardController.locationPermissionStatus.value;
+                if (status == null || status == LocationCheckResult.granted) {
+                  return const SizedBox.shrink();
+                }
+
+                final bool isBlocked = status == LocationCheckResult.deniedForever;
+                final bool isGpsOff = status == LocationCheckResult.serviceDisabled;
+
+                return Container(
+                  margin: EdgeInsets.only(bottom: 16.h),
+                  padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                  decoration: BoxDecoration(
+                    color: isBlocked ? const Color(0xFFFEF2F2) : const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(14.r),
+                    border: Border.all(
+                      color: isBlocked ? const Color(0xFFFECACA) : const Color(0xFFFDE68A),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8.r),
+                        decoration: BoxDecoration(
+                          color: isBlocked ? const Color(0xFFFEE2E2) : const Color(0xFFFDE68A),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isBlocked
+                              ? CupertinoIcons.location_slash_fill
+                              : CupertinoIcons.location_fill,
+                          color: isBlocked ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                          size: 18.sp,
+                        ),
+                      ),
+                      12.horizontalSpace,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isBlocked
+                                  ? 'Location Access Blocked'
+                                  : (isGpsOff ? 'Device GPS is Off' : 'Location Access Needed'),
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                color: isBlocked ? const Color(0xFF991B1B) : const Color(0xFF92400E),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            2.verticalSpace,
+                            Text(
+                              isBlocked
+                                  ? 'Allow location in Settings for live trips.'
+                                  : (isGpsOff
+                                      ? 'Turn on GPS for live route navigation.'
+                                      : 'Allow location to navigate and track rides.'),
+                              style: AppTextStyle.text12Regular.copyWith(
+                                color: isBlocked ? const Color(0xFFB91C1C) : const Color(0xFFB45309),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      8.horizontalSpace,
+                      ElevatedButton(
+                        onPressed: () => dashboardController.requestLocationPermissionPrompt(
+                          context: context,
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isBlocked ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                        ),
+                        child: Text(
+                          isBlocked ? 'Settings' : 'Allow',
+                          style: AppTextStyle.buttonText.copyWith(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
 
               // Earnings Banner
               Container(
@@ -275,21 +375,30 @@ class DriverHomePage extends StatelessWidget {
                     'My Published Trips',
                     style: AppTextStyle.text18Semibold,
                   ),
-                  Obx(
-                    () => Text(
-                      '${tripsController.myTrips.length} Active',
+                  Obx(() {
+                    final activeCount = tripsController.myTrips.where((t) {
+                      final s = t.status.value.toLowerCase().trim();
+                      return s != 'completed' && s != 'cancelled';
+                    }).length;
+                    return Text(
+                      '$activeCount Active',
                       style: AppTextStyle.text12Semibold.copyWith(
                         color: AppColors.primaryColor,
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                 ],
               ),
 
               SizedBox(height: 12.h),
 
               Obx(() {
-                if (tripsController.myTrips.isEmpty) {
+                final activeOrScheduledTrips = tripsController.myTrips.where((t) {
+                  final s = t.status.value.toLowerCase().trim();
+                  return s != 'completed' && s != 'cancelled';
+                }).toList();
+
+                if (activeOrScheduledTrips.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -309,7 +418,7 @@ class DriverHomePage extends StatelessWidget {
                         ),
                         16.verticalSpace,
                         Text(
-                          'No Trips Published Yet',
+                          'No Active Trips',
                           style: AppTextStyle.text18Semibold,
                         ),
                         8.verticalSpace,
@@ -349,12 +458,14 @@ class DriverHomePage extends StatelessWidget {
                 return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: tripsController.myTrips.length,
+                  itemCount: activeOrScheduledTrips.length,
                   separatorBuilder: (context, index) => SizedBox(height: 12.h),
                   itemBuilder: (context, index) {
-                    final trip = tripsController.myTrips[index];
+                    final trip = activeOrScheduledTrips[index];
                     return Obx(() {
-                      final bool isActive = trip.status.value == 'Active';
+                      final bool isActive =
+                          trip.status.value.toLowerCase() == 'active' ||
+                          trip.status.value.toLowerCase() == 'in progress';
                       return Container(
                         padding: EdgeInsets.all(14.w),
                         decoration: BoxDecoration(
@@ -492,31 +603,64 @@ class DriverHomePage extends StatelessWidget {
                                       ),
                                       6.horizontalSpace,
                                     ],
-                                    ElevatedButton(
-                                      onPressed: () =>
-                                          tripsController.toggleTripStatus(trip),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: isActive
-                                            ? const Color(0xFF16A34A)
-                                            : AppColors.primaryColor,
-                                        foregroundColor: Colors.white,
+                                    if (trip.status.value.toLowerCase() == 'completed') ...[
+                                      Container(
                                         padding: EdgeInsets.symmetric(
-                                          horizontal: 14.w,
+                                          horizontal: 10.w,
                                           vertical: 6.h,
                                         ),
-                                        shape: RoundedRectangleBorder(
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF1F5F9),
                                           borderRadius: BorderRadius.circular(
                                             10.r,
                                           ),
                                         ),
-                                      ),
-                                      child: Text(
-                                        isActive ? 'End Ride' : 'Start Ride',
-                                        style: AppTextStyle.buttonText.copyWith(
-                                          fontSize: 12.sp,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              CupertinoIcons.checkmark_seal_fill,
+                                              color: Color(0xFF16A34A),
+                                              size: 14,
+                                            ),
+                                            4.horizontalSpace,
+                                            Text(
+                                              'Completed',
+                                              style: AppTextStyle.text12Semibold.copyWith(
+                                                color: const Color(0xFF475569),
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
+                                    ] else ...[
+                                      ElevatedButton(
+                                        onPressed: () =>
+                                            tripsController.toggleTripStatus(trip),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: isActive
+                                              ? const Color(0xFF16A34A)
+                                              : AppColors.primaryColor,
+                                          foregroundColor: Colors.white,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 14.w,
+                                            vertical: 6.h,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10.r,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          isActive ? 'End Ride' : 'Start Ride',
+                                          style: AppTextStyle.buttonText.copyWith(
+                                            fontSize: 12.sp,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ],
@@ -612,7 +756,11 @@ class DriverHomePage extends StatelessWidget {
                                             // Chat Passenger
                                             InkWell(
                                               onTap: () => tripsController
-                                                  .openDriverChat(passenger: p),
+                                                  .openDriverChat(
+                                                passenger: p,
+                                                tripId: trip.id,
+                                                route: '${trip.from} → ${trip.to}',
+                                              ),
                                               borderRadius:
                                                   BorderRadius.circular(12.r),
                                               child: Container(

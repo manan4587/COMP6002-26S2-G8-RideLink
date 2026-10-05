@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/simmer_utils.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
@@ -64,6 +65,10 @@ class SearchPage extends GetView<PassengerDashboardController> {
                       label: 'PICKUP LOCATION',
                       labelColor: const Color(0xFF16A34A),
                       hintText: 'Search pickup suburb, street or station',
+                      onPlaceSelected: (details) {
+                        controller.fromLat.value = details.latitude;
+                        controller.fromLng.value = details.longitude;
+                      },
                     ),
 
                     12.verticalSpace,
@@ -74,6 +79,10 @@ class SearchPage extends GetView<PassengerDashboardController> {
                       label: 'DESTINATION',
                       labelColor: AppColors.primaryColor,
                       hintText: 'Search drop-off destination or university',
+                      onPlaceSelected: (details) {
+                        controller.toLat.value = details.latitude;
+                        controller.toLng.value = details.longitude;
+                      },
                     ),
 
                     14.verticalSpace,
@@ -141,7 +150,7 @@ class SearchPage extends GetView<PassengerDashboardController> {
                     // Find Rides Gradient Button
                     GestureDetector(
                       onTap: () {
-                        controller.hasSearched.value = true;
+                        controller.performSearch();
                         Get.toNamed(AppRoutes.suggestedRides);
                       },
                       child: Container(
@@ -259,7 +268,7 @@ class SearchPage extends GetView<PassengerDashboardController> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Matching Rides (${controller.availableRides.length})',
+                          'Matching Rides (${controller.filteredRides.length})',
                           style: AppTextStyle.text16Semibold.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -275,25 +284,104 @@ class SearchPage extends GetView<PassengerDashboardController> {
                     ),
                     12.verticalSpace,
 
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: controller.availableRides.length,
-                      separatorBuilder: (context, index) =>
-                          12.verticalSpace,
-                      itemBuilder: (context, index) {
-                        final ride = controller.availableRides[index];
-                        return _RideResultCard(
-                          ride: ride,
-                          onTap: () => RideDetailsSheet.show(context, ride),
-                        );
-                      },
-                    ),
+                    if (controller.isSearching.value)
+                      _buildShimmerSearchResults()
+                    else if (controller.filteredRides.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                          vertical: 24.h,
+                          horizontal: 16.w,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16.r),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Text(
+                          'No rides found matching your exact route. Try adjusting your search criteria.',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyle.text12Regular.copyWith(
+                            color: AppColors.secondaryTextColor,
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: controller.filteredRides.length,
+                        separatorBuilder: (context, index) =>
+                            12.verticalSpace,
+                        itemBuilder: (context, index) {
+                          final ride = controller.filteredRides[index];
+                          return _RideResultCard(
+                            ride: ride,
+                            onTap: () => RideDetailsSheet.show(context, ride),
+                          );
+                        },
+                      ),
                   ],
                 );
               }),
 
               24.verticalSpace,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerSearchResults() {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 3,
+      separatorBuilder: (_, _) => 12.verticalSpace,
+      itemBuilder: (_, _) => shimmerWrapper(
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(16.w),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  shimmerContainer(
+                    width: 38.r,
+                    height: 38.r,
+                    borderRadius: BorderRadius.circular(19.r),
+                  ),
+                  10.horizontalSpace,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        shimmerContainer(width: 130.w, height: 14.h),
+                        6.verticalSpace,
+                        shimmerContainer(width: 85.w, height: 10.h),
+                      ],
+                    ),
+                  ),
+                  shimmerContainer(
+                    width: 60.w,
+                    height: 22.h,
+                    borderRadius: BorderRadius.circular(11.r),
+                  ),
+                ],
+              ),
+              14.verticalSpace,
+              shimmerContainer(
+                width: double.infinity,
+                height: 42.h,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
             ],
           ),
         ),
@@ -518,8 +606,10 @@ class _RideResultCard extends StatelessWidget {
         color: AppColors.white,
         borderRadius: BorderRadius.circular(20.r),
         border: Border.all(
-          color: const Color(0xFFE2E8F0),
-          width: 1.2,
+          color: ride.isEnRouteMatch
+              ? const Color(0xFF86EFAC)
+              : const Color(0xFFE2E8F0),
+          width: ride.isEnRouteMatch ? 1.4 : 1.2,
         ),
       ),
       child: Material(
@@ -531,14 +621,55 @@ class _RideResultCard extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.all(14.w),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (ride.isEnRouteMatch) ...[
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(8.r),
+                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.alt_route_rounded,
+                              size: 13,
+                              color: Color(0xFF16A34A),
+                            ),
+                            4.horizontalSpace,
+                            Text(
+                              'En-Route Match • ~${ride.detourMinutes} min detour',
+                              style: AppTextStyle.text10Medium.copyWith(
+                                color: const Color(0xFF15803D),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${ride.seatsAvailable} seat${ride.seatsAvailable > 1 ? 's' : ''} left',
+                        style: AppTextStyle.text10Medium.copyWith(
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  8.verticalSpace,
+                ],
                 Row(
                   children: [
                     CircleAvatar(
                       radius: 20.r,
                       backgroundColor: const Color(0xFFEFF6FF),
                       child: Text(
-                        ride.driverName.substring(0, 1),
+                        ride.driverName.isNotEmpty ? ride.driverName.substring(0, 1) : 'D',
                         style: AppTextStyle.text14Semibold.copyWith(
                           color: AppColors.primaryColor,
                         ),
@@ -576,18 +707,34 @@ class _RideResultCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          '\$${ride.pricePerSeat.toStringAsFixed(0)}',
-                          style: AppTextStyle.text18Semibold.copyWith(
-                            color: AppColors.primaryColor,
+                        if (ride.isEnRouteMatch && ride.enRouteSubFare != null) ...[
+                          Text(
+                            '\$${ride.enRouteSubFare!.toStringAsFixed(0)}',
+                            style: AppTextStyle.text18Semibold.copyWith(
+                              color: const Color(0xFF16A34A),
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'cash / seat',
-                          style: AppTextStyle.text10Medium.copyWith(
-                            color: AppColors.secondaryTextColor,
+                          Text(
+                            'sub-route / seat',
+                            style: AppTextStyle.text10Medium.copyWith(
+                              color: const Color(0xFF16A34A),
+                            ),
                           ),
-                        ),
+                        ] else ...[
+                          Text(
+                            '\$${ride.pricePerSeat.toStringAsFixed(0)}',
+                            style: AppTextStyle.text18Semibold.copyWith(
+                              color: AppColors.primaryColor,
+                            ),
+                          ),
+                          Text(
+                            'cash / seat',
+                            style: AppTextStyle.text10Medium.copyWith(
+                              color: AppColors.secondaryTextColor,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -598,10 +745,15 @@ class _RideResultCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${ride.origin} → ${ride.destination}',
-                      style: AppTextStyle.text12Semibold,
+                    Expanded(
+                      child: Text(
+                        '${ride.origin} → ${ride.destination}',
+                        style: AppTextStyle.text12Semibold,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    10.horizontalSpace,
                     Text(
                       ride.departureTime,
                       style: AppTextStyle.text12Semibold.copyWith(

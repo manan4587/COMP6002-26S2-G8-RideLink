@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
@@ -80,11 +81,21 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
               12.verticalSpace,
 
               // Seats Approved Tile
-              _ApprovedSummaryTile(
-                icon: CupertinoIcons.car_detailed,
-                title: 'Seats Approved',
-                subtitle: 'Manan + 1 passenger • $seatsNeeded seats',
-              ),
+              Obx(() {
+                final pName = controller.passengerName.value.isNotEmpty
+                    ? controller.passengerName.value
+                    : (Preferences.userName.isNotEmpty
+                        ? Preferences.userName
+                        : 'You');
+                final subtitle = seatsNeeded > 1
+                    ? '$pName + ${seatsNeeded - 1} passenger${seatsNeeded > 2 ? 's' : ''} • $seatsNeeded seats'
+                    : '$pName • $seatsNeeded seat';
+                return _ApprovedSummaryTile(
+                  icon: CupertinoIcons.car_detailed,
+                  title: 'Seats Approved',
+                  subtitle: subtitle,
+                );
+              }),
 
               12.verticalSpace,
 
@@ -104,7 +115,74 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
                 subtitle: '${ride.carModel} • ${ride.carPlate}',
               ),
 
-              28.verticalSpace,
+              12.verticalSpace,
+
+              // Ride PIN Tile (For Driver Verification at Pickup)
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10.r),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF2563EB),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.lock_shield_fill,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    14.horizontalSpace,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Your Pickup PIN',
+                            style: AppTextStyle.text11Medium.copyWith(
+                              color: const Color(0xFF1E40AF),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          4.verticalSpace,
+                          Text(
+                            'Share this 4-digit PIN with driver when boarding',
+                            style: AppTextStyle.text11Regular.copyWith(
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10.r),
+                        border: Border.all(color: const Color(0xFF93C5FD)),
+                      ),
+                      child: Text(
+                        '1234',
+                        style: AppTextStyle.text18Bold.copyWith(
+                          color: const Color(0xFF1E3A8A),
+                          letterSpacing: 3.0,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              24.verticalSpace,
 
               // Start Live Trip CTA Button
               GestureDetector(

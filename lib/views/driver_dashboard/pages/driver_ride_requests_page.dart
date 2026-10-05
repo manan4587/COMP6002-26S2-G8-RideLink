@@ -174,14 +174,43 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
                 // Collect list of items (trip + request pairs)
                 final List<MapEntry<DriverTripModel, PassengerRequestModel>>
                 items = [];
+                final Set<String> addedReqIds = {};
 
                 if (currentTrip != null) {
                   for (final req in currentTrip.requests) {
-                    items.add(MapEntry(currentTrip, req));
+                    if (addedReqIds.add(req.id)) {
+                      items.add(MapEntry(currentTrip, req));
+                    }
+                  }
+                  for (final req in controller.pendingRequests) {
+                    if (req.tripId == currentTrip.id && addedReqIds.add(req.id)) {
+                      items.add(MapEntry(currentTrip, req));
+                    }
                   }
                 } else {
                   for (final trip in controller.myTrips) {
                     for (final req in trip.requests) {
+                      if (addedReqIds.add(req.id)) {
+                        items.add(MapEntry(trip, req));
+                      }
+                    }
+                  }
+                  for (final req in controller.pendingRequests) {
+                    if (addedReqIds.add(req.id)) {
+                      final trip = controller.myTrips.firstWhereOrNull(
+                            (t) => t.id == req.tripId,
+                          ) ??
+                          DriverTripModel(
+                            id: req.tripId ?? '',
+                            from: req.from,
+                            to: req.to,
+                            time: req.time,
+                            pricePerSeat: req.fare /
+                                (req.seats > 0 ? req.seats : 1),
+                            totalSeats: 4,
+                            bookedSeats: 0,
+                            status: 'Scheduled',
+                          );
                       items.add(MapEntry(trip, req));
                     }
                   }

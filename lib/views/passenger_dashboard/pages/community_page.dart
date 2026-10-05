@@ -146,13 +146,7 @@ class _CommunityPageState extends State<CommunityPage> {
                     return _CommunityCard(
                       community: community,
                       onTap: () => controller.openCommunityDetails(community),
-                      onToggleJoin: () {
-                        if (community.isJoined.value) {
-                          controller.confirmLeaveCommunity(community);
-                        } else {
-                          controller.toggleCommunityJoin(community);
-                        }
-                      },
+                      onJoin: () => controller.joinCommunity(community),
                     );
                   },
                 );
@@ -170,12 +164,12 @@ class _CommunityPageState extends State<CommunityPage> {
 class _CommunityCard extends StatelessWidget {
   final CommunityModel community;
   final VoidCallback onTap;
-  final VoidCallback onToggleJoin;
+  final VoidCallback onJoin;
 
   const _CommunityCard({
     required this.community,
     required this.onTap,
-    required this.onToggleJoin,
+    required this.onJoin,
   });
 
   @override
@@ -295,7 +289,7 @@ class _CommunityCard extends StatelessWidget {
 
                 SizedBox(height: 14.h),
 
-                // Action Buttons Row: View Community Details & Quick Join Toggle
+                // Action Buttons Row: View Community Details & Quick Join
                 Row(
                   children: [
                     Expanded(
@@ -318,36 +312,62 @@ class _CommunityCard extends StatelessWidget {
                     ),
                     SizedBox(width: 10.w),
                     Expanded(
-                      child: Obx(
-                        () => ElevatedButton(
-                          onPressed: onToggleJoin,
+                      child: Obx(() {
+                        final isJoined = community.isJoined.value;
+                        if (isJoined) {
+                          return OutlinedButton.icon(
+                            onPressed: onTap, // Only navigates to details page! Leaving is only inside details.
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: Color(0xFFA7F3D0),
+                                width: 1.2,
+                              ),
+                              backgroundColor: const Color(0xFFECFDF5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                              ),
+                              padding: EdgeInsets.symmetric(vertical: 8.h),
+                            ),
+                            icon: const Icon(
+                              Icons.check_circle_rounded,
+                              size: 16,
+                              color: Color(0xFF059669),
+                            ),
+                            label: Text(
+                              'Joined',
+                              style: AppTextStyle.text12Semibold.copyWith(
+                                color: const Color(0xFF059669),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        }
+
+                        return ElevatedButton.icon(
+                          onPressed: onJoin,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: community.isJoined.value
-                                ? const Color(0xFFFEF2F2)
-                                : const Color(0xFF2563EB),
+                            backgroundColor: const Color(0xFF2563EB),
+                            foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12.r),
-                              side: BorderSide(
-                                color: community.isJoined.value
-                                    ? const Color(0xFFFECACA)
-                                    : const Color(0xFF2563EB),
-                              ),
                             ),
                             padding: EdgeInsets.symmetric(vertical: 8.h),
                           ),
-                          child: Text(
-                            community.isJoined.value
-                                ? 'Leave'
-                                : 'Join Group',
+                          icon: const Icon(
+                            CupertinoIcons.person_badge_plus,
+                            size: 15,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            'Join Group',
                             style: AppTextStyle.text12Semibold.copyWith(
-                              color: community.isJoined.value
-                                  ? const Color(0xFFDC2626)
-                                  : Colors.white,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                     ),
                   ],
                 ),

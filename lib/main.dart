@@ -67,11 +67,11 @@ class MyApp extends StatelessWidget {
 }
 
 void _appDepencyBiding() {
-  Get.put<AuthController>(AuthController());
-  Get.put<DriverHomeController>(DriverHomeController());
-  Get.put<DriverTripsController>(DriverTripsController());
-  Get.put<DriverSupportController>(DriverSupportController());
-  Get.put<DriverProfileController>(DriverProfileController());
-  Get.put<DriverDashboardController>(DriverDashboardController());
-  Get.put<PassengerDashboardController>(PassengerDashboardController());
+  Get.put<AuthController>(AuthController(), permanent: true);
+  Get.lazyPut<DriverDashboardController>(() => DriverDashboardController(), fenix: true);
+  Get.lazyPut<PassengerDashboardController>(() => PassengerDashboardController(), fenix: true);
+  Get.lazyPut<DriverHomeController>(() => DriverHomeController(), fenix: true);
+  Get.lazyPut<DriverTripsController>(() => DriverTripsController(), fenix: true);
+  Get.lazyPut<DriverSupportController>(() => DriverSupportController(), fenix: true);
+  Get.lazyPut<DriverProfileController>(() => DriverProfileController(), fenix: true);
 }

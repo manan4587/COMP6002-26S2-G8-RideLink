@@ -50,20 +50,31 @@ class TripChatMessageModel {
 class TripBookingModel {
   final String id;
   final String tripId;
+  final String driverId;
   final String passengerId;
   final String passengerName;
   final String passengerPhone;
   final double passengerRating;
   final int requestedSeats;
   final double fare;
-  final String status; // 'pending' | 'accepted' | 'declined' | 'cancelled'
+  final String status; // 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed'
+  final String paymentStatus; // 'unpaid' | 'paid'
+  final bool isPaid;
   final String pickupAddress;
   final String dropAddress;
+  final double pickupLat;
+  final double pickupLng;
+  final double dropLat;
+  final double dropLng;
+  final String passengerStatus; // 'to_pickup' | 'arrived' | 'onboard' | 'dropped_off'
+  final String pickupOtp;
   final DateTime createdAt;
+  final DateTime? completedAt;
 
   TripBookingModel({
     required this.id,
     required this.tripId,
+    this.driverId = '',
     required this.passengerId,
     required this.passengerName,
     required this.passengerPhone,
@@ -71,9 +82,18 @@ class TripBookingModel {
     required this.requestedSeats,
     required this.fare,
     required this.status,
+    this.paymentStatus = 'unpaid',
+    this.isPaid = false,
     required this.pickupAddress,
     required this.dropAddress,
+    this.pickupLat = 0.0,
+    this.pickupLng = 0.0,
+    this.dropLat = 0.0,
+    this.dropLng = 0.0,
+    this.passengerStatus = 'to_pickup',
+    this.pickupOtp = '1234',
     required this.createdAt,
+    this.completedAt,
   });
 
   factory TripBookingModel.fromMap(Map<String, dynamic> map, String id) {
@@ -84,9 +104,21 @@ class TripBookingModel {
       created = DateTime.tryParse(map['createdAt'] as String) ?? DateTime.now();
     }
 
+    DateTime? completed;
+    if (map['completedAt'] is Timestamp) {
+      completed = (map['completedAt'] as Timestamp).toDate();
+    } else if (map['completedAt'] is String) {
+      completed = DateTime.tryParse(map['completedAt'] as String);
+    }
+
+    final payStatus = map['paymentStatus']?.toString() ??
+        (map['isPaid'] == true ? 'paid' : 'unpaid');
+    final paid = map['isPaid'] == true || payStatus == 'paid';
+
     return TripBookingModel(
       id: id,
       tripId: map['tripId']?.toString() ?? '',
+      driverId: map['driverId']?.toString() ?? '',
       passengerId: map['passengerId']?.toString() ?? '',
       passengerName: map['passengerName']?.toString() ?? '',
       passengerPhone: map['passengerPhone']?.toString() ?? '',
@@ -94,9 +126,18 @@ class TripBookingModel {
       requestedSeats: (map['requestedSeats'] as num?)?.toInt() ?? 1,
       fare: (map['fare'] as num?)?.toDouble() ?? 0.0,
       status: map['status']?.toString() ?? 'pending',
+      paymentStatus: payStatus,
+      isPaid: paid,
       pickupAddress: map['pickupAddress']?.toString() ?? '',
       dropAddress: map['dropAddress']?.toString() ?? '',
+      pickupLat: (map['pickupLat'] as num?)?.toDouble() ?? 0.0,
+      pickupLng: (map['pickupLng'] as num?)?.toDouble() ?? 0.0,
+      dropLat: (map['dropLat'] as num?)?.toDouble() ?? 0.0,
+      dropLng: (map['dropLng'] as num?)?.toDouble() ?? 0.0,
+      passengerStatus: map['passengerStatus']?.toString() ?? 'to_pickup',
+      pickupOtp: map['pickupOtp']?.toString() ?? '1234',
       createdAt: created,
+      completedAt: completed,
     );
   }
 
@@ -104,6 +145,7 @@ class TripBookingModel {
     return {
       'id': id,
       'tripId': tripId,
+      'driverId': driverId,
       'passengerId': passengerId,
       'passengerName': passengerName,
       'passengerPhone': passengerPhone,
@@ -111,9 +153,18 @@ class TripBookingModel {
       'requestedSeats': requestedSeats,
       'fare': fare,
       'status': status,
+      'paymentStatus': paymentStatus,
+      'isPaid': isPaid,
       'pickupAddress': pickupAddress,
       'dropAddress': dropAddress,
+      'pickupLat': pickupLat,
+      'pickupLng': pickupLng,
+      'dropLat': dropLat,
+      'dropLng': dropLng,
+      'passengerStatus': passengerStatus,
+      'pickupOtp': pickupOtp,
       'createdAt': FieldValue.serverTimestamp(),
+      if (completedAt != null) 'completedAt': Timestamp.fromDate(completedAt!),
     };
   }
 }
@@ -136,6 +187,8 @@ class TripModel {
   final String destinationAddress;
   final double destinationLat;
   final double destinationLng;
+  final double currentDriverLat;
+  final double currentDriverLng;
   final DateTime departureTime;
   final String departureTimeString;
   final int totalSeats;
@@ -147,6 +200,8 @@ class TripModel {
   final bool allowLuggage;
   final bool allowPets;
   final bool allowSmoking;
+  final bool isRecurring;
+  final List<String> recurringDays;
   final DateTime createdAt;
 
   TripModel({
@@ -167,6 +222,8 @@ class TripModel {
     required this.destinationAddress,
     required this.destinationLat,
     required this.destinationLng,
+    this.currentDriverLat = 0.0,
+    this.currentDriverLng = 0.0,
     required this.departureTime,
     required this.departureTimeString,
     required this.totalSeats,
@@ -178,6 +235,8 @@ class TripModel {
     this.allowLuggage = true,
     this.allowPets = false,
     this.allowSmoking = false,
+    this.isRecurring = false,
+    this.recurringDays = const [],
     required this.createdAt,
   });
 
@@ -214,6 +273,8 @@ class TripModel {
       destinationAddress: map['destinationAddress']?.toString() ?? '',
       destinationLat: (map['destinationLat'] as num?)?.toDouble() ?? 0.0,
       destinationLng: (map['destinationLng'] as num?)?.toDouble() ?? 0.0,
+      currentDriverLat: (map['currentDriverLat'] as num?)?.toDouble() ?? 0.0,
+      currentDriverLng: (map['currentDriverLng'] as num?)?.toDouble() ?? 0.0,
       departureTime: depTime,
       departureTimeString: map['departureTimeString']?.toString() ?? '',
       totalSeats: (map['totalSeats'] as num?)?.toInt() ?? 3,
@@ -225,6 +286,11 @@ class TripModel {
       allowLuggage: map['allowLuggage'] as bool? ?? true,
       allowPets: map['allowPets'] as bool? ?? false,
       allowSmoking: map['allowSmoking'] as bool? ?? false,
+      isRecurring: map['isRecurring'] as bool? ?? false,
+      recurringDays: (map['recurringDays'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
       createdAt: created,
     );
   }
@@ -248,6 +314,8 @@ class TripModel {
       'destinationAddress': destinationAddress,
       'destinationLat': destinationLat,
       'destinationLng': destinationLng,
+      'currentDriverLat': currentDriverLat,
+      'currentDriverLng': currentDriverLng,
       'departureTime': Timestamp.fromDate(departureTime),
       'departureTimeString': departureTimeString,
       'totalSeats': totalSeats,
@@ -259,6 +327,8 @@ class TripModel {
       'allowLuggage': allowLuggage,
       'allowPets': allowPets,
       'allowSmoking': allowSmoking,
+      'isRecurring': isRecurring,
+      'recurringDays': recurringDays,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }

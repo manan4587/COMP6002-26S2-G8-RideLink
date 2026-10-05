@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:ridelink/data/models/firestore/firestore_collections.dart';
 import 'package:ridelink/data/models/firestore/user_profile_model.dart';
@@ -301,6 +302,138 @@ class AuthService {
       debugPrint('[AuthService] Failed to update activeRole in Firestore: $e');
     }
   }
+
+  /// Update driver online/offline availability status in Firestore
+  Future<void> updateOnlineStatus(bool isOnline) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    try {
+      await _firestore
+          .collection(FirestoreCollections.users)
+          .doc(user.uid)
+          .set({
+        'isOnline': isOnline,
+        'driverStats': {
+          'isOnline': isOnline,
+        },
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[AuthService] Failed to update online status: $e');
+    }
+  }
+
+  double? _lastAuthDriverLat;
+  double? _lastAuthDriverLng;
+  DateTime? _lastAuthDriverUpdate;
+
+  /// Update driver's live GPS device location in Firestore user document.
+  /// Applies smart stationary filtering:
+  /// - Suppresses database writes if driver is stationary (moved < 10 meters).
+  /// - Sends periodic 60-second heartbeat so status remains fresh.
+  /// - Throttles updates to max once per 3 seconds.
+  /// - Pass [force] = true to bypass checks (e.g. going online, starting app).
+  Future<void> updateDriverLocation({
+    required double latitude,
+    required double longitude,
+    bool force = false,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final now = DateTime.now();
+    if (!force &&
+        _lastAuthDriverLat != null &&
+        _lastAuthDriverLng != null &&
+        _lastAuthDriverUpdate != null) {
+      final elapsedMs = now.difference(_lastAuthDriverUpdate!).inMilliseconds;
+
+      // Throttle: max once per 3 seconds
+      if (elapsedMs < 3000) {
+        return;
+      }
+
+      final double distanceMeters = Geolocator.distanceBetween(
+        _lastAuthDriverLat!,
+        _lastAuthDriverLng!,
+        latitude,
+        longitude,
+      );
+
+      // Skip DB write if stationary (< 10 meters) and within 60-second heartbeat
+      if (distanceMeters < 10.0 && elapsedMs < 60000) {
+        return;
+      }
+    }
+
+    _lastAuthDriverLat = latitude;
+    _lastAuthDriverLng = longitude;
+    _lastAuthDriverUpdate = now;
+
+    try {
+      await _firestore
+          .collection(FirestoreCollections.users)
+          .doc(user.uid)
+          .set({
+        'currentLocation': {
+          'latitude': latitude,
+          'longitude': longitude,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        'lastLatitude': latitude,
+        'lastLongitude': longitude,
+        'lastLocationUpdate': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[AuthService] Failed to update driver location: $e');
+    }
+  }
+
+  /// Stream user profile model in real-time
+  Stream<UserProfileModel?> streamUserProfile(String uid) {
+    if (uid.isEmpty) return Stream.value(null);
+    return _firestore
+        .collection(FirestoreCollections.users)
+        .doc(uid)
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return UserProfileModel.fromMap(doc.data()!, uid);
+    });
+  }
+
+  /// Stream raw user document data in real-time
+  Stream<Map<String, dynamic>?> userDocumentStream(String uid) {
+    if (uid.isEmpty) return Stream.value(null);
+    return _firestore
+        .collection(FirestoreCollections.users)
+        .doc(uid)
+        .snapshots()
+        .map((doc) => doc.exists ? doc.data() : null);
+  }
+
+  /// Stream a user's real-time online status by their UID
+  Stream<bool> streamUserOnlineStatus(String uid) {
+    if (uid.isEmpty) return Stream.value(true);
+    return _firestore
+        .collection(FirestoreCollections.users)
+        .doc(uid)
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists || doc.data() == null) return true;
+      final data = doc.data()!;
+      if (data.containsKey('isOnline')) {
+        return data['isOnline'] as bool? ?? true;
+      }
+      if (data['driverStats'] is Map &&
+          (data['driverStats'] as Map).containsKey('isOnline')) {
+        return (data['driverStats'] as Map)['isOnline'] as bool? ?? true;
+      }
+      return true;
+    });
+  }
+
 
   /// Delete Account permanently from Firebase Auth and Cloud Firestore
   Future<void> deleteAccount() async {

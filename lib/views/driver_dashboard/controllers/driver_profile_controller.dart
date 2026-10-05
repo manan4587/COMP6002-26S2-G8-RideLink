@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/preferences.dart';
@@ -13,6 +12,8 @@ import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/data/services/driver_verification_service.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
+import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
+import 'package:ridelink/widgets/document_upload_picker_sheet.dart';
 
 class DriverProfileController extends GetxController {
   // Driver Profile Information
@@ -42,22 +43,39 @@ class DriverProfileController extends GetxController {
       (Preferences.vehicleColor.isNotEmpty ? Preferences.vehicleColor : 'N/A')
           .obs;
 
-  // Verification Status & Document Uploads
+  // Verification Status & Document Uploads (Direct map: url & status)
   final RxBool isVerifiedByAdmin = false.obs;
-  final RxString dlStatus = 'Not Uploaded'.obs;
-  final RxString vrStatus = 'Not Uploaded'.obs;
-  final RxString viStatus = 'Not Uploaded'.obs;
-  final RxString pcStatus = 'Optional'.obs;
+  final Rx<DocumentVerificationStatus> dlStatus =
+      DocumentVerificationStatus.notUploaded.obs;
+  final Rx<DocumentVerificationStatus> vrStatus =
+      DocumentVerificationStatus.notUploaded.obs;
+  final Rx<DocumentVerificationStatus> viStatus =
+      DocumentVerificationStatus.notUploaded.obs;
+  final Rx<DocumentVerificationStatus> pcStatus =
+      DocumentVerificationStatus.optional.obs;
+
+  // Track documents currently uploading to prevent duplicate uploads and show loaders
+  final RxSet<String> uploadingDocIds = <String>{}.obs;
+  bool isDocUploading(String docId) => uploadingDocIds.contains(docId);
+
+  final RxString dlRejectionReason = ''.obs;
+  final RxString vrRejectionReason = ''.obs;
+  final RxString viRejectionReason = ''.obs;
+  final RxString pcRejectionReason = ''.obs;
 
   final RxString drivingLicenceDoc = ''.obs;
   final RxString vehicleRegistrationDoc = ''.obs;
   final RxString vehicleInsuranceDoc = ''.obs;
   final RxString policeCheckDoc = ''.obs;
 
-  final RxString drivingLicenceBase64 = ''.obs;
-  final RxString vehicleRegistrationBase64 = ''.obs;
-  final RxString vehicleInsuranceBase64 = ''.obs;
-  final RxString policeCheckBase64 = ''.obs;
+  final RxString drivingLicenceUrl =
+      ''.obs; // Holds document URL/path for image preview
+  final RxString vehicleRegistrationUrl =
+      ''.obs; // Holds document URL/path for image preview
+  final RxString vehicleInsuranceUrl =
+      ''.obs; // Holds document URL/path for image preview
+  final RxString policeCheckUrl =
+      ''.obs; // Holds document URL/path for image preview
 
   // Notification Preferences
   final RxBool pushRideRequests = Preferences.pushRideRequests.obs;
@@ -70,6 +88,22 @@ class DriverProfileController extends GetxController {
 
   StreamSubscription? _authSubscription;
   StreamSubscription? _docsSubscription;
+  StreamSubscription? _profileSubscription;
+
+  DocumentVerificationStatus getDocStatus(String docId) {
+    switch (docId) {
+      case DriverDocumentId.drivingLicence:
+        return dlStatus.value;
+      case DriverDocumentId.vehicleRegistration:
+        return vrStatus.value;
+      case DriverDocumentId.vehicleInsurance:
+        return viStatus.value;
+      case DriverDocumentId.policeCheck:
+        return pcStatus.value;
+      default:
+        return DocumentVerificationStatus.notUploaded;
+    }
+  }
 
   @override
   void onInit() {
@@ -113,20 +147,25 @@ class DriverProfileController extends GetxController {
     vehicleNumber.value = 'N/A';
     vehicleType.value = 'N/A';
     vehicleColor.value = 'N/A';
-    dlStatus.value = 'Not Uploaded';
+    dlStatus.value = DocumentVerificationStatus.notUploaded;
     drivingLicenceDoc.value = '';
-    drivingLicenceBase64.value = '';
-    vrStatus.value = 'Not Uploaded';
+    drivingLicenceUrl.value = '';
+    dlRejectionReason.value = '';
+    vrStatus.value = DocumentVerificationStatus.notUploaded;
     vehicleRegistrationDoc.value = '';
-    vehicleRegistrationBase64.value = '';
-    viStatus.value = 'Not Uploaded';
+    vehicleRegistrationUrl.value = '';
+    vrRejectionReason.value = '';
+    viStatus.value = DocumentVerificationStatus.notUploaded;
     vehicleInsuranceDoc.value = '';
-    vehicleInsuranceBase64.value = '';
-    pcStatus.value = 'Optional';
+    vehicleInsuranceUrl.value = '';
+    viRejectionReason.value = '';
+    pcStatus.value = DocumentVerificationStatus.optional;
     policeCheckDoc.value = '';
-    policeCheckBase64.value = '';
+    policeCheckUrl.value = '';
+    pcRejectionReason.value = '';
     isVerifiedByAdmin.value = false;
     _docsSubscription?.cancel();
+    _profileSubscription?.cancel();
   }
 
   Future<void> reloadProfile() async {
@@ -147,6 +186,57 @@ class DriverProfileController extends GetxController {
     }
 
     _listenToDriverDocuments(user.uid);
+
+    _profileSubscription?.cancel();
+    _profileSubscription = AuthService.instance
+        .streamUserProfile(user.uid)
+        .listen(
+          (profile) {
+            if (profile != null) {
+              if (profile.isVerifiedDriver) {
+                isVerifiedByAdmin.value = true;
+              }
+              if (profile.fullName.isNotEmpty) {
+                driverName.value = profile.fullName;
+                Preferences.userName = profile.fullName;
+              }
+              if (profile.email.isNotEmpty) {
+                driverEmail.value = profile.email;
+                Preferences.userEmail = profile.email;
+              }
+              if (profile.phoneNumber.isNotEmpty) {
+                driverPhone.value = profile.phoneNumber;
+                Preferences.userPhone = profile.phoneNumber;
+              }
+              driverRating.value = profile.rating;
+              driverTripsCount.value = profile.tripsCompleted;
+
+              if (profile.vehicle != null) {
+                final v = profile.vehicle!;
+                final fullModel = '${v.make} ${v.model}'.trim();
+                if (fullModel.isNotEmpty) {
+                  vehicleModel.value = fullModel;
+                  Preferences.vehicleModel = fullModel;
+                }
+                if (v.licensePlate.isNotEmpty) {
+                  vehicleNumber.value = v.licensePlate;
+                  Preferences.vehicleNumber = v.licensePlate;
+                }
+                if (v.color.isNotEmpty) {
+                  vehicleColor.value = v.color;
+                  Preferences.vehicleColor = v.color;
+                }
+                if (v.type.isNotEmpty) {
+                  vehicleType.value = v.type;
+                  Preferences.vehicleType = v.type;
+                }
+              }
+            }
+          },
+          onError: (err) {
+            debugPrint('[DriverProfileController] Profile stream error: $err');
+          },
+        );
 
     if (user.displayName != null && user.displayName!.isNotEmpty) {
       driverName.value = user.displayName!;
@@ -209,77 +299,96 @@ class DriverProfileController extends GetxController {
   void _listenToDriverDocuments(String userId) {
     _docsSubscription?.cancel();
     _docsSubscription = DriverVerificationService.instance
-        .streamDriverDocuments(userId)
-        .listen((docs) {
-          // Reset states first so any document not uploaded or deleted stays Not Uploaded
-          dlStatus.value = 'Not Uploaded';
+        .streamDriverDocsMap(userId)
+        .listen((driverDocs) {
+          // Reset states first so any document not uploaded stays Not Uploaded
+          dlStatus.value = DocumentVerificationStatus.notUploaded;
           drivingLicenceDoc.value = '';
-          drivingLicenceBase64.value = '';
+          drivingLicenceUrl.value = '';
+          dlRejectionReason.value = '';
 
-          vrStatus.value = 'Not Uploaded';
+          vrStatus.value = DocumentVerificationStatus.notUploaded;
           vehicleRegistrationDoc.value = '';
-          vehicleRegistrationBase64.value = '';
+          vehicleRegistrationUrl.value = '';
+          vrRejectionReason.value = '';
 
-          viStatus.value = 'Not Uploaded';
+          viStatus.value = DocumentVerificationStatus.notUploaded;
           vehicleInsuranceDoc.value = '';
-          vehicleInsuranceBase64.value = '';
+          vehicleInsuranceUrl.value = '';
+          viRejectionReason.value = '';
 
-          pcStatus.value = 'Optional';
+          pcStatus.value = DocumentVerificationStatus.optional;
           policeCheckDoc.value = '';
-          policeCheckBase64.value = '';
+          policeCheckUrl.value = '';
+          pcRejectionReason.value = '';
 
-          for (final doc in docs) {
-            final rawType =
-                doc['type']?.toString() ?? doc['id']?.toString() ?? '';
-            final docType = rawType.toLowerCase().replaceAll(' ', '_');
-            final fileName = doc['fileName']?.toString() ?? '';
-            final fileUrl = doc['fileUrl']?.toString() ??
-                doc['url']?.toString() ??
-                doc['downloadUrl']?.toString() ??
-                '';
-            final base64 = doc['base64']?.toString() ?? '';
-            final preview = fileUrl.trim().isNotEmpty ? fileUrl.trim() : base64.trim();
-            final rawStatus = doc['status']?.toString() ?? 'Pending';
-            final bool hasContent =
-                preview.isNotEmpty || fileName.trim().isNotEmpty;
-            final status = hasContent ? rawStatus : 'Not Uploaded';
+          for (final entry in driverDocs.entries) {
+            final docId = entry.key;
+            final dynamic val = entry.value;
 
-            if (docType == 'driving_licence' ||
-                docType == 'driving_license' ||
-                docType == 'dl') {
-              if (hasContent) {
-                dlStatus.value = status;
-                drivingLicenceDoc.value = fileName;
-                drivingLicenceBase64.value = preview;
-              }
-            } else if (docType == 'vehicle_registration' || docType == 'vr') {
-              if (hasContent) {
-                vrStatus.value = status;
-                vehicleRegistrationDoc.value = fileName;
-                vehicleRegistrationBase64.value = preview;
-              }
-            } else if (docType == 'vehicle_insurance' || docType == 'vi') {
-              if (hasContent) {
-                viStatus.value = status;
-                vehicleInsuranceDoc.value = fileName;
-                vehicleInsuranceBase64.value = preview;
-              }
-            } else if (docType == 'police_check' || docType == 'pc') {
-              if (hasContent) {
-                pcStatus.value = status;
-                policeCheckDoc.value = fileName;
-                policeCheckBase64.value = preview;
-              }
+            String fileUrl = '';
+            DocumentVerificationStatus docStatus =
+                DocumentVerificationStatus.pending;
+            String fileName = '';
+            String rejectionReason = '';
+
+            if (val is Map) {
+              fileUrl = val['file_url']?.toString() ??
+                  val['downloadUrl']?.toString() ??
+                  '';
+              docStatus = DocumentVerificationStatus.fromString(
+                val['status']?.toString(),
+              );
+              fileName = val['file_name']?.toString() ??
+                  val['fileName']?.toString() ??
+                  '';
+              rejectionReason = val['rejectionReason']?.toString() ?? '';
+            }
+
+            final preview = fileUrl.trim();
+
+            if (docId == DriverDocumentId.drivingLicence) {
+              dlStatus.value = docStatus;
+              drivingLicenceDoc.value = fileName.isNotEmpty
+                  ? fileName
+                  : 'Driving Licence Document';
+              drivingLicenceUrl.value = preview;
+              dlRejectionReason.value = rejectionReason;
+            } else if (docId == DriverDocumentId.vehicleRegistration) {
+              vrStatus.value = docStatus;
+              vehicleRegistrationDoc.value = fileName.isNotEmpty
+                  ? fileName
+                  : 'Vehicle Registration Document';
+              vehicleRegistrationUrl.value = preview;
+              vrRejectionReason.value = rejectionReason;
+            } else if (docId == DriverDocumentId.vehicleInsurance) {
+              viStatus.value = docStatus;
+              vehicleInsuranceDoc.value = fileName.isNotEmpty
+                  ? fileName
+                  : 'Vehicle Insurance Document';
+              vehicleInsuranceUrl.value = preview;
+              viRejectionReason.value = rejectionReason;
+            } else if (docId == DriverDocumentId.policeCheck) {
+              pcStatus.value = docStatus;
+              policeCheckDoc.value = fileName.isNotEmpty
+                  ? fileName
+                  : 'Police Check Document';
+              policeCheckUrl.value = preview;
+              pcRejectionReason.value = rejectionReason;
             }
           }
 
           final bool allRequiredVerified =
-              dlStatus.value.trim().toLowerCase() == 'verified' &&
-              vrStatus.value.trim().toLowerCase() == 'verified' &&
-              viStatus.value.trim().toLowerCase() == 'verified';
+              dlStatus.value.isVerified &&
+              vrStatus.value.isVerified &&
+              viStatus.value.isVerified;
 
           isVerifiedByAdmin.value = allRequiredVerified;
-        });
+        },
+        onError: (err) {
+          debugPrint('[DriverProfileController] Docs stream error: $err');
+        },
+      );
   }
 
   String get driverInitials {
@@ -293,10 +402,20 @@ class DriverProfileController extends GetxController {
     required String number,
     required String type,
     String? model,
+    String? color,
   }) async {
+    if (isVerifiedByAdmin.value) {
+      AppSnackBar.warning(
+        message:
+            'Vehicle details are verified by admin and locked. Please contact support.',
+      );
+      return;
+    }
+
     final cleanNumber = number.trim();
     final cleanType = type.trim();
     final cleanModel = model?.trim() ?? '';
+    final cleanColor = color?.trim() ?? '';
 
     // 1. Update in-memory reactive observables immediately
     vehicleNumber.value = cleanNumber.isNotEmpty ? cleanNumber : 'N/A';
@@ -304,11 +423,17 @@ class DriverProfileController extends GetxController {
     if (cleanModel.isNotEmpty) {
       vehicleModel.value = cleanModel;
     }
+    if (cleanColor.isNotEmpty) {
+      vehicleColor.value = cleanColor;
+    }
 
     // 2. Persist to local Preferences
     Preferences.vehicleNumber = vehicleNumber.value;
     Preferences.vehicleType = vehicleType.value;
     Preferences.vehicleModel = vehicleModel.value;
+    if (cleanColor.isNotEmpty) {
+      Preferences.vehicleColor = vehicleColor.value;
+    }
 
     // 3. Save to Firestore database
     final user = AuthService.instance.currentUser;
@@ -319,6 +444,7 @@ class DriverProfileController extends GetxController {
           licensePlate: cleanNumber,
           vehicleType: cleanType,
           vehicleModel: cleanModel,
+          vehicleColor: cleanColor.isNotEmpty ? cleanColor : vehicleColor.value,
         );
         AppSnackBar.success(
           message: 'Vehicle registration saved to database successfully!',
@@ -336,148 +462,103 @@ class DriverProfileController extends GetxController {
     }
   }
 
-  Future<void> uploadDocument(String documentType) async {
+  Future<void> uploadDocument(String docId) async {
+    if (isVerifiedByAdmin.value || getDocStatus(docId).isVerified) {
+      AppSnackBar.info(
+        message:
+            'This document has been verified by admin and cannot be changed.',
+      );
+      return;
+    }
+    if (isDocUploading(docId)) {
+      AppSnackBar.info(message: 'Document is already uploading. Please wait.');
+      return;
+    }
     final user = AuthService.instance.currentUser;
     if (user == null) {
       AppSnackBar.error(message: 'Please log in to upload documents.');
       return;
     }
 
-    await Get.bottomSheet(
-      Material(
-        color: AppColors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Upload Document',
-                style: AppTextStyle.text18Semibold.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              4.verticalSpace,
-              Text(
-                'Select source for your document image',
-                style: AppTextStyle.text12Regular.copyWith(
-                  color: AppColors.secondaryTextColor,
-                ),
-              ),
-              16.verticalSpace,
-              ListTile(
-                leading: const Icon(
-                  Icons.camera_alt_rounded,
-                  color: AppColors.primaryColor,
-                ),
-                title: Text('Take Photo', style: AppTextStyle.text14Semibold),
-                onTap: () async {
-                  Get.back();
-                  await _pickAndSaveDoc(
-                    user.uid,
-                    documentType,
-                    ImageSource.camera,
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.photo_library_rounded,
-                  color: AppColors.primaryColor,
-                ),
-                title: Text(
-                  'Choose from Gallery',
-                  style: AppTextStyle.text14Semibold,
-                ),
-                onTap: () async {
-                  Get.back();
-                  await _pickAndSaveDoc(
-                    user.uid,
-                    documentType,
-                    ImageSource.gallery,
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+    String title = 'Document';
+    if (docId == DriverDocumentId.drivingLicence) {
+      title = 'Driving Licence';
+    } else if (docId == DriverDocumentId.vehicleRegistration) {
+      title = 'Vehicle Registration';
+    } else if (docId == DriverDocumentId.vehicleInsurance) {
+      title = 'Vehicle Insurance';
+    } else if (docId == DriverDocumentId.policeCheck) {
+      title = 'Police Check';
+    }
+
+    await DocumentUploadPickerSheet.show(
+      title: title,
+      onSelected: (fileName, filePath) async {
+        await _saveDocFile(
+          userId: user.uid,
+          docKey: docId,
+          title: title,
+          fileName: fileName,
+          filePath: filePath,
+        );
+      },
     );
   }
 
-  Future<void> _pickAndSaveDoc(
-    String userId,
-    String documentType,
-    ImageSource source,
-  ) async {
-    try {
-      final file = await Utils.pickImage(source);
-      if (file == null) return;
-
-      AppSnackBar.info(message: 'Uploading document to Firebase Storage...');
-      final base64String = await Utils.xFileToBase64(file);
-      final fileName = file.name.isNotEmpty
-          ? file.name
-          : '${documentType}_doc.jpg';
-
-      String title = 'Document';
-      String docKey = documentType;
-      if (documentType.contains('licence') || documentType.contains('DL')) {
-        title = 'Driving Licence';
-        docKey = 'driving_licence';
-      } else if (documentType.contains('rego') ||
-          documentType.contains('VR') ||
-          documentType.contains('registration')) {
-        title = 'Vehicle Registration';
-        docKey = 'vehicle_registration';
-      } else if (documentType.contains('insurance') ||
-          documentType.contains('VI')) {
-        title = 'Vehicle Insurance';
-        docKey = 'vehicle_insurance';
-      } else if (documentType.contains('police') ||
-          documentType.contains('PC')) {
-        title = 'Police Check';
-        docKey = 'police_check';
-      }
-
-      final downloadUrl =
-          await DriverVerificationService.instance.uploadDriverDocument(
-        userId: userId,
-        docType: docKey,
-        title: title,
-        fileName: fileName,
-        file: File(file.path),
-        base64Data: base64String,
-        status: 'Pending',
+  Future<void> _saveDocFile({
+    required String userId,
+    required String docKey,
+    required String title,
+    required String fileName,
+    required String filePath,
+  }) async {
+    if (isVerifiedByAdmin.value || getDocStatus(docKey).isVerified) {
+      AppSnackBar.info(
+        message:
+            'This document has been verified by admin and cannot be changed.',
       );
+      return;
+    }
+    if (uploadingDocIds.contains(docKey)) return;
+    try {
+      uploadingDocIds.add(docKey);
+      AppSnackBar.info(message: 'Uploading $title to Firebase Storage...');
 
-      final previewContent =
-          downloadUrl.isNotEmpty ? downloadUrl : (base64String ?? '');
+      final downloadUrl = await DriverVerificationService.instance
+          .uploadDriverDocument(
+            userId: userId,
+            docType: docKey,
+            title: title,
+            fileName: fileName,
+            file: File(filePath),
+            status: DocumentVerificationStatus.pending.value,
+          );
 
       // Immediately update local reactive state for instant UI reflection
       switch (docKey) {
-        case 'driving_licence':
-          dlStatus.value = 'Pending';
+        case DriverDocumentId.drivingLicence:
+          dlStatus.value = DocumentVerificationStatus.pending;
           drivingLicenceDoc.value = fileName;
-          drivingLicenceBase64.value = previewContent;
+          drivingLicenceUrl.value = downloadUrl;
+          dlRejectionReason.value = '';
           break;
-        case 'vehicle_registration':
-          vrStatus.value = 'Pending';
+        case DriverDocumentId.vehicleRegistration:
+          vrStatus.value = DocumentVerificationStatus.pending;
           vehicleRegistrationDoc.value = fileName;
-          vehicleRegistrationBase64.value = previewContent;
+          vehicleRegistrationUrl.value = downloadUrl;
+          vrRejectionReason.value = '';
           break;
-        case 'vehicle_insurance':
-          viStatus.value = 'Pending';
+        case DriverDocumentId.vehicleInsurance:
+          viStatus.value = DocumentVerificationStatus.pending;
           vehicleInsuranceDoc.value = fileName;
-          vehicleInsuranceBase64.value = previewContent;
+          vehicleInsuranceUrl.value = downloadUrl;
+          viRejectionReason.value = '';
           break;
-        case 'police_check':
-          pcStatus.value = 'Pending';
+        case DriverDocumentId.policeCheck:
+          pcStatus.value = DocumentVerificationStatus.pending;
           policeCheckDoc.value = fileName;
-          policeCheckBase64.value = previewContent;
+          policeCheckUrl.value = downloadUrl;
+          pcRejectionReason.value = '';
           break;
       }
       isVerifiedByAdmin.value = false;
@@ -488,6 +569,8 @@ class DriverProfileController extends GetxController {
       );
     } catch (e) {
       AppSnackBar.error(message: 'Failed to upload document: $e');
+    } finally {
+      uploadingDocIds.remove(docKey);
     }
   }
 
@@ -641,6 +724,9 @@ class DriverProfileController extends GetxController {
                     onPressed: () async {
                       Navigator.of(ctx).pop();
                       Preferences.logout();
+                      if (Get.isRegistered<DriverDashboardController>()) {
+                        Get.find<DriverDashboardController>().cleanupAll();
+                      }
                       await AuthService.instance.signOut();
                       Get.offAllNamed(AppRoutes.getStartedView);
                       AppSnackBar.info(message: 'Logged out successfully.');
@@ -663,28 +749,32 @@ class DriverProfileController extends GetxController {
 
   void toggleAdminVerification() {
     isVerifiedByAdmin.value = !isVerifiedByAdmin.value;
-    final newStatus = isVerifiedByAdmin.value ? 'Verified' : 'Pending';
+    final newStatus = isVerifiedByAdmin.value
+        ? DocumentVerificationStatus.verified
+        : DocumentVerificationStatus.pending;
     dlStatus.value = newStatus;
     vrStatus.value = newStatus;
     viStatus.value = newStatus;
-    pcStatus.value = isVerifiedByAdmin.value ? 'Verified' : 'Optional';
+    pcStatus.value = isVerifiedByAdmin.value
+        ? DocumentVerificationStatus.verified
+        : DocumentVerificationStatus.optional;
 
     final user = AuthService.instance.currentUser;
     if (user != null) {
       DriverVerificationService.instance.updateDocumentStatus(
         userId: user.uid,
-        docType: 'driving_licence',
-        status: newStatus,
+        docType: DriverDocumentId.drivingLicence,
+        status: newStatus.value,
       );
       DriverVerificationService.instance.updateDocumentStatus(
         userId: user.uid,
-        docType: 'vehicle_registration',
-        status: newStatus,
+        docType: DriverDocumentId.vehicleRegistration,
+        status: newStatus.value,
       );
       DriverVerificationService.instance.updateDocumentStatus(
         userId: user.uid,
-        docType: 'vehicle_insurance',
-        status: newStatus,
+        docType: DriverDocumentId.vehicleInsurance,
+        status: newStatus.value,
       );
     }
 
@@ -701,6 +791,9 @@ class DriverProfileController extends GetxController {
 
   Future<void> deleteAccount() async {
     try {
+      if (Get.isRegistered<DriverDashboardController>()) {
+        Get.find<DriverDashboardController>().cleanupAll();
+      }
       final user = AuthService.instance.currentUser;
       if (user != null) {
         await AuthService.instance.deleteAccount();
@@ -714,26 +807,130 @@ class DriverProfileController extends GetxController {
   }
 
   void confirmDeleteAccount(BuildContext context) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Account'),
-        content: const Text(
-          'Are you sure you want to permanently delete your driver account? All trips, earnings history, and ratings will be erased. This action cannot be undone.',
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          top: 12.h,
+          left: 20.w,
+          right: 20.w,
+          bottom: MediaQuery.of(context).padding.bottom + 20.h,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              deleteAccount();
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: AppColors.borderColor,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ),
+            18.verticalSpace,
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEE2E2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.red,
+                    size: 24,
+                  ),
+                ),
+                12.horizontalSpace,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Delete Driver Account',
+                        style: AppTextStyle.text18Semibold.copyWith(
+                          color: AppColors.primaryTextColor,
+                        ),
+                      ),
+                      Text(
+                        'This action is irreversible',
+                        style: AppTextStyle.text12Regular.copyWith(
+                          color: AppColors.secondaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            16.verticalSpace,
+            Text(
+              'Are you sure you want to permanently delete your driver account? All published trips, earnings history, vehicle documents, and ratings will be erased immediately.',
+              style: AppTextStyle.text14Regular.copyWith(
+                color: AppColors.secondaryTextColor,
+                height: 1.45,
+              ),
+            ),
+            22.verticalSpace,
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      side: const BorderSide(color: AppColors.borderColor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: AppTextStyle.text14Semibold.copyWith(
+                        color: AppColors.secondaryTextColor,
+                      ),
+                    ),
+                  ),
+                ),
+                12.horizontalSpace,
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      deleteAccount();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.red,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                    child: Text(
+                      'Delete Account',
+                      style: AppTextStyle.text14Semibold.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -742,6 +939,7 @@ class DriverProfileController extends GetxController {
   void onClose() {
     _authSubscription?.cancel();
     _docsSubscription?.cancel();
+    _profileSubscription?.cancel();
     super.onClose();
   }
 }

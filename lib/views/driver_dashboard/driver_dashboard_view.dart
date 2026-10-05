@@ -17,6 +17,8 @@ class DriverDashboardView extends GetView<DriverDashboardController> {
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.profileController.reloadProfile();
+      controller.tripsController.reloadDriverTrips();
+      controller.startDriverLiveLocationTracking(context: context);
     });
 
     final List<Widget> pages = const [

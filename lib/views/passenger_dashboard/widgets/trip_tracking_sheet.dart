@@ -205,6 +205,7 @@ class TripTrackingSheet extends StatelessWidget {
                     Get.toNamed(
                       AppRoutes.rideChat,
                       arguments: {
+                        'tripId': booking.ride.id,
                         'driverName': booking.ride.driverName,
                         'carModel': booking.ride.carModel,
                         'route':

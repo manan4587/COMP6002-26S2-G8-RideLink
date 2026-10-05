@@ -259,6 +259,21 @@ class Utils {
             errorWidget ?? const Icon(Icons.broken_image_rounded),
       );
     }
+    if (trimmed.startsWith('/') ||
+        trimmed.startsWith('file://') ||
+        (trimmed.length < 500 && File(trimmed).existsSync())) {
+      final file = File(trimmed.replaceFirst('file://', ''));
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: fit,
+          width: width,
+          height: height,
+          errorBuilder: (context, error, stackTrace) =>
+              errorWidget ?? const Icon(Icons.broken_image_rounded),
+        );
+      }
+    }
     try {
       String cleanBase64 = trimmed;
       if (cleanBase64.contains(',')) {

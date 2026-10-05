@@ -1,13 +1,15 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:ridelink/core/enums/verification_status.dart';
 import 'package:ridelink/data/models/firestore/firestore_collections.dart';
 
-/// Dedicated service for driver identity & vehicle verification documents
-/// Storing image files in Firebase Storage and document metadata in `users/{userId}/docs` subcollection
+export 'package:ridelink/core/enums/verification_status.dart';
+
+/// Service for driver identity & vehicle verification documents.
+/// Stores image files in Firebase Storage and document records in `users/{userId}/docs/{doc_id}` subcollection.
 class DriverVerificationService {
   DriverVerificationService._();
   static final DriverVerificationService instance =
@@ -16,22 +18,41 @@ class DriverVerificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  CollectionReference<Map<String, dynamic>> _userDocsRef(String userId) =>
+  DocumentReference<Map<String, dynamic>> _userRef(String userId) =>
+      _firestore.collection(FirestoreCollections.users).doc(userId);
+
+  CollectionReference<Map<String, dynamic>> _docsRef(String userId) =>
       _firestore
           .collection(FirestoreCollections.users)
           .doc(userId)
           .collection(FirestoreCollections.docs);
 
-  /// Upload a file or bytes to Firebase Storage under `driver_documents/{userId}/{docType}.{ext}`
+  /// Normalizes any document type string into fixed standard document ID
+  String normalizeDocId(String docType) {
+    final clean = docType.trim().toLowerCase().replaceAll(' ', '_');
+    if (DriverDocumentId.all.contains(clean)) return clean;
+    if (clean.contains('licence') || clean.contains('license') || clean == 'dl') {
+      return DriverDocumentId.drivingLicence;
+    } else if (clean.contains('registration') || clean.contains('rego') || clean == 'vr') {
+      return DriverDocumentId.vehicleRegistration;
+    } else if (clean.contains('insurance') || clean == 'vi') {
+      return DriverDocumentId.vehicleInsurance;
+    } else if (clean.contains('police') || clean == 'pc') {
+      return DriverDocumentId.policeCheck;
+    }
+    return clean;
+  }
+
+  /// Upload a file or bytes to Firebase Storage under `driver_documents/{userId}/{doc_id}.{ext}`
   Future<String> uploadToFirebaseStorage({
     required String userId,
     required String docType,
     File? file,
     Uint8List? bytes,
-    String? base64String,
     String? fileName,
   }) async {
     try {
+      final cleanDocId = normalizeDocId(docType);
       final ext = fileName != null && fileName.contains('.')
           ? fileName.split('.').last.toLowerCase()
           : 'jpg';
@@ -43,14 +64,14 @@ class DriverVerificationService {
 
       final storageRef = _storage
           .ref()
-          .child('driver_documents/$userId/$docType.$ext');
+          .child('driver_documents/$userId/$cleanDocId.$ext');
 
       final metadata = SettableMetadata(
         contentType: contentType,
         customMetadata: {
-          'userId': userId,
-          'docType': docType,
-          'uploadedAt': DateTime.now().toIso8601String(),
+          'user_id': userId,
+          'doc_id': cleanDocId,
+          'uploaded_at': DateTime.now().toIso8601String(),
         },
       );
 
@@ -62,18 +83,9 @@ class DriverVerificationService {
         return url;
       }
 
-      Uint8List? dataBytes = bytes;
-      if (dataBytes == null && base64String != null && base64String.isNotEmpty) {
-        String clean = base64String.trim();
-        if (clean.contains(',')) {
-          clean = clean.split(',').last;
-        }
-        dataBytes = base64Decode(clean);
-      }
-
-      if (dataBytes != null && dataBytes.isNotEmpty) {
+      if (bytes != null && bytes.isNotEmpty) {
         debugPrint('[DriverVerification] Uploading bytes to Storage: ${storageRef.fullPath}');
-        final task = await storageRef.putData(dataBytes, metadata);
+        final task = await storageRef.putData(bytes, metadata);
         final url = await task.ref.getDownloadURL();
         debugPrint('[DriverVerification] Storage upload successful: $url');
         return url;
@@ -87,62 +99,60 @@ class DriverVerificationService {
     }
   }
 
-  /// Upload or update a single driver verification document to Firebase Storage and Firestore
+  /// Upload or update a single driver verification document to Firebase Storage and `users/{userId}/docs/{doc_id}` subcollection
   Future<String> uploadDriverDocument({
     required String userId,
     required String docType,
     required String title,
     required String fileName,
     File? file,
-    String? base64Data,
-    String status = 'Pending',
+    Uint8List? bytes,
+    String status = 'pending',
   }) async {
     try {
-      debugPrint('[DriverVerification] Saving $docType for user $userId to Firebase Storage & Firestore...');
+      final cleanDocId = normalizeDocId(docType);
+      debugPrint('[DriverVerification] Saving $cleanDocId for user $userId to Storage & subcollection...');
 
       // 1. Upload to Firebase Storage
       final downloadUrl = await uploadToFirebaseStorage(
         userId: userId,
-        docType: docType,
+        docType: cleanDocId,
         file: file,
-        base64String: base64Data,
+        bytes: bytes,
         fileName: fileName,
       );
 
-      // 2. Save document record in Firestore subcollection users/{userId}/docs/{docType}
-      final docMap = <String, dynamic>{
-        'id': docType,
-        'type': docType,
-        'title': title,
-        'fileName': fileName,
-        'fileUrl': downloadUrl,
-        'url': downloadUrl,
-        'downloadUrl': downloadUrl,
-        'status': status,
-        'uploadedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-      if (base64Data != null && base64Data.isNotEmpty) {
-        docMap['base64'] = base64Data;
+      // Never fallback to local paths or fake URLs - throw clear exception on failure
+      if (downloadUrl.isEmpty) {
+        throw Exception('Failed to upload $title to storage. Please check your connection and try again.');
       }
 
-      await _userDocsRef(userId).doc(docType).set(docMap, SetOptions(merge: true));
+      final validStatus = DocumentVerificationStatus.fromString(status).value;
 
-      // 3. Update parent user document driverStats
-      final userUpdates = <String, dynamic>{
-        'driverStats': {
-          if (downloadUrl.isNotEmpty) '${docType}Url': downloadUrl,
-          'lastDocumentUploadedAt': FieldValue.serverTimestamp(),
-        },
-        'updatedAt': FieldValue.serverTimestamp(),
+      // 2. Save document record in subcollection: users/{userId}/docs/{doc_id}
+      final docEntry = <String, dynamic>{
+        'id': cleanDocId,
+        'title': title,
+        'user_id': userId,
+        'file_name': fileName,
+        'file_url': downloadUrl,
+        'status': validStatus,
+        'rejectionReason': null,
+        'uploaded_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+        'verified_at': null,
+        'verified_by': null,
       };
 
-      await _firestore
-          .collection(FirestoreCollections.users)
-          .doc(userId)
-          .set(userUpdates, SetOptions(merge: true));
+      await _docsRef(userId).doc(cleanDocId).set(docEntry, SetOptions(merge: true));
 
-      debugPrint('[DriverVerification] Document $docType successfully saved. Storage URL: $downloadUrl');
+      // 3. Keep single is_verified_driver flag on parent user document
+      await _userRef(userId).set({
+        'is_verified_driver': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      debugPrint('[DriverVerification] Document $cleanDocId saved to users/$userId/docs/$cleanDocId.');
       return downloadUrl;
     } catch (e, stack) {
       debugPrint('[DriverVerification] Error saving document $docType: $e\n$stack');
@@ -157,125 +167,124 @@ class DriverVerificationService {
     Map<String, dynamic>? vehicleInfo,
   }) async {
     try {
-      debugPrint('[DriverVerification] Submitting batch verification documents for user $userId to Storage & Firestore...');
-      final batch = _firestore.batch();
-      final List<String> submittedTypes = [];
-      final Map<String, dynamic> driverStatsUrls = {
-        'lastDocumentUploadedAt': FieldValue.serverTimestamp(),
-      };
+      debugPrint('[DriverVerification] Submitting verification documents batch for user $userId to subcollection...');
 
       for (final entry in documents.entries) {
         final docType = entry.key;
         final docData = entry.value;
+        final cleanDocId = normalizeDocId(docType);
         final title = docData['title']?.toString() ?? docType;
-        final fileName = docData['fileName']?.toString() ?? '$docType.jpg';
-        final base64 = docData['base64']?.toString();
-        final filePath = docData['filePath']?.toString();
+        final fileName = docData['fileName']?.toString() ??
+            docData['file_name']?.toString() ??
+            '$cleanDocId.jpg';
+        final filePath = docData['filePath']?.toString() ?? docData['file_path']?.toString();
         final File? fileObj = (filePath != null && filePath.isNotEmpty) ? File(filePath) : null;
+        final Uint8List? bytes = docData['bytes'] as Uint8List?;
 
-        // Upload to Firebase Storage
+        // 1. Upload to Firebase Storage
         final downloadUrl = await uploadToFirebaseStorage(
           userId: userId,
-          docType: docType,
+          docType: cleanDocId,
           file: fileObj,
-          base64String: base64,
+          bytes: bytes,
           fileName: fileName,
         );
 
-        if (downloadUrl.isNotEmpty) {
-          driverStatsUrls['${docType}Url'] = downloadUrl;
+        if (downloadUrl.isEmpty) {
+          throw Exception('Failed to upload $title to storage. Please check your connection and try again.');
         }
 
-        final docRef = _userDocsRef(userId).doc(docType);
-        final docPayload = <String, dynamic>{
-          'id': docType,
-          'type': docType,
+        // 2. Write to subcollection: users/{userId}/docs/{doc_id}
+        final docEntry = <String, dynamic>{
+          'id': cleanDocId,
           'title': title,
-          'fileName': fileName,
-          'fileUrl': downloadUrl,
-          'url': downloadUrl,
-          'downloadUrl': downloadUrl,
-          'status': 'Pending',
-          'uploadedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
+          'user_id': userId,
+          'file_name': fileName,
+          'file_url': downloadUrl,
+          'status': DocumentVerificationStatus.pending.value,
+          'rejectionReason': null,
+          'uploaded_at': FieldValue.serverTimestamp(),
+          'updated_at': FieldValue.serverTimestamp(),
+          'verified_at': null,
+          'verified_by': null,
         };
-        if (base64 != null && base64.isNotEmpty) {
-          docPayload['base64'] = base64;
-        }
 
-        batch.set(docRef, docPayload, SetOptions(merge: true));
-        submittedTypes.add(docType);
+        await _docsRef(userId).doc(cleanDocId).set(docEntry, SetOptions(merge: true));
       }
 
-      // Update parent user profile
-      final userRef =
-          _firestore.collection(FirestoreCollections.users).doc(userId);
-      final Map<String, dynamic> userPayload = {
-        'isDriverVerificationSubmitted': true,
-        'driverVerificationStatus': 'pending',
-        'submittedDocuments': submittedTypes,
-        'driverStats': driverStatsUrls,
+      // 3. Update users/{userId} parent document with single is_verified_driver flag
+      final userUpdates = <String, dynamic>{
+        'is_verified_driver': false,
         'updatedAt': FieldValue.serverTimestamp(),
       };
-      if (vehicleInfo != null) {
-        userPayload['vehicle'] = vehicleInfo;
+
+      if (vehicleInfo != null && vehicleInfo.isNotEmpty) {
+        final cleanVehicle = Map<String, dynamic>.from(vehicleInfo)
+          ..removeWhere((k, v) => v == null || (v is String && v.trim().isEmpty));
+        if (cleanVehicle.isNotEmpty) {
+          userUpdates['vehicle'] = cleanVehicle;
+        }
       }
 
-      batch.set(
-        userRef,
-        userPayload,
-        SetOptions(merge: true),
-      );
-
-      await batch.commit();
-      debugPrint('[DriverVerification] All verification documents committed successfully to Storage & Firestore.');
+      await _userRef(userId).set(userUpdates, SetOptions(merge: true));
+      debugPrint('[DriverVerification] All documents saved to subcollection users/$userId/docs.');
     } catch (e, stack) {
       debugPrint('[DriverVerification] Batch submit failed: $e\n$stack');
       rethrow;
     }
   }
 
-  /// Stream all documents uploaded by a driver from `users/{userId}/docs`
-  Stream<List<Map<String, dynamic>>> streamDriverDocuments(String userId) {
-    return _userDocsRef(userId).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => doc.data()).toList();
+  /// Stream docs map directly from `users/{userId}/docs` subcollection
+  Stream<Map<String, dynamic>> streamDriverDocsMap(String userId) {
+    return _docsRef(userId).snapshots().map((snapshot) {
+      final map = <String, dynamic>{};
+      for (final doc in snapshot.docs) {
+        map[doc.id] = doc.data();
+      }
+      return map;
     });
   }
 
-  /// Fetch a specific document for preview
-  Future<Map<String, dynamic>?> getDriverDocument({
-    required String userId,
-    required String docType,
-  }) async {
+  /// Fetch docs map once from `users/{userId}/docs` subcollection
+  Future<Map<String, dynamic>> getDriverDocs(String userId) async {
     try {
-      final doc = await _userDocsRef(userId).doc(docType).get();
-      return doc.exists ? doc.data() : null;
+      final snap = await _docsRef(userId).get();
+      final map = <String, dynamic>{};
+      for (final doc in snap.docs) {
+        map[doc.id] = doc.data();
+      }
+      return map;
     } catch (e) {
-      debugPrint('[DriverVerification] Failed to fetch doc $docType: $e');
-      return null;
+      debugPrint('[DriverVerification] Failed to fetch docs: $e');
+      return {};
     }
   }
 
-  /// Update document status (e.g. by admin or simulation toggle)
+  /// Update document status in `users/{userId}/docs/{doc_id}` (e.g. by admin panel)
   Future<void> updateDocumentStatus({
     required String userId,
     required String docType,
     required String status,
+    String? rejectionReason,
   }) async {
-    await _userDocsRef(userId).doc(docType).set({
-      'status': status,
-      'updatedAt': FieldValue.serverTimestamp(),
+    final cleanDocId = normalizeDocId(docType);
+    final validStatus = DocumentVerificationStatus.fromString(status).value;
+
+    await _docsRef(userId).doc(cleanDocId).set({
+      'status': validStatus,
+      'rejectionReason': validStatus == 'rejected' ? rejectionReason : null,
+      'verified_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
-  /// Save or update driver vehicle registration details to Firestore database
+  /// Save or update driver vehicle registration details to users/{userId}
   Future<void> saveVehicleDetails({
     required String userId,
     required String licensePlate,
     required String vehicleType,
     String? vehicleModel,
     String? vehicleColor,
-    int totalSeats = 4,
   }) async {
     try {
       debugPrint('[DriverVerification] Saving vehicle details for user $userId to Firestore...');
@@ -292,47 +301,15 @@ class DriverVerificationService {
         'licensePlate': licensePlate.trim(),
         'type': vehicleType.trim(),
         'color': vehicleColor?.trim() ?? '',
-        'totalSeats': totalSeats,
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      final batch = _firestore.batch();
+      await _userRef(userId).set({
+        'vehicle': vehicleMap,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
-      // 1. Update users/{userId} root profile
-      final userRef =
-          _firestore.collection(FirestoreCollections.users).doc(userId);
-      batch.set(
-        userRef,
-        {
-          'vehicle': vehicleMap,
-          'driverStats': {
-            'vehiclePlate': licensePlate.trim(),
-            'vehicleType': vehicleType.trim(),
-            'vehicleModel': modelStr,
-          },
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-
-      // 2. Update users/{userId}/docs/vehicle_registration subcollection document
-      final docRef = _userDocsRef(userId).doc('vehicle_registration');
-      batch.set(
-        docRef,
-        {
-          'id': 'vehicle_registration',
-          'type': 'vehicle_registration',
-          'title': 'Vehicle Registration',
-          'vehicleNumber': licensePlate.trim(),
-          'vehicleType': vehicleType.trim(),
-          'vehicleModel': modelStr,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-
-      await batch.commit();
-      debugPrint('[DriverVerification] Vehicle details successfully saved to Firestore.');
+      debugPrint('[DriverVerification] Vehicle details successfully saved to users collection.');
     } catch (e, stack) {
       debugPrint('[DriverVerification] Error saving vehicle details: $e\n$stack');
       rethrow;

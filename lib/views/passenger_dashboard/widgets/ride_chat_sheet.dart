@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/preferences.dart';
+import 'package:ridelink/data/services/auth_service.dart';
+import 'package:ridelink/data/services/chat_service.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 
 class MessageItem {
@@ -15,15 +19,27 @@ class MessageItem {
 
 class RideChatSheet extends StatefulWidget {
   final String driverName;
+  final String? tripId;
 
-  const RideChatSheet({super.key, required this.driverName});
+  const RideChatSheet({
+    super.key,
+    required this.driverName,
+    this.tripId,
+  });
 
-  static void show(BuildContext context, {required String driverName}) {
+  static void show(
+    BuildContext context, {
+    required String driverName,
+    String? tripId,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => RideChatSheet(driverName: driverName),
+      builder: (context) => RideChatSheet(
+        driverName: driverName,
+        tripId: tripId,
+      ),
     );
   }
 
@@ -33,27 +49,86 @@ class RideChatSheet extends StatefulWidget {
 
 class _RideChatSheetState extends State<RideChatSheet> {
   final TextEditingController _msgController = TextEditingController();
-  final List<MessageItem> _messages = [
-    MessageItem(
-      text: 'Hi Alex! I am currently heading towards Flinders St station.',
-      isMe: false,
-      time: '08:15 AM',
-    ),
-    MessageItem(
-      text: 'Great, thanks! I am waiting near the main entrance clock.',
-      isMe: true,
-      time: '08:17 AM',
-    ),
-    MessageItem(
-      text: 'Perfect! Look for the white Toyota Camry with hazard lights.',
-      isMe: false,
-      time: '08:18 AM',
-    ),
-  ];
+  final ScrollController _scrollController = ScrollController();
+  StreamSubscription? _sub;
+  final List<MessageItem> _messages = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  void _subscribe() {
+    final tripId = widget.tripId;
+    if (tripId == null || tripId.isEmpty) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    _sub = ChatService.instance.streamTripChatMessages(tripId).listen((list) {
+      final myUid = AuthService.instance.currentUser?.uid;
+      final loaded = list.map((m) {
+        final isMe =
+            m.senderRole == 'passenger' || (myUid != null && m.senderId == myUid);
+        final hour = m.timestamp.hour.toString().padLeft(2, '0');
+        final minute = m.timestamp.minute.toString().padLeft(2, '0');
+        return MessageItem(
+          text: m.message,
+          isMe: isMe,
+          time: '$hour:$minute',
+        );
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _messages.clear();
+          _messages.addAll(loaded);
+          _isLoading = false;
+        });
+        _scrollToBottom();
+      }
+    }, onError: (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _msgController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   void _sendMessage() {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
+
+    final user = AuthService.instance.currentUser;
+    final senderId = user?.uid ?? 'passenger_demo';
+    final senderName =
+        Preferences.userName.isNotEmpty ? Preferences.userName : 'Passenger';
+
     setState(() {
       _messages.add(
         MessageItem(
@@ -64,6 +139,18 @@ class _RideChatSheetState extends State<RideChatSheet> {
       );
       _msgController.clear();
     });
+    _scrollToBottom();
+
+    final tripId = widget.tripId;
+    if (tripId != null && tripId.isNotEmpty) {
+      ChatService.instance.sendTripChatMessage(
+        tripId: tripId,
+        senderId: senderId,
+        senderName: senderName,
+        senderRole: 'passenger',
+        message: text,
+      );
+    }
   }
 
   @override
@@ -135,11 +222,52 @@ class _RideChatSheetState extends State<RideChatSheet> {
 
           // Messages List
           Expanded(
-            child: ListView.separated(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-              itemCount: _messages.length,
-              separatorBuilder: (context, index) => SizedBox(height: 10.h),
-              itemBuilder: (context, index) {
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primaryColor,
+                    ),
+                  )
+                : _messages.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 32.w),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                CupertinoIcons.chat_bubble_2,
+                                size: 40.sp,
+                                color: AppColors.secondaryTextColor,
+                              ),
+                              8.verticalSpace,
+                              Text(
+                                'No messages yet',
+                                style: AppTextStyle.text14Semibold,
+                              ),
+                              4.verticalSpace,
+                              Text(
+                                'Send a message to coordinate with ${widget.driverName}.',
+                                textAlign: TextAlign.center,
+                                style: AppTextStyle.text12Regular.copyWith(
+                                  color: AppColors.secondaryTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        controller: _scrollController,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16.w,
+                          vertical: 14.h,
+                        ),
+                        itemCount: _messages.length,
+                        separatorBuilder: (context, index) =>
+                            SizedBox(height: 10.h),
+                        itemBuilder: (context, index) {
                 final msg = _messages[index];
                 return Align(
                   alignment:

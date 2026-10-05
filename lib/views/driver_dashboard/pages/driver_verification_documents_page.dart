@@ -5,6 +5,8 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_assets.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/enums/verification_status.dart';
+import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/controllers/driver_profile_controller.dart';
@@ -49,54 +51,42 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                       ),
                     ),
                     Obx(() {
-                      final isDlVerified =
-                          controller.dlStatus.value.trim().toLowerCase() ==
-                          'verified';
-                      final isVrVerified =
-                          controller.vrStatus.value.trim().toLowerCase() ==
-                          'verified';
-                      final isViVerified =
-                          controller.viStatus.value.trim().toLowerCase() ==
-                          'verified';
-                      final allVerified =
-                          isDlVerified && isVrVerified && isViVerified;
-
-                      final hasMissing =
-                          controller.dlStatus.value == 'Not Uploaded' ||
-                          controller.vrStatus.value == 'Not Uploaded' ||
-                          controller.viStatus.value == 'Not Uploaded';
+                      final isAllVerified =
+                          controller.dlStatus.value.isVerified &&
+                          controller.vrStatus.value.isVerified &&
+                          controller.viStatus.value.isVerified;
 
                       final hasPending =
-                          controller.dlStatus.value.trim().toLowerCase() ==
-                              'pending' ||
-                          controller.vrStatus.value.trim().toLowerCase() ==
-                              'pending' ||
-                          controller.viStatus.value.trim().toLowerCase() ==
-                              'pending' ||
-                          controller.dlStatus.value.trim().toLowerCase() ==
-                              'in review' ||
-                          controller.vrStatus.value.trim().toLowerCase() ==
-                              'in review' ||
-                          controller.viStatus.value.trim().toLowerCase() ==
-                              'in review';
+                          controller.dlStatus.value.isPending ||
+                          controller.vrStatus.value.isPending ||
+                          controller.viStatus.value.isPending;
 
-                      final String label = allVerified
+                      final hasRejected =
+                          controller.dlStatus.value.isRejected ||
+                          controller.vrStatus.value.isRejected ||
+                          controller.viStatus.value.isRejected;
+
+                      final String label = isAllVerified
                           ? 'Verified'
-                          : (hasPending
-                                ? 'In Review'
-                                : (hasMissing
-                                      ? 'Not Uploaded'
-                                      : 'Pending Admin'));
-                      final Color bg = allVerified
+                          : (hasRejected
+                                ? 'Rejected'
+                                : (hasPending ? 'In Review' : 'Not Uploaded'));
+
+                      final Color bg = isAllVerified
                           ? const Color(0xFFDCFCE7)
-                          : (hasMissing && !hasPending
+                          : (hasRejected
                                 ? const Color(0xFFFEE2E2)
-                                : const Color(0xFFFEF3C7));
-                      final Color textColor = allVerified
+                                : (hasPending
+                                      ? const Color(0xFFFEF3C7)
+                                      : const Color(0xFFF1F5F9)));
+
+                      final Color textColor = isAllVerified
                           ? const Color(0xFF16A34A)
-                          : (hasMissing && !hasPending
+                          : (hasRejected
                                 ? const Color(0xFFDC2626)
-                                : const Color(0xFFD97706));
+                                : (hasPending
+                                      ? const Color(0xFFD97706)
+                                      : AppColors.secondaryTextColor));
 
                       return Container(
                         padding: EdgeInsets.symmetric(
@@ -123,74 +113,72 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
 
                 // Status Notice Callout
                 Obx(() {
-                  final isDlVerified =
-                      controller.dlStatus.value.trim().toLowerCase() ==
-                      'verified';
-                  final isVrVerified =
-                      controller.vrStatus.value.trim().toLowerCase() ==
-                      'verified';
-                  final isViVerified =
-                      controller.viStatus.value.trim().toLowerCase() ==
-                      'verified';
-                  final allVerified =
-                      isDlVerified && isVrVerified && isViVerified;
-
-                  final hasMissingRequired =
-                      controller.dlStatus.value == 'Not Uploaded' ||
-                      controller.vrStatus.value == 'Not Uploaded' ||
-                      controller.viStatus.value == 'Not Uploaded';
+                  final isAllVerified =
+                      controller.dlStatus.value.isVerified &&
+                      controller.vrStatus.value.isVerified &&
+                      controller.viStatus.value.isVerified;
 
                   final hasPending =
-                      controller.dlStatus.value.trim().toLowerCase() ==
-                          'pending' ||
-                      controller.vrStatus.value.trim().toLowerCase() ==
-                          'pending' ||
-                      controller.viStatus.value.trim().toLowerCase() ==
-                          'pending' ||
-                      controller.dlStatus.value.trim().toLowerCase() ==
-                          'in review' ||
-                      controller.vrStatus.value.trim().toLowerCase() ==
-                          'in review' ||
-                      controller.viStatus.value.trim().toLowerCase() ==
-                          'in review';
+                      controller.dlStatus.value.isPending ||
+                      controller.vrStatus.value.isPending ||
+                      controller.viStatus.value.isPending;
 
-                  final Color bannerColor = allVerified
+                  final hasRejected =
+                      controller.dlStatus.value.isRejected ||
+                      controller.vrStatus.value.isRejected ||
+                      controller.viStatus.value.isRejected;
+
+                  final Color bannerColor = isAllVerified
                       ? const Color(0xFFECFDF5)
-                      : (hasMissingRequired && !hasPending
+                      : (hasRejected
                             ? const Color(0xFFFEF2F2)
-                            : const Color(0xFFFFFBEB));
-                  final Color borderColor = allVerified
+                            : (hasPending
+                                  ? const Color(0xFFFFFBEB)
+                                  : AppColors.containerFillColor));
+                  final Color borderColor = isAllVerified
                       ? const Color(0xFF86EFAC)
-                      : (hasMissingRequired && !hasPending
+                      : (hasRejected
                             ? const Color(0xFFFECACA)
-                            : const Color(0xFFFDE68A));
-                  final Color iconColor = allVerified
+                            : (hasPending
+                                  ? const Color(0xFFFDE68A)
+                                  : AppColors.borderColor));
+                  final Color iconColor = isAllVerified
                       ? const Color(0xFF16A34A)
-                      : (hasMissingRequired && !hasPending
+                      : (hasRejected
                             ? const Color(0xFFDC2626)
-                            : const Color(0xFFD97706));
-                  final Color titleColor = allVerified
+                            : (hasPending
+                                  ? const Color(0xFFD97706)
+                                  : AppColors.primaryColor));
+                  final Color titleColor = isAllVerified
                       ? const Color(0xFF15803D)
-                      : (hasMissingRequired && !hasPending
+                      : (hasRejected
                             ? const Color(0xFFB91C1C)
-                            : const Color(0xFFB45309));
-                  final Color textColor = allVerified
+                            : (hasPending
+                                  ? const Color(0xFFB45309)
+                                  : AppColors.primaryTextColor));
+                  final Color textColor = isAllVerified
                       ? const Color(0xFF166534)
-                      : (hasMissingRequired && !hasPending
+                      : (hasRejected
                             ? const Color(0xFF991B1B)
-                            : const Color(0xFF92400E));
+                            : (hasPending
+                                  ? const Color(0xFF92400E)
+                                  : AppColors.secondaryTextColor));
 
-                  final String title = allVerified
+                  final String title = isAllVerified
                       ? 'All Documents Verified by Admin'
-                      : (hasMissingRequired && !hasPending
-                            ? 'Action Required: Documents Not Uploaded'
-                            : 'Documents In Review');
+                      : (hasRejected
+                            ? 'Action Required: Document(s) Rejected'
+                            : (hasPending
+                                  ? 'Documents In Review'
+                                  : 'Action Required: Documents Not Uploaded'));
 
-                  final String description = allVerified
+                  final String description = isAllVerified
                       ? 'All your documents are approved by admin. You can publish rides anytime.'
-                      : (hasMissingRequired && !hasPending
-                            ? 'You have missing required documents. Tap any document card below to upload photo from Camera or Gallery.'
-                            : 'Admin verification is in progress for your uploaded documents (typical turnaround: 24-48 hours). Each document will be verified individually.');
+                      : (hasRejected
+                            ? 'One or more documents were rejected by admin. Tap the rejected card below to view reason and re-upload.'
+                            : (hasPending
+                                  ? 'Admin verification is in progress for your uploaded documents (typical turnaround: 24-48 hours).'
+                                  : 'Please upload all required documents to verify your driver profile.'));
 
                   return Container(
                     padding: EdgeInsets.symmetric(
@@ -206,11 +194,13 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
-                          allVerified
+                          isAllVerified
                               ? Icons.verified_user_rounded
-                              : (hasMissingRequired && !hasPending
-                                    ? Icons.warning_amber_rounded
-                                    : Icons.hourglass_top_rounded),
+                              : (hasRejected
+                                    ? Icons.error_outline_rounded
+                                    : (hasPending
+                                          ? Icons.hourglass_top_rounded
+                                          : Icons.warning_amber_rounded)),
                           size: 20.sp,
                           color: iconColor,
                         ),
@@ -264,27 +254,31 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                     Obx(
                       () => _DocumentStatusTile(
                         title: 'Driving Licence (DL)',
-                        subtitle:
-                            controller.dlStatus.value.trim().toLowerCase() ==
-                                'verified'
+                        subtitle: controller.dlStatus.value.isVerified
                             ? 'Government-issued valid driving licence • Verified'
-                            : (controller.drivingLicenceBase64.value.isNotEmpty
+                            : (controller.drivingLicenceUrl.value.isNotEmpty
                                   ? 'Document uploaded and awaiting admin review'
                                   : 'Government-issued valid driving licence'),
                         status: controller.dlStatus.value,
                         fileName: controller.drivingLicenceDoc.value,
+                        rejectionReason: controller.dlRejectionReason.value,
                         icon: AppAssets.drivingLicense,
                         isRequired: true,
-                        isVerified:
-                            controller.dlStatus.value.trim().toLowerCase() ==
-                            'verified',
-                        base64Data: controller.drivingLicenceBase64.value,
+                        isLocked: controller.isVerifiedByAdmin.value,
+                        documentUrl: controller.drivingLicenceUrl.value,
+                        isUploading: controller.isDocUploading(
+                          DriverDocumentId.drivingLicence,
+                        ),
                         onTap: () => _handleDocAction(
                           context,
                           'Driving Licence',
                           controller.drivingLicenceDoc.value,
-                          controller.drivingLicenceBase64.value,
-                          () => controller.uploadDocument('Driving Licence'),
+                          controller.drivingLicenceUrl.value,
+                          controller.dlStatus.value,
+                          () => controller.uploadDocument(
+                            DriverDocumentId.drivingLicence,
+                          ),
+                          docId: DriverDocumentId.drivingLicence,
                         ),
                       ),
                     ),
@@ -293,15 +287,13 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                     Obx(
                       () => _DocumentStatusTile(
                         title: 'Vehicle Registration (VR)',
-                        subtitle:
-                            controller.vrStatus.value.trim().toLowerCase() ==
-                                'verified'
+                        subtitle: controller.vrStatus.value.isVerified
                             ? (controller.vehicleNumber.value != 'N/A' &&
                                       controller.vehicleNumber.value.isNotEmpty
                                   ? 'Plate: ${controller.vehicleNumber.value} • Verified'
                                   : 'Registration certificate verified')
                             : (controller
-                                      .vehicleRegistrationBase64
+                                      .vehicleRegistrationUrl
                                       .value
                                       .isNotEmpty
                                   ? (controller.vehicleNumber.value != 'N/A' &&
@@ -320,19 +312,24 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                                         : 'Official vehicle registration certificate')),
                         status: controller.vrStatus.value,
                         fileName: controller.vehicleRegistrationDoc.value,
+                        rejectionReason: controller.vrRejectionReason.value,
                         icon: AppAssets.vehicleRegistration,
                         isRequired: true,
-                        isVerified:
-                            controller.vrStatus.value.trim().toLowerCase() ==
-                            'verified',
-                        base64Data: controller.vehicleRegistrationBase64.value,
+                        isLocked: controller.isVerifiedByAdmin.value,
+                        documentUrl: controller.vehicleRegistrationUrl.value,
+                        isUploading: controller.isDocUploading(
+                          DriverDocumentId.vehicleRegistration,
+                        ),
                         onTap: () => _handleDocAction(
                           context,
                           'Vehicle Registration',
                           controller.vehicleRegistrationDoc.value,
-                          controller.vehicleRegistrationBase64.value,
-                          () =>
-                              controller.uploadDocument('Vehicle Registration'),
+                          controller.vehicleRegistrationUrl.value,
+                          controller.vrStatus.value,
+                          () => controller.uploadDocument(
+                            DriverDocumentId.vehicleRegistration,
+                          ),
+                          docId: DriverDocumentId.vehicleRegistration,
                         ),
                       ),
                     ),
@@ -341,30 +338,31 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                     Obx(
                       () => _DocumentStatusTile(
                         title: 'Vehicle Insurance (VI)',
-                        subtitle:
-                            controller.viStatus.value.trim().toLowerCase() ==
-                                'verified'
+                        subtitle: controller.viStatus.value.isVerified
                             ? 'Vehicle insurance policy • Verified'
-                            : (controller
-                                      .vehicleInsuranceBase64
-                                      .value
-                                      .isNotEmpty
+                            : (controller.vehicleInsuranceUrl.value.isNotEmpty
                                   ? 'Policy document uploaded and awaiting review'
                                   : 'Comprehensive or third-party vehicle policy'),
                         status: controller.viStatus.value,
                         fileName: controller.vehicleInsuranceDoc.value,
+                        rejectionReason: controller.viRejectionReason.value,
                         icon: AppAssets.vehicleInsurance,
                         isRequired: true,
-                        isVerified:
-                            controller.viStatus.value.trim().toLowerCase() ==
-                            'verified',
-                        base64Data: controller.vehicleInsuranceBase64.value,
+                        isLocked: controller.isVerifiedByAdmin.value,
+                        documentUrl: controller.vehicleInsuranceUrl.value,
+                        isUploading: controller.isDocUploading(
+                          DriverDocumentId.vehicleInsurance,
+                        ),
                         onTap: () => _handleDocAction(
                           context,
                           'Vehicle Insurance',
                           controller.vehicleInsuranceDoc.value,
-                          controller.vehicleInsuranceBase64.value,
-                          () => controller.uploadDocument('Vehicle Insurance'),
+                          controller.vehicleInsuranceUrl.value,
+                          controller.viStatus.value,
+                          () => controller.uploadDocument(
+                            DriverDocumentId.vehicleInsurance,
+                          ),
+                          docId: DriverDocumentId.vehicleInsurance,
                         ),
                       ),
                     ),
@@ -373,27 +371,31 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                     Obx(
                       () => _DocumentStatusTile(
                         title: 'Police Check (PC)',
-                        subtitle:
-                            controller.pcStatus.value.trim().toLowerCase() ==
-                                'verified'
+                        subtitle: controller.pcStatus.value.isVerified
                             ? 'Police certificate • Verified'
-                            : (controller.policeCheckBase64.value.isNotEmpty
+                            : (controller.policeCheckUrl.value.isNotEmpty
                                   ? 'Police certificate uploaded and awaiting review'
                                   : 'National criminal history check (Optional)'),
                         status: controller.pcStatus.value,
                         fileName: controller.policeCheckDoc.value,
+                        rejectionReason: controller.pcRejectionReason.value,
                         icon: AppAssets.policCheck,
                         isRequired: false,
-                        isVerified:
-                            controller.pcStatus.value.trim().toLowerCase() ==
-                            'verified',
-                        base64Data: controller.policeCheckBase64.value,
+                        isLocked: controller.isVerifiedByAdmin.value,
+                        documentUrl: controller.policeCheckUrl.value,
+                        isUploading: controller.isDocUploading(
+                          DriverDocumentId.policeCheck,
+                        ),
                         onTap: () => _handleDocAction(
                           context,
                           'Police Check',
                           controller.policeCheckDoc.value,
-                          controller.policeCheckBase64.value,
-                          () => controller.uploadDocument('Police Check'),
+                          controller.policeCheckUrl.value,
+                          controller.pcStatus.value,
+                          () => controller.uploadDocument(
+                            DriverDocumentId.policeCheck,
+                          ),
+                          docId: DriverDocumentId.policeCheck,
                         ),
                       ),
                     ),
@@ -413,10 +415,20 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
     BuildContext context,
     String docTitle,
     String fileName,
-    String base64Data,
-    VoidCallback onUpload,
-  ) {
-    if (base64Data.isNotEmpty) {
+    String documentUrl,
+    DocumentVerificationStatus docStatus,
+    VoidCallback onUpload, {
+    String? docId,
+  }) {
+    if (docId != null && controller.isDocUploading(docId)) {
+      AppSnackBar.info(message: '$docTitle is already uploading. Please wait.');
+      return;
+    }
+
+    final bool isDocVerified =
+        docStatus.isVerified || controller.isVerifiedByAdmin.value;
+
+    if (documentUrl.isNotEmpty) {
       Get.bottomSheet(
         Container(
           padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
@@ -431,11 +443,50 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    docTitle,
-                    style: AppTextStyle.text18Semibold.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        docTitle,
+                        style: AppTextStyle.text18Semibold.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (isDocVerified) ...[
+                        8.horizontalSpace,
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6.w,
+                            vertical: 2.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(6.r),
+                            border: Border.all(
+                              color: const Color(0xFF86EFAC),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 11.sp,
+                                color: const Color(0xFF16A34A),
+                              ),
+                              3.horizontalSpace,
+                              Text(
+                                'Verified',
+                                style: AppTextStyle.text10Medium.copyWith(
+                                  color: const Color(0xFF16A34A),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   IconButton(
                     onPressed: () => Get.back(),
@@ -462,45 +513,100 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                 child: SizedBox(
                   width: double.infinity,
                   height: 220.h,
-                  child: Utils.imageFromBase64(
-                    base64Data,
-                    fit: BoxFit.contain,
-                    errorWidget: Container(
-                      color: AppColors.containerFillColor,
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Document Preview Unavailable',
-                        style: AppTextStyle.text12Medium,
+                  child:
+                      documentUrl.startsWith('http://') ||
+                          documentUrl.startsWith('https://')
+                      ? Image.network(
+                          documentUrl,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                color: AppColors.containerFillColor,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Document Preview Unavailable',
+                                  style: AppTextStyle.text12Medium,
+                                ),
+                              ),
+                        )
+                      : Utils.imageFromBase64(
+                          documentUrl,
+                          fit: BoxFit.contain,
+                          errorWidget: Container(
+                            color: AppColors.containerFillColor,
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Document Preview Unavailable',
+                              style: AppTextStyle.text12Medium,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              16.verticalSpace,
+              if (isDocVerified)
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    vertical: 12.h,
+                    horizontal: 14.w,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.lock_rounded,
+                        color: Color(0xFF16A34A),
+                        size: 16,
+                      ),
+                      8.horizontalSpace,
+                      Text(
+                        'Verified by Admin • Cannot be changed',
+                        style: AppTextStyle.text12Semibold.copyWith(
+                          color: const Color(0xFF15803D),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Get.back();
+                      onUpload();
+                    },
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Re-upload / Replace Document'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryColor,
+                      foregroundColor: AppColors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
                       ),
                     ),
                   ),
                 ),
-              ),
-              16.verticalSpace,
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Get.back();
-                    onUpload();
-                  },
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Re-upload / Replace Document'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryColor,
-                    foregroundColor: AppColors.white,
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
       );
     } else {
+      if (isDocVerified) {
+        AppSnackBar.info(
+          message:
+              '$docTitle cannot be modified because your driver account is verified.',
+        );
+        return;
+      }
       onUpload();
     }
   }
@@ -512,63 +618,53 @@ class _DocumentStatusTile extends StatelessWidget {
     required this.subtitle,
     required this.status,
     required this.icon,
-    required this.isVerified,
     this.isRequired = true,
-    this.base64Data,
+    this.isLocked = false,
+    this.documentUrl,
     this.fileName,
+    this.rejectionReason,
+    this.isUploading = false,
     this.onTap,
   });
 
   final String title;
   final String subtitle;
-  final String status;
+  final DocumentVerificationStatus status;
   final String icon;
-  final bool isVerified;
   final bool isRequired;
-  final String? base64Data;
+  final bool isLocked;
+  final String? documentUrl;
   final String? fileName;
+  final String? rejectionReason;
+  final bool isUploading;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final bool hasAttachedImage =
-        base64Data != null && base64Data!.trim().isNotEmpty;
+        documentUrl != null && documentUrl!.trim().isNotEmpty;
     final bool hasFileName = fileName != null && fileName!.trim().isNotEmpty;
-    final bool hasDocumentData = hasAttachedImage || hasFileName;
+    final bool isApproved = status.isVerified;
+    final bool isRejected = status.isRejected;
+    final bool isInReview = status.isPending;
 
-    final normalizedStatus = status.trim().toLowerCase();
-    final bool isApproved = normalizedStatus == 'verified';
-
-    // Show in review if document actually has uploaded data and is not approved
-    final bool isInReview =
-        hasDocumentData &&
-        !isApproved &&
-        (normalizedStatus == 'pending' ||
-            normalizedStatus == 'in review' ||
-            normalizedStatus.isEmpty);
+    final Color borderColor = status.cardBorderColor;
+    final Color shadowColor = status.cardShadowColor;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: isUploading ? null : onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.white,
           border: Border.all(
-            width: isApproved || isInReview ? 1.5 : 1.2,
-            color: isApproved
-                ? const Color(0xFF10B981)
-                : (isInReview
-                      ? const Color(0xFFF59E0B)
-                      : AppColors.borderColor),
+            width: isApproved || isRejected || isInReview ? 1.5 : 1.2,
+            color: borderColor,
           ),
           borderRadius: BorderRadius.circular(16.r),
           boxShadow: [
             BoxShadow(
-              color: isApproved
-                  ? const Color(0xFF10B981).withValues(alpha: 0.06)
-                  : (isInReview
-                        ? const Color(0xFFF59E0B).withValues(alpha: 0.06)
-                        : AppColors.primaryTextColor.withValues(alpha: 0.02)),
+              color: shadowColor,
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -580,25 +676,41 @@ class _DocumentStatusTile extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Icon Badge or Document Preview (Matching DriverVerificationUploadView)
+                // Icon Badge or Document Preview
                 if (hasAttachedImage)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10.r),
                     child: SizedBox(
                       height: 48.h,
                       width: 48.w,
-                      child: Utils.imageFromBase64(
-                        base64Data!,
-                        fit: BoxFit.cover,
-                        errorWidget: Container(
-                          color: const Color(0xFFECFDF5),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.description_rounded,
-                            color: Color(0xFF059669),
-                          ),
-                        ),
-                      ),
+                      child:
+                          documentUrl!.startsWith('http://') ||
+                              documentUrl!.startsWith('https://')
+                          ? Image.network(
+                              documentUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: const Color(0xFFECFDF5),
+                                    alignment: Alignment.center,
+                                    child: const Icon(
+                                      Icons.description_rounded,
+                                      color: Color(0xFF059669),
+                                    ),
+                                  ),
+                            )
+                          : Utils.imageFromBase64(
+                              documentUrl!,
+                              fit: BoxFit.cover,
+                              errorWidget: Container(
+                                color: const Color(0xFFECFDF5),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.description_rounded,
+                                  color: Color(0xFF059669),
+                                ),
+                              ),
+                            ),
                     ),
                   )
                 else
@@ -607,15 +719,23 @@ class _DocumentStatusTile extends StatelessWidget {
                     width: 42.w,
                     padding: EdgeInsets.all(9.r),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: isApproved || isRejected || isInReview
+                          ? status.backgroundColor
+                          : const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(color: AppColors.borderColor),
+                      border: Border.all(
+                        color: isApproved || isRejected || isInReview
+                            ? status.cardBorderColor.withValues(alpha: 0.3)
+                            : AppColors.borderColor,
+                      ),
                     ),
                     alignment: Alignment.center,
                     child: SvgPicture.asset(
                       icon,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.primaryColor,
+                      colorFilter: ColorFilter.mode(
+                        isApproved || isRejected || isInReview
+                            ? status.primaryColor
+                            : AppColors.primaryColor,
                         BlendMode.srcIn,
                       ),
                     ),
@@ -627,41 +747,13 @@ class _DocumentStatusTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              title,
-                              style: AppTextStyle.text14Semibold.copyWith(
-                                color: AppColors.primaryTextColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          8.horizontalSpace,
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6.w,
-                              vertical: 2.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isRequired
-                                  ? const Color(0xFFEFF6FF)
-                                  : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6.r),
-                            ),
-                            child: Text(
-                              isRequired ? 'Required' : 'Optional',
-                              style: AppTextStyle.text10Medium.copyWith(
-                                color: isRequired
-                                    ? AppColors.primaryColor
-                                    : AppColors.secondaryTextColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        title,
+                        style: AppTextStyle.text14Semibold.copyWith(
+                          color: AppColors.primaryTextColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                       3.verticalSpace,
                       Text(
@@ -670,12 +762,34 @@ class _DocumentStatusTile extends StatelessWidget {
                           color: AppColors.secondaryTextColor,
                         ),
                       ),
+                      if (isRejected &&
+                          rejectionReason != null &&
+                          rejectionReason!.trim().isNotEmpty) ...[
+                        4.verticalSpace,
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 3.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(6.r),
+                          ),
+                          child: Text(
+                            'Reason: ${rejectionReason!.trim()}',
+                            style: AppTextStyle.text10Medium.copyWith(
+                              color: const Color(0xFFDC2626),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
 
-                // Right Corner Badge (Verified or In Review)
-                if (isApproved) ...[
+                // Right Corner Badge (Verified, Rejected, In Review, or Uploading)
+                if (isUploading) ...[
                   8.horizontalSpace,
                   Container(
                     padding: EdgeInsets.symmetric(
@@ -683,10 +797,51 @@ class _DocumentStatusTile extends StatelessWidget {
                       vertical: 4.h,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFDCFCE7),
+                      color: const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(8.r),
                       border: Border.all(
-                        color: const Color(0xFF86EFAC),
+                        color: const Color(0xFFBFDBFE),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 10.w,
+                          height: 10.w,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 1.8,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                        5.horizontalSpace,
+                        Text(
+                          'Uploading...',
+                          style: AppTextStyle.text11Medium.copyWith(
+                            color: AppColors.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (isApproved || isLocked) ...[
+                  8.horizontalSpace,
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isApproved
+                          ? status.backgroundColor
+                          : const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(
+                        color: isApproved
+                            ? status.borderColor
+                            : const Color(0xFF86EFAC),
                         width: 0.8,
                       ),
                     ),
@@ -694,15 +849,52 @@ class _DocumentStatusTile extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.check_circle_rounded,
+                          isApproved
+                              ? Icons.check_circle_rounded
+                              : Icons.lock_rounded,
                           size: 13.sp,
-                          color: const Color(0xFF16A34A),
+                          color: isApproved
+                              ? status.primaryColor
+                              : const Color(0xFF16A34A),
                         ),
                         4.horizontalSpace,
                         Text(
-                          'Verified',
+                          isApproved ? status.label : 'Locked',
                           style: AppTextStyle.text11Medium.copyWith(
-                            color: const Color(0xFF16A34A),
+                            color: isApproved
+                                ? status.primaryColor
+                                : const Color(0xFF16A34A),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (isRejected) ...[
+                  8.horizontalSpace,
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: status.backgroundColor,
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(color: status.borderColor, width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.error_outline_rounded,
+                          size: 13.sp,
+                          color: status.primaryColor,
+                        ),
+                        4.horizontalSpace,
+                        Text(
+                          status.label,
+                          style: AppTextStyle.text11Medium.copyWith(
+                            color: status.primaryColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -717,12 +909,9 @@ class _DocumentStatusTile extends StatelessWidget {
                       vertical: 3.h,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
+                      color: status.backgroundColor,
                       borderRadius: BorderRadius.circular(6.r),
-                      border: Border.all(
-                        color: const Color(0xFFFDE68A),
-                        width: 0.8,
-                      ),
+                      border: Border.all(color: status.borderColor, width: 0.8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -730,13 +919,13 @@ class _DocumentStatusTile extends StatelessWidget {
                         Icon(
                           Icons.hourglass_bottom_rounded,
                           size: 11.sp,
-                          color: const Color(0xFFD97706),
+                          color: status.primaryColor,
                         ),
                         3.horizontalSpace,
                         Text(
-                          'In Review',
+                          status.label,
                           style: AppTextStyle.text10Medium.copyWith(
-                            color: const Color(0xFFD97706),
+                            color: status.primaryColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -747,32 +936,68 @@ class _DocumentStatusTile extends StatelessWidget {
               ],
             ),
 
-            // Only show the bottom action button if the document is NOT yet approved!
-            if (!isApproved) ...[
+            // Only show the bottom action button if the document is NOT yet approved and NOT locked!
+            if (!isApproved && !isLocked) ...[
               12.verticalSpace,
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(vertical: 9.h, horizontal: 12.w),
                 decoration: BoxDecoration(
-                  color: isInReview
-                      ? const Color(0xFFFEF3C7)
-                      : AppColors.containerFillColor,
+                  color: isUploading
+                      ? const Color(0xFFEFF6FF)
+                      : (isRejected || isInReview
+                            ? status.backgroundColor
+                            : AppColors.containerFillColor),
                   borderRadius: BorderRadius.circular(10.r),
                   border: Border.all(
-                    color: isInReview
-                        ? const Color(0xFFFDE68A)
-                        : AppColors.borderColor,
+                    color: isUploading
+                        ? const Color(0xFFBFDBFE)
+                        : (isRejected || isInReview
+                              ? status.borderColor
+                              : AppColors.borderColor),
                     width: 1,
                   ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (isInReview) ...[
+                    if (isUploading) ...[
+                      SizedBox(
+                        width: 14.w,
+                        height: 14.w,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                      8.horizontalSpace,
+                      Text(
+                        'Uploading document to Storage...',
+                        style: AppTextStyle.text12Semibold.copyWith(
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ] else if (isRejected) ...[
+                      Icon(
+                        Icons.refresh_rounded,
+                        size: 15.sp,
+                        color: status.primaryColor,
+                      ),
+                      8.horizontalSpace,
+                      Flexible(
+                        child: Text(
+                          'Rejected • Tap to re-upload',
+                          style: AppTextStyle.text12Semibold.copyWith(
+                            color: status.primaryColor,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ] else if (isInReview) ...[
                       Icon(
                         Icons.hourglass_bottom_rounded,
                         size: 15.sp,
-                        color: const Color(0xFFD97706),
+                        color: status.primaryColor,
                       ),
                       8.horizontalSpace,
                       Flexible(
@@ -781,7 +1006,7 @@ class _DocumentStatusTile extends StatelessWidget {
                               ? 'Attached: ${fileName!}'
                               : 'Document In Review',
                           style: AppTextStyle.text12Semibold.copyWith(
-                            color: const Color(0xFFD97706),
+                            color: status.primaryColor,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -790,7 +1015,7 @@ class _DocumentStatusTile extends StatelessWidget {
                       Text(
                         '• Tap to change',
                         style: AppTextStyle.text10Medium.copyWith(
-                          color: const Color(0xFFD97706),
+                          color: status.primaryColor,
                         ),
                       ),
                     ] else ...[

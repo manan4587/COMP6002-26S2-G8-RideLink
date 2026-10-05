@@ -35,4 +35,5 @@ class AppRoutes {
   static String driverLiveTrip = '/driver-live-trip';
   static String driverRideChat = '/driver-ride-chat';
   static String driverSupportChat = '/driver-support-chat';
+  static String driverCommunityDetails = '/driver-community-details';
 }

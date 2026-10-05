@@ -11,6 +11,7 @@ class GooglePlacesSearchField extends StatefulWidget {
   final String label;
   final Color labelColor;
   final ValueChanged<PlaceDetails>? onPlaceSelected;
+  final Widget? trailing;
 
   const GooglePlacesSearchField({
     super.key,
@@ -19,6 +20,7 @@ class GooglePlacesSearchField extends StatefulWidget {
     required this.label,
     required this.labelColor,
     this.onPlaceSelected,
+    this.trailing,
   });
 
   @override
@@ -193,6 +195,10 @@ class _GooglePlacesSearchFieldState extends State<GooglePlacesSearchField> {
                   ),
                 ),
                 const Spacer(),
+                if (widget.trailing != null) ...[
+                  widget.trailing!,
+                  6.horizontalSpace,
+                ],
                 if (_isLoading)
                   SizedBox(
                     width: 12.w,

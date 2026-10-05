@@ -243,8 +243,11 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                       final trip = trips[index];
                       return Obx(() {
                         final status = trip.status.value;
-                        final bool isActive = status == 'Active';
-                        final bool isCompleted = status == 'Completed';
+                        final bool isActive =
+                            status.toLowerCase() == 'active' ||
+                            status.toLowerCase() == 'in progress';
+                        final bool isCompleted =
+                            status.toLowerCase() == 'completed';
 
                         return Container(
                           padding: EdgeInsets.all(16.w),
@@ -347,11 +350,11 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                               vertical: 3.h,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFFF3E8FF),
+                                              color: const Color(0xFFEEF2FF),
                                               borderRadius:
                                                   BorderRadius.circular(8.r),
                                               border: Border.all(
-                                                color: const Color(0xFFE9D5FF),
+                                                color: const Color(0xFFC7D2FE),
                                               ),
                                             ),
                                             child: Row(
@@ -362,7 +365,7 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                                       .arrow_2_circlepath,
                                                   size: 11.sp,
                                                   color: const Color(
-                                                    0xFF7E22CE,
+                                                    0xFF4F46E5,
                                                   ),
                                                 ),
                                                 4.horizontalSpace,
@@ -372,7 +375,7 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                                       .text12Semibold
                                                       .copyWith(
                                                         color: const Color(
-                                                          0xFF7E22CE,
+                                                          0xFF4F46E5,
                                                         ),
                                                         fontWeight:
                                                             FontWeight.bold,
@@ -381,6 +384,68 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                               ],
                                             ),
                                           ),
+
+                                        // Community or Standard Trip Badge
+                                        Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 8.w,
+                                            vertical: 3.h,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: trip.communityName.isNotEmpty
+                                                ? const Color(0xFFEFF6FF)
+                                                : const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(
+                                              8.r,
+                                            ),
+                                            border: Border.all(
+                                              color:
+                                                  trip.communityName.isNotEmpty
+                                                  ? const Color(0xFFBFDBFE)
+                                                  : const Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                trip.communityName.isNotEmpty
+                                                    ? CupertinoIcons
+                                                          .person_2_fill
+                                                    : CupertinoIcons.globe,
+                                                size: 11.sp,
+                                                color:
+                                                    trip
+                                                        .communityName
+                                                        .isNotEmpty
+                                                    ? const Color(0xFF2563EB)
+                                                    : const Color(0xFF64748B),
+                                              ),
+                                              4.horizontalSpace,
+                                              Text(
+                                                trip.communityName.isNotEmpty
+                                                    ? trip.communityName
+                                                    : 'Standard Ride',
+                                                style: AppTextStyle
+                                                    .text12Semibold
+                                                    .copyWith(
+                                                      color:
+                                                          trip
+                                                              .communityName
+                                                              .isNotEmpty
+                                                          ? const Color(
+                                                              0xFF1D4ED8,
+                                                            )
+                                                          : const Color(
+                                                              0xFF475569,
+                                                            ),
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -613,7 +678,7 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                     Expanded(
                                       child: OutlinedButton(
                                         onPressed: () => controller
-                                            .showEditTripDialog(context, trip),
+                                            .showEditTripSheet(context, trip),
                                         style: OutlinedButton.styleFrom(
                                           side: const BorderSide(
                                             color: Color(0xFFE2E8F0),
@@ -681,27 +746,29 @@ class DriverTripsPage extends GetView<DriverTripsController> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Get.toNamed(AppRoutes.driverPublishRide),
-        backgroundColor: AppColors.primaryColor,
-        elevation: 4,
-        highlightElevation: 6,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22.r),
-        ),
-        icon: const Icon(
-          CupertinoIcons.plus,
-          color: Colors.white,
-          size: 18,
-        ),
-        label: Text(
-          'Publish',
-          style: AppTextStyle.text14Semibold.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+      floatingActionButton: Obx(() {
+        if (controller.filteredTrips.isEmpty) {
+          return SizedBox();
+        }
+
+        return FloatingActionButton.extended(
+          onPressed: () => Get.toNamed(AppRoutes.driverPublishRide),
+          backgroundColor: AppColors.primaryColor,
+          elevation: 4,
+          highlightElevation: 6,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22.r),
           ),
-        ),
-      ),
+          icon: const Icon(CupertinoIcons.plus, color: Colors.white, size: 18),
+          label: Text(
+            'Publish',
+            style: AppTextStyle.text14Semibold.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      }),
     );
   }
 }

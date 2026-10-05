@@ -52,18 +52,8 @@ class _DriverRideChatPageState extends State<DriverRideChatPage> {
 
   StreamSubscription? _chatSubscription;
 
-  final List<DriverChatMessage> _messages = [
-    DriverChatMessage(
-      text: 'Hi! I have started navigating toward your pickup spot.',
-      isMe: true,
-      time: '08:12 AM',
-    ),
-    DriverChatMessage(
-      text: 'Thanks! I am waiting near the main entrance next to the cafe.',
-      isMe: false,
-      time: '08:14 AM',
-    ),
-  ];
+  final List<DriverChatMessage> _messages = [];
+  bool _isLoading = true;
 
   final List<String> _quickReplies = [
     'I have arrived at the pickup spot',
@@ -79,24 +69,28 @@ class _DriverRideChatPageState extends State<DriverRideChatPage> {
     final args = Get.arguments as Map<String, dynamic>?;
     _tripId = widget.tripId ?? args?['tripId'] ?? 'trip_general';
     _passengerName =
-        widget.passengerName ?? args?['passengerName'] ?? 'Manan Patel';
-    _route = widget.route ?? args?['route'] ?? 'Landsdale → Curtin University';
+        widget.passengerName ?? args?['passengerName'] ?? 'Passenger';
+    _route = widget.route ?? args?['route'] ?? 'Trip Route';
     _passengerPhone =
-        widget.passengerPhone ?? args?['passengerPhone'] ?? '+61412345678';
+        widget.passengerPhone ?? args?['passengerPhone'] ?? '';
 
     _subscribeToTripChat();
   }
 
   void _subscribeToTripChat() {
-    if (_tripId.isEmpty || _tripId == 'trip_general') return;
+    if (_tripId.isEmpty || _tripId == 'trip_general') {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
 
     _chatSubscription =
         TripService.instance.streamTripChatMessages(_tripId).listen((list) {
-      if (list.isEmpty) return;
-
       final myUid = AuthService.instance.currentUser?.uid;
       final loaded = list.map((m) {
-        final isMe = m.senderRole == 'driver' || (myUid != null && m.senderId == myUid);
+        final isMe =
+            m.senderRole == 'driver' || (myUid != null && m.senderId == myUid);
         final hour = m.timestamp.hour.toString().padLeft(2, '0');
         final minute = m.timestamp.minute.toString().padLeft(2, '0');
         return DriverChatMessage(
@@ -110,8 +104,15 @@ class _DriverRideChatPageState extends State<DriverRideChatPage> {
         setState(() {
           _messages.clear();
           _messages.addAll(loaded);
+          _isLoading = false;
         });
         _scrollToBottom();
+      }
+    }, onError: (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     });
   }
@@ -288,11 +289,69 @@ class _DriverRideChatPageState extends State<DriverRideChatPage> {
 
             // Message List
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primaryColor,
+                      ),
+                    )
+                  : _messages.isEmpty
+                      ? Center(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 32.w),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 64.r,
+                                    height: 64.r,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFDBEAFE),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      CupertinoIcons.chat_bubble_2_fill,
+                                      color: Color(0xFF2563EB),
+                                      size: 30,
+                                    ),
+                                  ),
+                                  14.verticalSpace,
+                                  Text(
+                                    'No messages yet',
+                                    style: AppTextStyle.text16Semibold.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  6.verticalSpace,
+                                  Text(
+                                    'Coordinate pickup with $_passengerName. Tap any quick reply below or type a message.',
+                                    textAlign: TextAlign.center,
+                                    style: AppTextStyle.text12Regular.copyWith(
+                                      color: const Color(0xFF64748B),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16.w,
+                            vertical: 16.h,
+                          ),
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
                   final msg = _messages[index];
                   return Padding(
                     padding: EdgeInsets.only(bottom: 12.h),

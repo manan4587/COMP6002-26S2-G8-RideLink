@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/preferences.dart';
@@ -18,9 +19,11 @@ class PassengerTripsController extends GetxController {
   // Confirmed / Upcoming Bookings
   final RxList<BookingModel> myBookings = <BookingModel>[].obs;
 
+  // Loading state for bookings
+  final RxBool isLoadingBookings = true.obs;
+
   // Completed Trips History
-  final RxList<CompletedTripModel> completedTrips =
-      <CompletedTripModel>[].obs;
+  final RxList<CompletedTripModel> completedTrips = <CompletedTripModel>[].obs;
 
   // Selected Ride for Details View
   final Rx<RideModel?> selectedRide = Rx<RideModel?>(null);
@@ -28,6 +31,9 @@ class PassengerTripsController extends GetxController {
 
   // Trips tab selection (0: Confirmed/Upcoming, 1: Pending, 2: Completed)
   final RxInt selectedTripsTab = 0.obs;
+
+  // Track the most recent booking made by passenger
+  final RxString lastCreatedBookingId = ''.obs;
 
   StreamSubscription? _availableTripsSubscription;
   StreamSubscription? _passengerBookingsSubscription;
@@ -55,6 +61,7 @@ class PassengerTripsController extends GetxController {
     _availableTripsSubscription = null;
     _passengerBookingsSubscription?.cancel();
     _passengerBookingsSubscription = null;
+    isLoadingBookings.value = true;
     pendingRequests.clear();
     myBookings.clear();
     completedTrips.clear();
@@ -69,121 +76,253 @@ class PassengerTripsController extends GetxController {
 
   void subscribeToTripsAndBookings(String uid) {
     _availableTripsSubscription?.cancel();
-    _availableTripsSubscription =
-        TripService.instance.streamAvailableTrips().listen((trips) {
-      if (trips.isEmpty) return;
+    _availableTripsSubscription = TripService.instance
+        .streamAvailableTrips()
+        .listen(
+          (trips) {
+            if (trips.isEmpty) return;
 
-      final List<RideModel> mapped = trips.map((t) {
-        return RideModel(
-          id: t.id,
-          driverId: t.driverId,
-          driverName: t.driverName,
-          driverAvatar: '',
-          driverPhone: t.driverPhone,
-          rating: t.driverRating,
-          totalRides: t.driverTotalRides,
-          carModel: t.carModel,
-          carPlate: t.carPlate,
-          origin: t.originName.isNotEmpty ? t.originName : t.originAddress,
-          destination:
-              t.destinationName.isNotEmpty ? t.destinationName : t.destinationAddress,
-          originLat: t.originLat,
-          originLng: t.originLng,
-          destinationLat: t.destinationLat,
-          destinationLng: t.destinationLng,
-          departureTime:
-              t.departureTimeString.isNotEmpty ? t.departureTimeString : '08:00 AM',
-          estimatedDuration: '28 mins',
-          pricePerSeat: t.pricePerSeat,
-          seatsAvailable: t.availableSeats,
-          matchPercentage: 96,
-          detourMinutes: 4,
-          pickupSuggestion: t.originName,
-          dropOffPlan: '${t.originName} → ${t.destinationName}',
+            final List<RideModel> mapped = trips.map((t) {
+              return RideModel(
+                id: t.id,
+                driverId: t.driverId,
+                driverName: t.driverName,
+                driverAvatar: '',
+                driverPhone: t.driverPhone,
+                rating: t.driverRating,
+                totalRides: t.driverTotalRides,
+                carModel: t.carModel,
+                carPlate: t.carPlate,
+                origin: t.originName.isNotEmpty
+                    ? t.originName
+                    : t.originAddress,
+                destination: t.destinationName.isNotEmpty
+                    ? t.destinationName
+                    : t.destinationAddress,
+                originLat: t.originLat,
+                originLng: t.originLng,
+                destinationLat: t.destinationLat,
+                destinationLng: t.destinationLng,
+                departureTime: t.departureTimeString.isNotEmpty
+                    ? t.departureTimeString
+                    : '08:00 AM',
+                estimatedDuration: '28 mins',
+                pricePerSeat: t.pricePerSeat,
+                seatsAvailable: t.availableSeats,
+                matchPercentage: 96,
+                detourMinutes: 4,
+                pickupSuggestion: t.originName,
+                dropOffPlan: '${t.originName} → ${t.destinationName}',
+              );
+            }).toList();
+
+            if (Get.isRegistered<PassengerSearchController>()) {
+              final searchCtrl = Get.find<PassengerSearchController>();
+              searchCtrl.availableRides.assignAll(mapped);
+            }
+          },
+          onError: (err) {
+            debugPrint(
+              '[PassengerTripsController] Available trips stream error: $err',
+            );
+          },
         );
-      }).toList();
-
-      if (Get.isRegistered<PassengerSearchController>()) {
-        final searchCtrl = Get.find<PassengerSearchController>();
-        for (final r in mapped) {
-          final idx = searchCtrl.availableRides.indexWhere((x) => x.id == r.id);
-          if (idx != -1) {
-            searchCtrl.availableRides[idx] = r;
-          } else {
-            searchCtrl.availableRides.insert(0, r);
-          }
-        }
-      }
-    });
 
     _passengerBookingsSubscription?.cancel();
-    _passengerBookingsSubscription =
-        TripService.instance.streamPassengerBookings(uid).listen((bookings) {
-      for (final b in bookings) {
-        RideModel? ride;
-        if (Get.isRegistered<PassengerSearchController>()) {
-          ride = Get.find<PassengerSearchController>()
-              .availableRides
-              .firstWhereOrNull((r) => r.id == b.tripId);
-        }
-        ride ??= RideModel(
-          id: b.tripId,
-          driverName: 'Driver',
-          driverAvatar: '',
-          rating: 0.0,
-          totalRides: 0,
-          carModel: 'Vehicle',
-          carPlate: 'Plate',
-          origin: b.pickupAddress,
-          destination: b.dropAddress,
-          departureTime: 'Today',
-          estimatedDuration: '30 mins',
-          pricePerSeat: b.fare / (b.requestedSeats > 0 ? b.requestedSeats : 1),
-          seatsAvailable: 2,
-        );
+    _passengerBookingsSubscription = TripService.instance
+        .streamPassengerBookings(uid)
+        .listen(
+          (bookings) async {
+            try {
+              for (final b in bookings) {
+                RideModel? ride;
+                if (Get.isRegistered<PassengerSearchController>()) {
+                  ride = Get.find<PassengerSearchController>().availableRides
+                      .firstWhereOrNull((r) => r.id == b.tripId);
+                }
 
-        if (b.status == 'accepted') {
-          pendingRequests.removeWhere((p) => p.bookingId == b.id || p.id == b.id);
-          final existing =
-              myBookings.firstWhereOrNull((x) => x.bookingId == b.id || x.id == b.id);
-          if (existing == null) {
-            myBookings.insert(
-              0,
-              BookingModel(
-                id: b.id,
-                bookingId: b.id,
-                ride: ride,
-                bookedSeats: b.requestedSeats,
-                totalPrice: b.fare,
-                status: 'Confirmed',
-                bookingDate: 'Confirmed by Driver',
-              ),
+                // Always query genuine TripModel from Firestore if coordinates are missing or uninitialized
+                if (ride == null ||
+                    (ride.originLat == 0.0 && ride.originLng == 0.0)) {
+                  final tripDoc = await TripService.instance.getTrip(b.tripId);
+                  if (tripDoc != null) {
+                    ride = RideModel(
+                      id: tripDoc.id,
+                      driverId: tripDoc.driverId,
+                      driverName: tripDoc.driverName,
+                      driverAvatar: '',
+                      driverPhone: tripDoc.driverPhone,
+                      rating: tripDoc.driverRating,
+                      totalRides: tripDoc.driverTotalRides,
+                      carModel: tripDoc.carModel,
+                      carPlate: tripDoc.carPlate,
+                      origin: tripDoc.originName.isNotEmpty
+                          ? tripDoc.originName
+                          : tripDoc.originAddress,
+                      destination: tripDoc.destinationName.isNotEmpty
+                          ? tripDoc.destinationName
+                          : tripDoc.destinationAddress,
+                      originLat: tripDoc.originLat,
+                      originLng: tripDoc.originLng,
+                      destinationLat: tripDoc.destinationLat,
+                      destinationLng: tripDoc.destinationLng,
+                      currentDriverLat: tripDoc.currentDriverLat,
+                      currentDriverLng: tripDoc.currentDriverLng,
+                      departureTime: tripDoc.departureTimeString.isNotEmpty
+                          ? tripDoc.departureTimeString
+                          : 'Today',
+                      estimatedDuration: '30 mins',
+                      pricePerSeat: tripDoc.pricePerSeat > 0
+                          ? tripDoc.pricePerSeat
+                          : (b.fare /
+                                (b.requestedSeats > 0 ? b.requestedSeats : 1)),
+                      seatsAvailable: tripDoc.availableSeats,
+                      pickupSuggestion: tripDoc.originName,
+                      dropOffPlan:
+                          '${tripDoc.originName} → ${tripDoc.destinationName}',
+                    );
+                  }
+                }
+
+                ride ??= RideModel(
+                  id: b.tripId,
+                  driverId: b.driverId,
+                  driverName: 'Driver',
+                  driverAvatar: '',
+                  rating: 0.0,
+                  totalRides: 0,
+                  carModel: 'Vehicle',
+                  carPlate: 'Plate',
+                  origin: b.pickupAddress,
+                  destination: b.dropAddress,
+                  originLat: 0.0,
+                  originLng: 0.0,
+                  destinationLat: 0.0,
+                  destinationLng: 0.0,
+                  departureTime: 'Today',
+                  estimatedDuration: '30 mins',
+                  pricePerSeat:
+                      b.fare / (b.requestedSeats > 0 ? b.requestedSeats : 1),
+                  seatsAvailable: 2,
+                );
+
+                if (b.status == 'accepted') {
+                  pendingRequests.removeWhere(
+                    (p) => p.bookingId == b.id || p.id == b.id,
+                  );
+                  final existing = myBookings.firstWhereOrNull(
+                    (x) => x.bookingId == b.id || x.id == b.id,
+                  );
+                  if (existing == null) {
+                    myBookings.insert(
+                      0,
+                      BookingModel(
+                        id: b.id,
+                        bookingId: b.id,
+                        ride: ride,
+                        bookedSeats: b.requestedSeats,
+                        totalPrice: b.fare,
+                        status: 'Confirmed',
+                        bookingDate: 'Confirmed by Driver',
+                      ),
+                    );
+                  } else {
+                    final idx = myBookings.indexOf(existing);
+                    myBookings[idx] = BookingModel(
+                      id: existing.id,
+                      bookingId: existing.bookingId,
+                      ride: ride,
+                      bookedSeats: existing.bookedSeats,
+                      totalPrice: existing.totalPrice,
+                      status: existing.status,
+                      bookingDate: existing.bookingDate,
+                    );
+                  }
+                  if (lastCreatedBookingId.value == b.id &&
+                      Get.currentRoute == AppRoutes.requestSent) {
+                    Get.offNamed(AppRoutes.requestApproved);
+                    AppSnackBar.success(
+                      message:
+                          'Your ride request was approved by the driver! 🎉',
+                    );
+                  }
+                } else if (b.status == 'pending') {
+                  final existingReq = pendingRequests.firstWhereOrNull(
+                    (p) => p.bookingId == b.id || p.id == b.id,
+                  );
+                  if (existingReq == null) {
+                    pendingRequests.insert(
+                      0,
+                      PassengerPendingRequestModel(
+                        id: b.id,
+                        bookingId: b.id,
+                        ride: ride,
+                        requestedSeats: b.requestedSeats,
+                        passengerLabel: b.passengerName,
+                        totalPrice: b.fare,
+                        requestTime: 'Pending approval',
+                        status: 'Waiting for driver approval',
+                      ),
+                    );
+                  } else {
+                    final idx = pendingRequests.indexOf(existingReq);
+                    pendingRequests[idx] = PassengerPendingRequestModel(
+                      id: existingReq.id,
+                      bookingId: existingReq.bookingId,
+                      ride: ride,
+                      requestedSeats: existingReq.requestedSeats,
+                      passengerLabel: existingReq.passengerLabel,
+                      totalPrice: existingReq.totalPrice,
+                      requestTime: existingReq.requestTime,
+                      status: existingReq.status.value,
+                    );
+                  }
+                } else if (b.status == 'completed') {
+                  pendingRequests.removeWhere(
+                    (p) => p.bookingId == b.id || p.id == b.id,
+                  );
+                  myBookings.removeWhere(
+                    (p) => p.bookingId == b.id || p.id == b.id,
+                  );
+
+                  final existingCompleted = completedTrips.firstWhereOrNull(
+                    (c) => c.id == b.id || c.id == b.tripId,
+                  );
+                  if (existingCompleted == null) {
+                    completedTrips.insert(
+                      0,
+                      CompletedTripModel(
+                        id: b.id,
+                        driverName: ride.driverName,
+                        carModel: ride.carModel,
+                        carPlate: ride.carPlate,
+                        route: '${ride.origin} → ${ride.destination}',
+                        date: 'Today • Dropped Off',
+                        fare: '\$${b.fare.toStringAsFixed(2)} AUD',
+                        isRated: false,
+                      ),
+                    );
+                  }
+                } else if (b.status == 'declined' || b.status == 'cancelled') {
+                  pendingRequests.removeWhere(
+                    (p) => p.bookingId == b.id || p.id == b.id,
+                  );
+                  myBookings.removeWhere(
+                    (p) => p.bookingId == b.id || p.id == b.id,
+                  );
+                }
+              }
+            } finally {
+              isLoadingBookings.value = false;
+            }
+          },
+          onError: (err) {
+            debugPrint(
+              '[PassengerTripsController] Bookings stream error: $err',
             );
-          }
-        } else if (b.status == 'pending') {
-          final existingReq =
-              pendingRequests.firstWhereOrNull((p) => p.bookingId == b.id || p.id == b.id);
-          if (existingReq == null) {
-            pendingRequests.insert(
-              0,
-              PassengerPendingRequestModel(
-                id: b.id,
-                bookingId: b.id,
-                ride: ride,
-                requestedSeats: b.requestedSeats,
-                passengerLabel: b.passengerName,
-                totalPrice: b.fare,
-                requestTime: 'Pending approval',
-                status: 'Waiting for driver approval',
-              ),
-            );
-          }
-        } else if (b.status == 'declined' || b.status == 'cancelled') {
-          pendingRequests.removeWhere((p) => p.bookingId == b.id || p.id == b.id);
-          myBookings.removeWhere((p) => p.bookingId == b.id || p.id == b.id);
-        }
-      }
-    });
+            isLoadingBookings.value = false;
+          },
+        );
   }
 
   void openRideDetails(RideModel ride) {
@@ -196,41 +335,62 @@ class PassengerTripsController extends GetxController {
     openRideDetails(ride);
   }
 
-  void requestToJoinRide(
-    RideModel ride, {
-    int? seats,
-    String? notes,
-  }) {
+  void requestToJoinRide(RideModel ride, {int? seats, String? notes}) {
     final int seatCount = seats ?? 1;
     final bookingId = 'bk_${DateTime.now().millisecondsSinceEpoch}';
     final user = AuthService.instance.currentUser;
     final passengerUid = user?.uid ?? 'passenger_demo';
-    final pName = Preferences.userName.isNotEmpty ? Preferences.userName : 'Passenger';
+    final pName = Preferences.userName.isNotEmpty
+        ? Preferences.userName
+        : (user?.displayName ?? 'Passenger');
     final pPhone = Preferences.userPhone;
+
+    final double effectivePricePerSeat = ride.enRouteSubFare ?? ride.pricePerSeat;
+    final double totalFare = effectivePricePerSeat * seatCount;
+
+    final pickupAddr = ride.searchedPickupAddress.isNotEmpty
+        ? ride.searchedPickupAddress
+        : ride.origin;
+    final dropAddr = ride.searchedDropAddress.isNotEmpty
+        ? ride.searchedDropAddress
+        : ride.destination;
+
+    final pLat = ride.searchedPickupLat != 0.0 ? ride.searchedPickupLat : ride.originLat;
+    final pLng = ride.searchedPickupLng != 0.0 ? ride.searchedPickupLng : ride.originLng;
+    final dLat = ride.searchedDropLat != 0.0 ? ride.searchedDropLat : ride.destinationLat;
+    final dLng = ride.searchedDropLng != 0.0 ? ride.searchedDropLng : ride.destinationLng;
 
     final newReq = PassengerPendingRequestModel(
       id: bookingId,
       bookingId: bookingId,
       ride: ride,
       requestedSeats: seatCount,
-      passengerLabel: '$pName + ${seatCount - 1}',
-      totalPrice: ride.pricePerSeat * seatCount,
+      passengerLabel: seatCount > 1 ? '$pName + ${seatCount - 1}' : pName,
+      totalPrice: totalFare,
       requestTime: 'Just now',
     );
+    lastCreatedBookingId.value = bookingId;
     pendingRequests.insert(0, newReq);
 
     TripService.instance.requestTripBooking(
       TripBookingModel(
         id: bookingId,
         tripId: ride.id,
+        driverId: ride.driverId,
         passengerId: passengerUid,
         passengerName: pName,
         passengerPhone: pPhone,
         passengerRating: 0.0,
         requestedSeats: seatCount,
-        fare: ride.pricePerSeat * seatCount,
-        pickupAddress: ride.origin,
-        dropAddress: ride.destination,
+        fare: totalFare,
+        pickupAddress: pickupAddr,
+        dropAddress: dropAddr,
+        pickupLat: pLat,
+        pickupLng: pLng,
+        dropLat: dLat,
+        dropLng: dLng,
+        passengerStatus: 'to_pickup',
+        pickupOtp: '1234',
         status: 'pending',
         createdAt: DateTime.now(),
       ),
@@ -240,60 +400,13 @@ class PassengerTripsController extends GetxController {
   }
 
   void bookRide(RideModel ride, int seats) {
-    final double total = ride.pricePerSeat * seats;
-    final booking = BookingModel(
-      id: 'bk_${DateTime.now().millisecondsSinceEpoch}',
-      bookingId: 'bk_${DateTime.now().millisecondsSinceEpoch}',
-      ride: ride,
-      bookedSeats: seats,
-      totalPrice: total,
-      status: 'Confirmed',
-      bookingDate: 'Today, 8:00 AM',
-    );
-    myBookings.insert(0, booking);
-    AppSnackBar.success(message: 'Ride booked successfully!');
+    requestToJoinRide(ride, seats: seats);
   }
 
-  void approvePendingRequest(String requestId) {
-    final index = pendingRequests.indexWhere(
-      (p) => p.id == requestId || p.bookingId == requestId,
-    );
-    if (index != -1) {
-      final req = pendingRequests[index];
-      pendingRequests.removeAt(index);
-      final booking = BookingModel(
-        id: req.id,
-        bookingId: req.bookingId,
-        ride: req.ride,
-        bookedSeats: req.requestedSeats,
-        totalPrice: req.totalPrice,
-        status: 'Confirmed',
-        bookingDate: 'Today, 8:00 AM',
-      );
-      myBookings.insert(0, booking);
-      AppSnackBar.success(
-        message: 'Driver accepted! Your booking is confirmed.',
-      );
-    }
-  }
-
-  void simulateDriverApproval() {
-    if (currentSelectedRide.value != null) {
-      final ride = currentSelectedRide.value!;
-      final booking = BookingModel(
-        id: 'bk_${DateTime.now().millisecondsSinceEpoch}',
-        bookingId: 'bk_${DateTime.now().millisecondsSinceEpoch}',
-        ride: ride,
-        bookedSeats: 2,
-        totalPrice: ride.pricePerSeat * 2,
-        status: 'Confirmed',
-        bookingDate: 'Today, 8:00 AM',
-      );
-      myBookings.insert(0, booking);
-    }
-  }
-
-  void cancelPendingRequest(dynamic req) {
+  void cancelPendingRequest(
+    dynamic req, {
+    String reason = 'Cancelled by passenger',
+  }) {
     PassengerPendingRequestModel? model;
     String id;
     if (req is PassengerPendingRequestModel) {
@@ -301,21 +414,33 @@ class PassengerTripsController extends GetxController {
       id = req.bookingId.isNotEmpty ? req.bookingId : req.id;
     } else {
       id = req.toString();
-      model = pendingRequests.firstWhereOrNull((p) => p.id == id || p.bookingId == id);
+      model = pendingRequests.firstWhereOrNull(
+        (p) => p.id == id || p.bookingId == id,
+      );
     }
     if (model != null) {
       pendingRequests.remove(model);
+      final user = AuthService.instance.currentUser;
+      final pName = Preferences.userName.isNotEmpty
+          ? Preferences.userName
+          : (user?.displayName ?? 'Passenger');
       TripService.instance.cancelTripBooking(
         bookingId: model.bookingId.isNotEmpty ? model.bookingId : model.id,
         tripId: model.ride.id,
+        driverId: model.ride.driverId,
+        passengerName: pName,
         seats: model.requestedSeats,
         wasAccepted: false,
+        reason: reason,
       );
     }
-    AppSnackBar.info(message: 'Request cancelled.');
+    AppSnackBar.info(message: 'Ride request cancelled.');
   }
 
-  void cancelBooking(dynamic booking) {
+  void cancelBooking(
+    dynamic booking, {
+    String reason = 'Cancelled by passenger',
+  }) {
     BookingModel? model;
     String id;
     if (booking is BookingModel) {
@@ -323,25 +448,38 @@ class PassengerTripsController extends GetxController {
       id = booking.bookingId.isNotEmpty ? booking.bookingId : booking.id;
     } else {
       id = booking.toString();
-      model = myBookings.firstWhereOrNull((b) => b.id == id || b.bookingId == id);
+      model = myBookings.firstWhereOrNull(
+        (b) => b.id == id || b.bookingId == id,
+      );
     }
     if (model != null) {
       myBookings.remove(model);
+      final user = AuthService.instance.currentUser;
+      final pName = Preferences.userName.isNotEmpty
+          ? Preferences.userName
+          : (user?.displayName ?? 'Passenger');
       TripService.instance.cancelTripBooking(
         bookingId: model.bookingId.isNotEmpty ? model.bookingId : model.id,
         tripId: model.ride.id,
+        driverId: model.ride.driverId,
+        passengerName: pName,
         seats: model.bookedSeats,
         wasAccepted: true,
+        reason: reason,
       );
     }
-    AppSnackBar.info(message: 'Ride booking cancelled.');
+    AppSnackBar.info(
+      message: 'Ride booking cancelled. The driver has been notified.',
+    );
   }
 
   void rateTrip(CompletedTripModel trip, double rating, String comment) {
     trip.rating.value = rating;
     trip.reviewComment.value = comment;
     trip.isRated.value = true;
-    AppSnackBar.success(message: 'Thank you for rating your ride with ${trip.driverName}!');
+    AppSnackBar.success(
+      message: 'Thank you for rating your ride with ${trip.driverName}!',
+    );
   }
 
   void rateDriver({

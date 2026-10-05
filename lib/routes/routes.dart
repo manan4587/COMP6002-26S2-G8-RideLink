@@ -8,6 +8,7 @@ import 'package:ridelink/views/auth_flow/view/splash_view.dart';
 import 'package:ridelink/views/auth_flow/view/verification_submitted_view.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_view.dart';
 import 'package:ridelink/views/driver_dashboard/pages/create_ride_page.dart';
+import 'package:ridelink/views/driver_dashboard/pages/driver_community_details_page.dart';
 import 'package:ridelink/views/driver_dashboard/pages/driver_live_trip_page.dart';
 import 'package:ridelink/views/driver_dashboard/pages/driver_notification_preferences_page.dart';
 import 'package:ridelink/views/driver_dashboard/pages/driver_request_details_page.dart';
@@ -179,5 +180,9 @@ List<GetPage> pages = [
   getPage(
     name: AppRoutes.driverSupportChat,
     page: () => const DriverSupportChatPage(),
+  ),
+  getPage(
+    name: AppRoutes.driverCommunityDetails,
+    page: () => const DriverCommunityDetailsPage(),
   ),
 ];

@@ -65,6 +65,33 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                         color: AppColors.primaryTextColor,
                       ),
                     ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFDBEAFE),
+                            width: 1,
+                          ),
+                        ),
+                        child: IconButton(
+                          tooltip: 'Chat with passenger',
+                          onPressed: () => controller.openDriverChat(
+                            passenger: req,
+                            tripId: trip.id,
+                            route: '${trip.from} → ${trip.to}',
+                          ),
+                          icon: Icon(
+                            CupertinoIcons.chat_bubble_2_fill,
+                            size: 18.sp,
+                            color: const Color(0xFF2563EB),
+                          ),
+                          splashRadius: 20.r,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

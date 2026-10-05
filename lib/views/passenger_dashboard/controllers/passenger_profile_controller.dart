@@ -7,10 +7,10 @@ import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/core/utils/utils.dart';
-import 'package:ridelink/data/models/passenger/passenger_models.dart';
 import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
+import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
 class PassengerProfileController extends GetxController {
   // Passenger Profile Info
@@ -456,6 +456,9 @@ class PassengerProfileController extends GetxController {
                     onPressed: () async {
                       Navigator.of(ctx).pop();
                       Preferences.logout();
+                      if (Get.isRegistered<PassengerDashboardController>()) {
+                        Get.find<PassengerDashboardController>().cleanupAll();
+                      }
                       await AuthService.instance.signOut();
                       Get.offAllNamed(AppRoutes.getStartedView);
                       AppSnackBar.info(message: 'Logged out successfully.');
@@ -617,6 +620,9 @@ class PassengerProfileController extends GetxController {
                     ),
                     onPressed: () async {
                       Navigator.of(ctx).pop();
+                      if (Get.isRegistered<PassengerDashboardController>()) {
+                        Get.find<PassengerDashboardController>().cleanupAll();
+                      }
                       try {
                         await AuthService.instance.deleteAccount();
                       } catch (_) {}

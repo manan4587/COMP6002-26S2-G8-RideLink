@@ -134,7 +134,7 @@ class _DriverCommunitiesPageState extends State<DriverCommunitiesPage> {
                     );
                   }
 
-                  return ListView.separated(
+                    return ListView.separated(
                     physics: const BouncingScrollPhysics(),
                     itemCount: list.length,
                     separatorBuilder: (_, _) => SizedBox(height: 14.h),
@@ -142,7 +142,9 @@ class _DriverCommunitiesPageState extends State<DriverCommunitiesPage> {
                       final item = list[index];
                       return _DriverCommunityCard(
                         community: item,
-                        onToggleJoin: () => controller.toggleCommunityJoin(item),
+                        onTap: () => controller.openCommunityDetails(item),
+                        onJoin: () => controller.joinCommunity(item),
+                        onCreateRide: () => controller.createRideForCommunity(item),
                       );
                     },
                   );
@@ -158,11 +160,15 @@ class _DriverCommunitiesPageState extends State<DriverCommunitiesPage> {
 
 class _DriverCommunityCard extends StatelessWidget {
   final CommunityModel community;
-  final VoidCallback onToggleJoin;
+  final VoidCallback onTap;
+  final VoidCallback onJoin;
+  final VoidCallback onCreateRide;
 
   const _DriverCommunityCard({
     required this.community,
-    required this.onToggleJoin,
+    required this.onTap,
+    required this.onJoin,
+    required this.onCreateRide,
   });
 
   @override
@@ -170,7 +176,6 @@ class _DriverCommunityCard extends StatelessWidget {
     return Obx(() {
       final isJoined = community.isJoined.value;
       return Container(
-        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(22.r),
@@ -186,112 +191,162 @@ class _DriverCommunityCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(10.r),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEFF6FF),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    community.icon,
-                    color: const Color(0xFF2563EB),
-                    size: 20.sp,
-                  ),
-                ),
-                12.horizontalSpace,
-                Expanded(
-                  child: Column(
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(22.r),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: EdgeInsets.all(16.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        community.name,
-                        style: AppTextStyle.text16Semibold.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0F172A),
+                      Container(
+                        padding: EdgeInsets.all(10.r),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEFF6FF),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          community.icon,
+                          color: const Color(0xFF2563EB),
+                          size: 20.sp,
                         ),
                       ),
-                      4.verticalSpace,
-                      Text(
-                        community.routeSummary,
-                        style: AppTextStyle.text12Regular.copyWith(
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
-                      4.verticalSpace,
-                      Text(
-                        'Peak Hours: ${community.commonTime}',
-                        style: AppTextStyle.text12Regular.copyWith(
-                          color: AppColors.primaryColor,
-                          fontWeight: FontWeight.w500,
+                      12.horizontalSpace,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    community.name,
+                                    style: AppTextStyle.text16Semibold.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: const Color(0xFF94A3B8),
+                                  size: 20.sp,
+                                ),
+                              ],
+                            ),
+                            4.verticalSpace,
+                            Text(
+                              community.routeSummary,
+                              style: AppTextStyle.text12Regular.copyWith(
+                                color: const Color(0xFF64748B),
+                              ),
+                            ),
+                            4.verticalSpace,
+                            Text(
+                              'Peak Hours: ${community.commonTime}',
+                              style: AppTextStyle.text12Regular.copyWith(
+                                color: AppColors.primaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
 
-            if (community.description.isNotEmpty) ...[
-              10.verticalSpace,
-              Text(
-                community.description,
-                style: AppTextStyle.text12Regular.copyWith(
-                  color: const Color(0xFF64748B),
-                  height: 1.35,
-                ),
+                  if (community.description.isNotEmpty) ...[
+                    10.verticalSpace,
+                    Text(
+                      community.description,
+                      style: AppTextStyle.text12Regular.copyWith(
+                        color: const Color(0xFF64748B),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+
+                  14.verticalSpace,
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${community.driversCount.value} Drivers • ${community.passengersCount.value} Passengers',
+                        style: AppTextStyle.text12Semibold.copyWith(
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  12.verticalSpace,
+
+                  // Action Buttons Row: View Details & Quick Join / Create Ride
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: onTap,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14.r),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: 8.h),
+                          ),
+                          child: Text(
+                            'View Details',
+                            style: AppTextStyle.text12Semibold.copyWith(
+                              color: const Color(0xFF334155),
+                            ),
+                          ),
+                        ),
+                      ),
+                      8.horizontalSpace,
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: isJoined ? onTap : onJoin,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: isJoined
+                                  ? const Color(0xFFA7F3D0)
+                                  : const Color(0xFF2563EB),
+                              width: 1.2,
+                            ),
+                            backgroundColor: isJoined
+                                ? const Color(0xFFECFDF5)
+                                : const Color(0xFFEFF6FF),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14.r),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: 8.h,
+                            ),
+                          ),
+                          child: Text(
+                            isJoined ? 'Joined ✓' : 'Join Network',
+                            style: AppTextStyle.text12Semibold.copyWith(
+                              color: isJoined
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFF2563EB),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-
-            14.verticalSpace,
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${community.driversCount.value} Drivers • ${community.passengersCount.value} Passengers',
-                  style: AppTextStyle.text12Semibold.copyWith(
-                    color: const Color(0xFF64748B),
-                  ),
-                ),
-                OutlinedButton(
-                  onPressed: onToggleJoin,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(
-                      color: isJoined
-                          ? const Color(0xFFCBD5E1)
-                          : const Color(0xFF2563EB),
-                      width: 1.2,
-                    ),
-                    backgroundColor: isJoined
-                        ? const Color(0xFFF1F5F9)
-                        : const Color(0xFFEFF6FF),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16.r),
-                    ),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 14.w,
-                      vertical: 6.h,
-                    ),
-                  ),
-                  child: Text(
-                    isJoined ? 'Joined ✓' : 'Join Network',
-                    style: AppTextStyle.text12Semibold.copyWith(
-                      color: isJoined
-                          ? const Color(0xFF475569)
-                          : const Color(0xFF2563EB),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
             ),
-          ],
+          ),
         ),
       );
     });
