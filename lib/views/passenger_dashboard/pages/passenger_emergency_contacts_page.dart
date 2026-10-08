@@ -1,9 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
+import 'package:ridelink/core/utils/australian_phone_helper.dart';
 import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
@@ -242,7 +244,9 @@ class PassengerEmergencyContactsPage
       text: existingContact?.name ?? '',
     );
     final phoneController = TextEditingController(
-      text: existingContact?.phone ?? '',
+      text: existingContact != null
+          ? AustralianPhoneHelper.stripToLocal(existingContact.phone)
+          : '',
     );
     final RxString selectedRelation =
         (existingContact?.relation ?? 'Mother').obs;
@@ -282,7 +286,7 @@ class PassengerEmergencyContactsPage
             children: [
               Center(
                 child: Container(
-                  width: 40.w,
+                  width: 44.w,
                   height: 4.h,
                   decoration: BoxDecoration(
                     color: AppColors.borderColor,
@@ -397,12 +401,25 @@ class PassengerEmergencyContactsPage
               TextField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.deny(RegExp(r'\+')),
+                  AustralianPhoneInputFormatter(),
+                ],
                 decoration: InputDecoration(
-                  hintText: 'e.g. +61 412 345 678',
-                  prefixIcon: const Icon(
-                    CupertinoIcons.phone,
-                    color: AppColors.secondaryTextColor,
-                    size: 18,
+                  hintText: '469 712 617',
+                  prefixIcon: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10.w),
+                    child: AustralianPhonePrefix(
+                      icon: const Icon(
+                        CupertinoIcons.phone,
+                        color: AppColors.secondaryTextColor,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 0,
+                    minHeight: 0,
                   ),
                   filled: true,
                   fillColor: AppColors.secondaryBgColor,
@@ -447,15 +464,45 @@ class PassengerEmergencyContactsPage
                     : 'Update Contact',
                 onPressed: () {
                   final name = nameController.text.trim();
-                  final phone = phoneController.text.trim();
+                  final rawPhone = phoneController.text.trim();
 
-                  if (name.isEmpty || phone.isEmpty) {
+                  if (name.isEmpty || rawPhone.isEmpty) {
                     AppSnackBar.error(
                       message:
                           'Please fill in both name and mobile phone number.',
                     );
                     return;
                   }
+
+                  if (AustralianPhoneHelper.containsPlus(rawPhone)) {
+                    AppSnackBar.error(
+                      message: "'+' is not allowed. +61 is applied by default.",
+                    );
+                    return;
+                  }
+
+                  if (AustralianPhoneHelper.isIndianNumber(rawPhone)) {
+                    AppSnackBar.error(
+                      message:
+                          "Numbers starting with 91 are not allowed. Australia (+61) only.",
+                    );
+                    return;
+                  }
+
+                  final cleanDigits =
+                      AustralianPhoneHelper.cleanDigits(rawPhone);
+                  if (cleanDigits.length < 9 || cleanDigits.length > 10) {
+                    AppSnackBar.error(
+                      message:
+                          "Please enter a valid 9 or 10-digit Australian mobile number.",
+                    );
+                    return;
+                  }
+
+                  final phone =
+                      AustralianPhoneHelper.formatToAustralian(rawPhone);
+
+                  Get.back();
 
                   if (existingContact == null) {
                     controller.addEmergencyContact(
@@ -473,8 +520,6 @@ class PassengerEmergencyContactsPage
                       isPrimary: isPrimary.value,
                     );
                   }
-
-                  Navigator.of(ctx).pop();
                 },
               ),
             ],

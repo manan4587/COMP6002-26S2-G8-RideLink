@@ -25,6 +25,7 @@ class NotificationService {
 
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<RemoteMessage>? _foregroundMessageSubscription;
+  StreamSubscription<User?>? _authSubscription;
   String? _cachedFcmToken;
 
   String? get cachedFcmToken => _cachedFcmToken;
@@ -69,6 +70,21 @@ class NotificationService {
         debugPrint('[NotificationService] FCM Token refreshed: $newToken');
         _cachedFcmToken = newToken;
         await syncTokenToFirestore(newToken);
+      });
+
+      // 5. Listen for Firebase Auth state changes to automatically sync or clear tokens
+      _authSubscription?.cancel();
+      _authSubscription = _auth.authStateChanges().listen((User? user) async {
+        if (user != null) {
+          debugPrint('[NotificationService] Auth state changed: User logged in (${user.uid}). Syncing FCM token.');
+          final token = _cachedFcmToken ?? await _fcm.getToken();
+          if (token != null && token.isNotEmpty) {
+            _cachedFcmToken = token;
+            await syncTokenToFirestore(token);
+          }
+        } else {
+          debugPrint('[NotificationService] Auth state changed: User signed out.');
+        }
       });
 
       // 5. Listen for incoming messages while app is in foreground
@@ -162,6 +178,7 @@ class NotificationService {
   void dispose() {
     _tokenRefreshSubscription?.cancel();
     _foregroundMessageSubscription?.cancel();
+    _authSubscription?.cancel();
   }
 }
 

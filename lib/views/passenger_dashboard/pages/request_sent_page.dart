@@ -14,8 +14,34 @@ class RequestSentPage extends GetView<PassengerDashboardController> {
 
   @override
   Widget build(BuildContext context) {
-    final ride =
-        controller.currentSelectedRide.value ?? controller.availableRides.first;
+    final ride = controller.currentSelectedRide.value ??
+        (controller.availableRides.isNotEmpty
+            ? controller.availableRides.first
+            : null);
+
+    if (ride == null) {
+      return Scaffold(
+        backgroundColor: AppColors.secondaryBgColor,
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(CupertinoIcons.checkmark_circle, size: 48, color: AppColors.primaryColor),
+                12.verticalSpace,
+                Text('Request Submitted', style: AppTextStyle.text18Semibold),
+                16.verticalSpace,
+                ElevatedButton(
+                  onPressed: () => Get.offAllNamed(AppRoutes.passengerDashboard),
+                  child: const Text('Back to Home'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final int seatsNeeded = controller.requestedSeats.value;
 
     return Scaffold(

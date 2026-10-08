@@ -16,6 +16,17 @@ class CommunityPage extends StatefulWidget {
 class _CommunityPageState extends State<CommunityPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String _selectedCategory = 'All';
+
+  final List<String> _categories = const [
+    'All',
+    'Joined',
+    'Residential',
+    'Stadium & Events',
+    'Campus & Uni',
+    'CBD & Work',
+    'Healthcare',
+  ];
 
   @override
   void dispose() {
@@ -30,12 +41,19 @@ class _CommunityPageState extends State<CommunityPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: RefreshIndicator(
+          color: AppColors.primaryColor,
+          onRefresh: () async {
+            await controller.communityController.reloadCommunities();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Text(
                 'Commuter Communities',
                 style: AppTextStyle.text20Semibold.copyWith(
@@ -82,12 +100,76 @@ class _CommunityPageState extends State<CommunityPage> {
                       color: AppColors.secondaryTextColor,
                     ),
                     hintText:
-                        'Search communities (e.g. Curtin, Monash, CBD)...',
+                        'Search communities (e.g. Curtin, Stadium, CBD)...',
                     hintStyle: AppTextStyle.text14Regular.copyWith(
                       color: AppColors.hintTextColor,
                     ),
                     border: InputBorder.none,
                   ),
+                ),
+              ),
+
+              SizedBox(height: 12.h),
+
+              // Category Filter Chips
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: _categories.map((cat) {
+                    final isSelected = _selectedCategory == cat;
+                    return Padding(
+                      padding: EdgeInsets.only(right: 8.w),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = cat;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10.r),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 7.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primaryColor
+                                : AppColors.white,
+                            borderRadius: BorderRadius.circular(10.r),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primaryColor
+                                  : const Color(0xFFCBD5E1),
+                              width: 1.1,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primaryColor
+                                          .withValues(alpha: 0.25),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Text(
+                            cat,
+                            style: AppTextStyle.text11Medium.copyWith(
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppColors.primaryTextColor,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
 
@@ -108,10 +190,29 @@ class _CommunityPageState extends State<CommunityPage> {
                 }
 
                 final filtered = controller.communities.where((c) {
-                  if (_searchQuery.isEmpty) return true;
-                  return c.name.toLowerCase().contains(_searchQuery) ||
+                  final matchesQuery = _searchQuery.isEmpty ||
+                      c.name.toLowerCase().contains(_searchQuery) ||
                       c.routeSummary.toLowerCase().contains(_searchQuery) ||
                       c.description.toLowerCase().contains(_searchQuery);
+                  if (!matchesQuery) return false;
+
+                  if (_selectedCategory == 'Joined') return c.isJoined.value;
+                  if (_selectedCategory == 'Residential') {
+                    return c.iconType == 'home';
+                  }
+                  if (_selectedCategory == 'Stadium & Events') {
+                    return c.iconType == 'stadium';
+                  }
+                  if (_selectedCategory == 'Campus & Uni') {
+                    return c.iconType == 'school';
+                  }
+                  if (_selectedCategory == 'CBD & Work') {
+                    return c.iconType == 'business';
+                  }
+                  if (_selectedCategory == 'Healthcare') {
+                    return c.iconType == 'hospital';
+                  }
+                  return true;
                 }).toList();
 
                 if (filtered.isEmpty) {
@@ -130,6 +231,20 @@ class _CommunityPageState extends State<CommunityPage> {
                             'No communities found',
                             style: AppTextStyle.text16Semibold,
                           ),
+                          if (_selectedCategory != 'All' ||
+                              _searchQuery.isNotEmpty) ...[
+                            SizedBox(height: 8.h),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _searchQuery = '';
+                                  _searchController.clear();
+                                  _selectedCategory = 'All';
+                                });
+                              },
+                              child: const Text('Reset Filters'),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -147,6 +262,7 @@ class _CommunityPageState extends State<CommunityPage> {
                       community: community,
                       onTap: () => controller.openCommunityDetails(community),
                       onJoin: () => controller.joinCommunity(community),
+                      onLeave: () => controller.confirmLeaveCommunity(context, community),
                     );
                   },
                 );
@@ -157,6 +273,7 @@ class _CommunityPageState extends State<CommunityPage> {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -165,11 +282,13 @@ class _CommunityCard extends StatelessWidget {
   final CommunityModel community;
   final VoidCallback onTap;
   final VoidCallback onJoin;
+  final VoidCallback onLeave;
 
   const _CommunityCard({
     required this.community,
     required this.onTap,
     required this.onJoin,
+    required this.onLeave,
   });
 
   @override
@@ -198,19 +317,19 @@ class _CommunityCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Header Row
+                // Top Header Row with Icon and Category Tag
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       padding: EdgeInsets.all(10.r),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEFF6FF),
+                      decoration: BoxDecoration(
+                        color: community.iconBgColor,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         community.icon,
-                        color: const Color(0xFF2563EB),
+                        color: community.iconColor,
                         size: 22.sp,
                       ),
                     ),
@@ -230,19 +349,45 @@ class _CommunityCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              Icon(
-                                Icons.chevron_right,
-                                color: const Color(0xFF94A3B8),
-                                size: 20.sp,
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8.w,
+                                  vertical: 3.h,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: community.iconBgColor,
+                                  borderRadius: BorderRadius.circular(8.r),
+                                ),
+                                child: Text(
+                                  community.categoryLabel,
+                                  style: AppTextStyle.text10Medium.copyWith(
+                                    color: community.iconColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                           SizedBox(height: 4.h),
-                          Text(
-                            community.routeSummary,
-                            style: AppTextStyle.text12Semibold.copyWith(
-                              color: const Color(0xFF2563EB),
-                            ),
+                          Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.map_pin_ellipse,
+                                size: 13.sp,
+                                color: const Color(0xFF2563EB),
+                              ),
+                              4.horizontalSpace,
+                              Expanded(
+                                child: Text(
+                                  community.routeSummary,
+                                  style: AppTextStyle.text12Semibold.copyWith(
+                                    color: const Color(0xFF2563EB),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -260,9 +405,152 @@ class _CommunityCard extends StatelessWidget {
                   ),
                 ),
 
-                SizedBox(height: 14.h),
+                SizedBox(height: 12.h),
 
-                // Metrics Row: Passengers, Drivers, Next Ride
+                // Dedicated Commute Timing Container
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 10.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            CupertinoIcons.clock,
+                            size: 14.sp,
+                            color: const Color(0xFF2563EB),
+                          ),
+                          6.horizontalSpace,
+                          Text(
+                            'Peak Commute: ',
+                            style: AppTextStyle.text11Medium.copyWith(
+                              color: const Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              community.commonTime,
+                              style: AppTextStyle.text11Medium.copyWith(
+                                color: const Color(0xFF0F172A),
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (community.recurringOption.isNotEmpty) ...[
+                        6.verticalSpace,
+                        Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.repeat,
+                              size: 14.sp,
+                              color: const Color(0xFF7C3AED),
+                            ),
+                            6.horizontalSpace,
+                            Text(
+                              'Cadence: ',
+                              style: AppTextStyle.text11Medium.copyWith(
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                community.recurringOption,
+                                style: AppTextStyle.text11Medium.copyWith(
+                                  color: const Color(0xFF6D28D9),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (community.nextRideTime.isNotEmpty) ...[
+                        6.verticalSpace,
+                        Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.calendar,
+                              size: 14.sp,
+                              color: const Color(0xFF059669),
+                            ),
+                            6.horizontalSpace,
+                            Text(
+                              'Next Ride: ',
+                              style: AppTextStyle.text11Medium.copyWith(
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                '${community.nextRideTime} (${community.nextRideSeatsOpen} seats open)',
+                                style: AppTextStyle.text11Medium.copyWith(
+                                  color: const Color(0xFF059669),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (community.hasFixedTerminal) ...[
+                        6.verticalSpace,
+                        Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.placemark,
+                              size: 14.sp,
+                              color: const Color(0xFFD97706),
+                            ),
+                            6.horizontalSpace,
+                            Text(
+                              community.isFixedDropOff
+                                  ? 'Fixed Drop-off: '
+                                  : 'Fixed Terminal: ',
+                              style: AppTextStyle.text11Medium.copyWith(
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                community.fixedTerminalLabel,
+                                style: AppTextStyle.text11Medium.copyWith(
+                                  color: const Color(0xFF92400E),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: 12.h),
+
+                // Metrics Row: Passengers & Verified Drivers (Removed Car icon)
                 Row(
                   children: [
                     // Passenger badge
@@ -275,11 +563,11 @@ class _CommunityCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(width: 8.w),
-                    // Drivers badge
+                    // Drivers badge (using badge icon instead of car)
                     Obx(
                       () => _MetricPill(
-                        icon: CupertinoIcons.car_detailed,
-                        label: '${community.driversCount.value} Drivers',
+                        icon: CupertinoIcons.person_badge_plus,
+                        label: '${community.driversCount.value} Verified Drivers',
                         color: const Color(0xFF0284C7),
                         bgColor: const Color(0xFFF0F9FF),
                       ),
@@ -316,7 +604,7 @@ class _CommunityCard extends StatelessWidget {
                         final isJoined = community.isJoined.value;
                         if (isJoined) {
                           return OutlinedButton.icon(
-                            onPressed: onTap, // Only navigates to details page! Leaving is only inside details.
+                            onPressed: onLeave,
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(
                                 color: Color(0xFFA7F3D0),

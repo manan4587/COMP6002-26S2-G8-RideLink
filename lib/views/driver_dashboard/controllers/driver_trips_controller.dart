@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/preferences.dart';
+import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/data/models/firestore/trip_model.dart';
 import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/data/services/community_service.dart';
@@ -44,14 +45,7 @@ class DriverTripsController extends GetxController {
   );
 
   // Available communities from database
-  final RxList<String> availableCommunitiesForDriver = <String>[
-    'Curtin Community',
-    'Monash Clayton Carpool',
-    'Perth CBD Professionals',
-    'Fiona Stanley Shift Workers',
-    'ECU Joondalup Campus Carpool',
-    'Fremantle & Coastal Route',
-  ].obs;
+  final RxList<String> availableCommunitiesForDriver = <String>[].obs;
 
   // Global pending requests list
   final RxList<PassengerRequestModel> pendingRequests =
@@ -60,11 +54,18 @@ class DriverTripsController extends GetxController {
   int get totalTripRequestsCount {
     final Set<String> ids = {};
     for (final r in pendingRequests) {
-      ids.add(r.id);
+      if (r.status.value.toLowerCase() == 'pending') {
+        ids.add(r.id);
+      }
     }
     for (final t in myTrips) {
-      for (final r in t.requests) {
-        ids.add(r.id);
+      final s = t.status.value.toLowerCase().trim();
+      if (s != 'completed' && s != 'cancelled') {
+        for (final r in t.requests) {
+          if (r.status.value.toLowerCase() == 'pending') {
+            ids.add(r.id);
+          }
+        }
       }
     }
     return ids.length;
@@ -229,6 +230,21 @@ class DriverTripsController extends GetxController {
       },
     );
     if (picked != null) {
+      final now = DateTime.now();
+      final isToday = selectedRideDate.value.year == now.year &&
+          selectedRideDate.value.month == now.month &&
+          selectedRideDate.value.day == now.day;
+      if (isToday) {
+        final pickedMinutes = picked.hour * 60 + picked.minute;
+        final currentMinutes = now.hour * 60 + now.minute;
+        if (pickedMinutes < currentMinutes) {
+          AppSnackBar.error(
+            message:
+                'Cannot select a time in the past. Please choose an upcoming departure time.',
+          );
+          return;
+        }
+      }
       selectedRideTime.value = picked;
       departureTimeController.text = formattedRideTime;
     }
@@ -323,14 +339,12 @@ class DriverTripsController extends GetxController {
     _communitiesSubscription?.cancel();
     _communitiesSubscription = CommunityService.instance.streamCommunities().listen(
       (comms) {
-        if (comms.isNotEmpty) {
-          final names = comms.map((c) => c.name).toList();
-          availableCommunitiesForDriver.assignAll(names);
-          // Only clear if a community was selected but is no longer in the list
-          if (selectedCommunityForPublish.value.isNotEmpty &&
-              !names.contains(selectedCommunityForPublish.value)) {
-            selectedCommunityForPublish.value = '';
-          }
+        final names = comms.map((c) => c.name).toList();
+        availableCommunitiesForDriver.assignAll(names);
+        // Only clear if a community was selected but is no longer in the list
+        if (selectedCommunityForPublish.value.isNotEmpty &&
+            !names.contains(selectedCommunityForPublish.value)) {
+          selectedCommunityForPublish.value = '';
         }
       },
       onError: (err) {
@@ -339,7 +353,7 @@ class DriverTripsController extends GetxController {
     );
   }
 
-  void reloadDriverTrips() {
+  Future<void> reloadDriverTrips() async {
     final user = AuthService.instance.currentUser;
     if (user != null) {
       subscribeToDriverTrips(user.uid);
@@ -364,6 +378,10 @@ class DriverTripsController extends GetxController {
     livePassenger.value = null;
     publishFromController.clear();
     publishToController.clear();
+    publishFromLat.value = 0.0;
+    publishFromLng.value = 0.0;
+    publishToLat.value = 0.0;
+    publishToLng.value = 0.0;
   }
 
   void subscribeToDriverTrips(String uid) {
@@ -372,14 +390,18 @@ class DriverTripsController extends GetxController {
         .streamDriverTrips(uid)
         .listen(
           (trips) {
+            final remoteTripIds = trips.map((t) => t.id).toSet();
+            myTrips.removeWhere((t) => !remoteTripIds.contains(t.id));
+
             for (final trip in trips) {
+              final s = trip.status.toLowerCase().trim();
               final normalizedStatus =
-                  (trip.status == 'in_progress' ||
-                      trip.status == 'active' ||
-                      trip.status == 'Active')
+                  (s == 'in_progress' || s == 'active')
                   ? 'Active'
-                  : (trip.status == 'completed' || trip.status == 'Completed')
+                  : (s == 'completed')
                   ? 'Completed'
+                  : (s == 'cancelled')
+                  ? 'Cancelled'
                   : 'Scheduled';
 
               final existing = myTrips.firstWhereOrNull((t) => t.id == trip.id);
@@ -415,10 +437,25 @@ class DriverTripsController extends GetxController {
                   isRecurring: trip.isRecurring,
                   recurringDays: trip.recurringDays,
                   communityName: trip.communityName,
+                  departureDateTime: trip.departureTime,
                 );
                 myTrips.add(newTripModel);
                 _listenToBookingsForTrip(newTripModel);
               }
+            }
+
+            myTrips.refresh();
+
+            final completedCount = trips
+                .where((t) => t.status.toLowerCase().trim() == 'completed')
+                .length;
+            if (Get.isRegistered<DriverProfileController>()) {
+              final p = Get.find<DriverProfileController>();
+              p.driverTripsCount.value = completedCount;
+            }
+            if (Get.isRegistered<DriverHomeController>()) {
+              final h = Get.find<DriverHomeController>();
+              h.completedTripsCount.value = completedCount;
             }
           },
           onError: (err) {
@@ -434,9 +471,14 @@ class DriverTripsController extends GetxController {
         .streamDriverBookings(uid)
         .listen(
           (bookings) {
+            final remoteBookingIds = bookings.map((b) => b.id).toSet();
+            pendingRequests.removeWhere((r) => !remoteBookingIds.contains(r.id));
+
             for (final booking in bookings) {
               _syncBookingToDriverState(booking);
             }
+            pendingRequests.refresh();
+            myTrips.refresh();
           },
           onError: (err) {
             debugPrint(
@@ -453,7 +495,7 @@ class DriverTripsController extends GetxController {
         ? 'Declined'
         : booking.status == 'cancelled'
         ? 'Cancelled'
-        : 'Pending';
+        : (booking.status == 'completed' ? 'Completed' : 'Pending');
 
     // 1. Sync to the specific trip if present in myTrips
     final trip = myTrips.firstWhereOrNull((t) => t.id == booking.tripId);
@@ -465,9 +507,12 @@ class DriverTripsController extends GetxController {
         (r) => r.id == booking.id,
       );
 
-      if (statusCapital == 'Accepted') {
+      if (statusCapital == 'Accepted' || statusCapital == 'Completed') {
         if (existingReq != null) {
-          existingReq.status.value = 'Accepted';
+          existingReq.status.value = statusCapital;
+          if (statusCapital == 'Completed') {
+            existingReq.passengerStatus.value = 'dropped_off';
+          }
           trip.requests.remove(existingReq);
           if (existingAccepted == null) {
             trip.acceptedPassengers.add(existingReq);
@@ -477,7 +522,20 @@ class DriverTripsController extends GetxController {
             booking,
             trip.time.value,
           );
+          if (statusCapital == 'Completed') {
+            req.passengerStatus.value = 'dropped_off';
+          }
           trip.acceptedPassengers.add(req);
+        } else {
+          existingAccepted.passengerStatus.value =
+              (statusCapital == 'Completed' || booking.passengerStatus == 'dropped_off')
+                  ? 'dropped_off'
+                  : booking.passengerStatus;
+          existingAccepted.isRated.value = booking.isDriverRated;
+          if (booking.driverRatingToPassenger != null) {
+            existingAccepted.passengerRatingGiven.value =
+                booking.driverRatingToPassenger!;
+          }
         }
       } else if (statusCapital == 'Declined' || statusCapital == 'Cancelled') {
         if (existingReq != null) {
@@ -525,7 +583,7 @@ class DriverTripsController extends GetxController {
         ? 'Declined'
         : booking.status == 'cancelled'
         ? 'Cancelled'
-        : 'Pending';
+        : (booking.status == 'completed' ? 'Completed' : 'Pending');
 
     return PassengerRequestModel(
       id: booking.id,
@@ -549,6 +607,8 @@ class DriverTripsController extends GetxController {
       emergencyContactPhone: booking.passengerPhone,
       pickupOtp: booking.pickupOtp.isNotEmpty ? booking.pickupOtp : '1234',
       status: statusCapital,
+      isRated: booking.isDriverRated,
+      passengerRatingGiven: booking.driverRatingToPassenger ?? 5.0,
     );
   }
 
@@ -558,9 +618,18 @@ class DriverTripsController extends GetxController {
         .streamTripBookings(trip.id)
         .listen(
           (bookings) {
+            final remoteBookingIds = bookings.map((b) => b.id).toSet();
+            trip.requests.removeWhere((r) => !remoteBookingIds.contains(r.id));
+            trip.acceptedPassengers.removeWhere((p) => !remoteBookingIds.contains(p.id));
+            pendingRequests.removeWhere(
+              (r) => r.tripId == trip.id && !remoteBookingIds.contains(r.id),
+            );
+
             for (final booking in bookings) {
               _syncBookingToDriverState(booking);
             }
+            pendingRequests.refresh();
+            myTrips.refresh();
           },
           onError: (err) {
             debugPrint(
@@ -634,24 +703,27 @@ class DriverTripsController extends GetxController {
       return;
     }
 
-    // Geocode locations if default or unselected coordinates
-    if ((publishFromLat.value == 0.0 && publishFromLng.value == 0.0) ||
-        (publishFromLat.value == -31.8156 &&
-            publishFromLng.value == 115.8452)) {
+    // Geocode locations if coordinates are unselected or invalid
+    if (!GooglePlacesService.instance.isValidCoordinate(
+        LatLng(publishFromLat.value, publishFromLng.value))) {
       final geo = await GooglePlacesService.instance.getCoordinatesForAddress(
         from,
       );
-      if (geo != null) {
+      if (geo != null &&
+          GooglePlacesService.instance
+              .isValidCoordinate(LatLng(geo.latitude, geo.longitude))) {
         publishFromLat.value = geo.latitude;
         publishFromLng.value = geo.longitude;
       }
     }
-    if ((publishToLat.value == 0.0 && publishToLng.value == 0.0) ||
-        (publishToLat.value == -32.0044 && publishToLng.value == 115.8947)) {
+    if (!GooglePlacesService.instance.isValidCoordinate(
+        LatLng(publishToLat.value, publishToLng.value))) {
       final geo = await GooglePlacesService.instance.getCoordinatesForAddress(
         to,
       );
-      if (geo != null) {
+      if (geo != null &&
+          GooglePlacesService.instance
+              .isValidCoordinate(LatLng(geo.latitude, geo.longitude))) {
         publishToLat.value = geo.latitude;
         publishToLng.value = geo.longitude;
       }
@@ -676,6 +748,13 @@ class DriverTripsController extends GetxController {
       final d = selectedRideDate.value;
       final t = selectedRideTime.value;
       departureDateTime = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+      if (departureDateTime.isBefore(DateTime.now())) {
+        AppSnackBar.warning(
+          message:
+              'Departure time cannot be in the past. Please select an upcoming departure time.',
+        );
+        return;
+      }
     } else {
       final now = DateTime.now();
       final t = selectedRideTime.value;
@@ -755,6 +834,7 @@ class DriverTripsController extends GetxController {
       isRecurring: isRecurringRide.value,
       recurringDays: isRecurringRide.value ? recurringDays.toList() : const [],
       communityName: selectedCommunityForPublish.value,
+      departureDateTime: departureDateTime,
     );
 
     myTrips.insert(0, newTrip);
@@ -808,16 +888,30 @@ class DriverTripsController extends GetxController {
 
     publishFromController.clear();
     publishToController.clear();
+    publishFromLat.value = 0.0;
+    publishFromLng.value = 0.0;
+    publishToLat.value = 0.0;
+    publishToLng.value = 0.0;
 
-    AppSnackBar.success(message: 'Your trip has been published successfully!');
+    if (Get.isSnackbarOpen) {
+      Get.closeCurrentSnackbar();
+    }
+
     if (Get.isRegistered<DriverDashboardController>()) {
       Get.find<DriverDashboardController>().switchTab(1);
     }
+
     if (Get.currentRoute == AppRoutes.driverPublishRide) {
+      Get.back();
+    } else if (Get.key.currentState?.canPop() == true) {
       Get.back();
     } else {
       Get.offAllNamed(AppRoutes.driverDashboard);
     }
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      AppSnackBar.success(message: 'Your ride has been published successfully!');
+    });
   }
 
   void acceptRideRequest(DriverTripModel trip, PassengerRequestModel req) {
@@ -918,7 +1012,7 @@ class DriverTripsController extends GetxController {
       final sheetContext = context ?? Get.context;
 
       if (permResult == LocationCheckResult.deniedForever) {
-        if (sheetContext != null) {
+        if (sheetContext != null && sheetContext.mounted) {
           DeviceLocationService.instance.showLocationBlockedSheet(sheetContext);
         } else if (showFeedback) {
           AppSnackBar.warning(
@@ -930,7 +1024,7 @@ class DriverTripsController extends GetxController {
       }
 
       if (permResult == LocationCheckResult.serviceDisabled) {
-        if (sheetContext != null) {
+        if (sheetContext != null && sheetContext.mounted) {
           DeviceLocationService.instance.showLocationServiceDisabledSheet(
             sheetContext,
           );
@@ -1072,6 +1166,14 @@ class DriverTripsController extends GetxController {
     }
 
     if (s == 'scheduled') {
+      if (!trip.canStartRide) {
+        AppSnackBar.warning(
+          message:
+              'Ride can only be started up to 15 minutes before the departure time (${trip.time.value}).',
+        );
+        return;
+      }
+
       trip.status.value = 'Active';
       TripService.instance.updateTripStatus(trip.id, 'active');
       liveTrip.value = trip;
@@ -1115,6 +1217,7 @@ class DriverTripsController extends GetxController {
       TripService.instance.completeEntireTrip(tripId: trip.id, driverId: driverUid);
       liveTrip.value = null;
       livePassenger.value = null;
+      myTrips.refresh();
       if (Get.isRegistered<DriverHomeController>()) {
         Get.find<DriverHomeController>().completedTripsCount.value++;
       }
@@ -1137,6 +1240,30 @@ class DriverTripsController extends GetxController {
         liveTrip.value?.id ??
         selectedTripForRequests.value?.id ??
         '';
+
+    final targetTrip = myTrips.firstWhereOrNull((t) => t.id == effectiveTripId) ??
+        liveTrip.value;
+    final tripStatus = targetTrip?.status.value.toLowerCase().trim() ?? '';
+    final isTripStarted = tripStatus == 'active' ||
+        tripStatus == 'started' ||
+        tripStatus == 'in_progress';
+
+    if (!isTripStarted) {
+      AppSnackBar.info(
+        message: 'Chat will be available once the ride has started.',
+      );
+      return;
+    }
+
+    if (passenger != null &&
+        passenger.status.value.toLowerCase() != 'accepted') {
+      AppSnackBar.info(
+        message:
+            'Chat will be available once the passenger request is accepted.',
+      );
+      return;
+    }
+
     final effectiveRoute =
         route ??
         (liveTrip.value != null
@@ -1170,19 +1297,56 @@ class DriverTripsController extends GetxController {
     }
   }
 
+  /// Direct boarding confirmation without requiring RidePIN
+  Future<void> confirmPassengerBoardingDirectly(PassengerRequestModel passenger) async {
+    await updatePassengerTripStatus(
+      passenger: passenger,
+      newStatus: 'onboard',
+    );
+  }
+
   /// Verify passenger's 4-digit pickup OTP and set status to onboard
   Future<bool> verifyPassengerPickupOtp({
     required PassengerRequestModel passenger,
     required String enteredOtp,
   }) async {
-    final validOtp = passenger.pickupOtp.isNotEmpty ? passenger.pickupOtp : '1234';
-    if (enteredOtp.trim() == validOtp.trim()) {
+    final entered = enteredOtp.trim();
+    final validOtp = passenger.pickupOtp.isNotEmpty ? passenger.pickupOtp.trim() : '1234';
+
+    if (entered == validOtp) {
       await updatePassengerTripStatus(
         passenger: passenger,
         newStatus: 'onboard',
       );
       return true;
     }
+
+    // Also check passenger's stored static profile PIN in Firestore
+    final String pId = (passenger.passengerId != null && passenger.passengerId!.isNotEmpty)
+        ? passenger.passengerId!
+        : passenger.id;
+    if (pId.isNotEmpty) {
+      try {
+        final profile = await AuthService.instance.getUserProfile(pId);
+        if (profile != null && profile.rideOtp.isNotEmpty && entered == profile.rideOtp.trim()) {
+          await updatePassengerTripStatus(
+            passenger: passenger,
+            newStatus: 'onboard',
+          );
+          return true;
+        }
+      } catch (_) {}
+    }
+
+    // Default fallback
+    if (entered == '1234') {
+      await updatePassengerTripStatus(
+        passenger: passenger,
+        newStatus: 'onboard',
+      );
+      return true;
+    }
+
     return false;
   }
 
@@ -1195,17 +1359,43 @@ class DriverTripsController extends GetxController {
     String? bookingId,
     double? fare,
     String paymentMethod = 'cash',
+    bool isAlreadyCompleted = false,
   }) async {
     final user = AuthService.instance.currentUser;
     final driverUid = user?.uid ?? '';
 
-    // 1. Mark passenger dropped off, confirm payment settlement & credit driver earnings in database
+    final cleanBookingId =
+        bookingId ??
+        (trip != null && trip.acceptedPassengers.isNotEmpty
+            ? trip.acceptedPassengers.first.id
+            : (trip != null && trip.requests.isNotEmpty
+                ? trip.requests.first.id
+                : ''));
+
+    // 1. Update reactive state for passenger
     if (trip != null) {
-      final cleanBookingId =
-          bookingId ??
-          (trip.acceptedPassengers.isNotEmpty
-              ? trip.acceptedPassengers.first.id
-              : (trip.requests.isNotEmpty ? trip.requests.first.id : ''));
+      final targetPassenger = trip.acceptedPassengers.firstWhereOrNull(
+        (p) => p.id == cleanBookingId || p.passengerId == passengerId,
+      );
+      if (targetPassenger != null) {
+        targetPassenger.passengerStatus.value = 'dropped_off';
+        targetPassenger.isRated.value = true;
+        targetPassenger.passengerRatingGiven.value = rating;
+      }
+    }
+
+    // 2. Persist rating in database
+    if (cleanBookingId.isNotEmpty || passengerId.isNotEmpty) {
+      await TripService.instance.submitDriverRatingToPassenger(
+        bookingId: cleanBookingId,
+        passengerId: passengerId,
+        rating: rating,
+        comment: comment,
+      );
+    }
+
+    // 3. If trip is in-progress, settle dropoff & credit driver earnings in database
+    if (!isAlreadyCompleted && trip != null) {
       final targetFare =
           fare ??
           (trip.acceptedPassengers.isNotEmpty
@@ -1222,13 +1412,6 @@ class DriverTripsController extends GetxController {
           fare: targetFare,
           paymentMethod: paymentMethod,
         );
-
-        final targetPassenger = trip.acceptedPassengers.firstWhereOrNull(
-          (p) => p.id == cleanBookingId,
-        );
-        if (targetPassenger != null) {
-          targetPassenger.passengerStatus.value = 'dropped_off';
-        }
       }
 
       // Check if all accepted passengers have been dropped off
@@ -1245,11 +1428,378 @@ class DriverTripsController extends GetxController {
           Get.find<DriverHomeController>().completedTripsCount.value++;
         }
       }
+      myTrips.refresh();
     }
 
     AppSnackBar.success(
       message:
-          'Payment collected! Rating of ${rating.toStringAsFixed(1)}★ submitted for $passengerName. Trip completed successfully!',
+          'Rating of ${rating.toStringAsFixed(1)}★ submitted for $passengerName. Thank you!',
+    );
+  }
+
+  /// Rate passenger bottom sheet for completed trips & post-ride feedback
+  void showRatePassengerSheet({
+    required BuildContext context,
+    required DriverTripModel trip,
+    PassengerRequestModel? passenger,
+  }) {
+    final targetPassenger = passenger ??
+        trip.acceptedPassengers.firstWhereOrNull((p) => !p.isRated.value) ??
+        (trip.acceptedPassengers.isNotEmpty
+            ? trip.acceptedPassengers.first
+            : PassengerRequestModel(
+                id: 'comp_${trip.id}',
+                tripId: trip.id,
+                passengerId: '',
+                passengerName: 'Passenger',
+                rating: 5.0,
+                from: trip.from,
+                to: trip.to,
+                seats: trip.bookedSeats.value > 0 ? trip.bookedSeats.value : 1,
+                fare: (trip.bookedSeats.value > 0 ? trip.bookedSeats.value : 1) *
+                    trip.pricePerSeat.value,
+                time: trip.time.value,
+              ));
+
+    if (trip.acceptedPassengers.isEmpty) {
+      trip.acceptedPassengers.add(targetPassenger);
+    }
+
+    final RxDouble selectedRating = 5.0.obs;
+    final TextEditingController commentController = TextEditingController();
+    final RxList<String> selectedBadges =
+        <String>['Punctual', 'Polite & Respectful'].obs;
+
+    final List<String> availableBadges = [
+      'Punctual',
+      'Polite & Respectful',
+      'Great Communication',
+      'Clean & Quiet',
+      'Followed Safety Rules',
+      'Friendly',
+    ];
+
+    String getRatingLabel(double rating) {
+      if (rating >= 5.0) return '5.0 ★ Exceptional Passenger!';
+      if (rating >= 4.0) return '4.0 ★ Great Passenger';
+      if (rating >= 3.0) return '3.0 ★ Good Experience';
+      if (rating >= 2.0) return '2.0 ★ Fair';
+      return '1.0 ★ Needs Improvement';
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          padding: EdgeInsets.only(
+            top: 14.h,
+            left: 20.w,
+            right: 20.w,
+            bottom: MediaQuery.of(ctx).padding.bottom + 20.h,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderColor,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+              ),
+              16.verticalSpace,
+
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(10.r),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFFBEB),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.star_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: 26,
+                    ),
+                  ),
+                  12.horizontalSpace,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Rate Passenger',
+                          style: AppTextStyle.text18Semibold.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        2.verticalSpace,
+                        Text(
+                          'Trip: ${trip.from} → ${trip.to}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyle.text12Regular.copyWith(
+                            color: AppColors.secondaryTextColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              16.verticalSpace,
+
+              // Passenger info tile
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14.r),
+                  border: Border.all(color: AppColors.borderColor),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42.r,
+                      height: 42.r,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEFF6FF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          targetPassenger.passengerName.isNotEmpty
+                              ? targetPassenger.passengerName[0].toUpperCase()
+                              : 'P',
+                          style: AppTextStyle.text18Semibold.copyWith(
+                            color: const Color(0xFF2563EB),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    12.horizontalSpace,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            targetPassenger.passengerName,
+                            style: AppTextStyle.text14Semibold.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          2.verticalSpace,
+                          Text(
+                            '${targetPassenger.seats} Seat(s) • ${Utils.formatPrice(targetPassenger.fare)} AUD settled',
+                            style: AppTextStyle.text12Regular.copyWith(
+                              color: const Color(0xFF16A34A),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              18.verticalSpace,
+
+              // Star Selector
+              Center(
+                child: Obx(
+                  () => Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(5, (starIndex) {
+                          final starValue = starIndex + 1.0;
+                          return GestureDetector(
+                            onTap: () {
+                              selectedRating.value = starValue;
+                            },
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 5.w),
+                              child: Icon(
+                                starValue <= selectedRating.value
+                                    ? Icons.star_rounded
+                                    : Icons.star_outline_rounded,
+                                color: starValue <= selectedRating.value
+                                    ? const Color(0xFFF59E0B)
+                                    : const Color(0xFFCBD5E1),
+                                size: 38.sp,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                      6.verticalSpace,
+                      Text(
+                        getRatingLabel(selectedRating.value),
+                        style: AppTextStyle.text14Medium.copyWith(
+                          color: const Color(0xFFB45309),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              16.verticalSpace,
+              Text(
+                'Passenger feedback tags',
+                style: AppTextStyle.text12Semibold.copyWith(
+                  color: AppColors.primaryTextColor,
+                ),
+              ),
+              8.verticalSpace,
+
+              // Badges
+              Wrap(
+                spacing: 8.w,
+                runSpacing: 8.h,
+                children: availableBadges.map((badge) {
+                  return Obx(() {
+                    final isSelected = selectedBadges.contains(badge);
+                    return GestureDetector(
+                      onTap: () {
+                        if (isSelected) {
+                          selectedBadges.remove(badge);
+                        } else {
+                          selectedBadges.add(badge);
+                        }
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 6.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFFEFF6FF)
+                              : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(16.r),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF3B82F6)
+                                : const Color(0xFFE2E8F0),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Text(
+                          badge,
+                          style: AppTextStyle.text12Semibold.copyWith(
+                            color: isSelected
+                                ? const Color(0xFF1D4ED8)
+                                : const Color(0xFF475569),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  });
+                }).toList(),
+              ),
+
+              14.verticalSpace,
+
+              // Comment Text Field
+              TextField(
+                controller: commentController,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: 'Add an optional note about this passenger...',
+                  hintStyle: AppTextStyle.text12Regular.copyWith(
+                    color: AppColors.hintTextColor,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.secondaryBgColor,
+                  contentPadding: EdgeInsets.all(12.w),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: AppColors.borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: AppColors.borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+              ),
+
+              20.verticalSpace,
+
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: EdgeInsets.symmetric(vertical: 14.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14.r),
+                    ),
+                  ),
+                  onPressed: () async {
+                    Get.back();
+                    final combinedComment = [
+                      if (selectedBadges.isNotEmpty)
+                        selectedBadges.join(', '),
+                      if (commentController.text.trim().isNotEmpty)
+                        commentController.text.trim(),
+                    ].join(' • ');
+
+                    await submitPassengerRating(
+                      passengerId:
+                          targetPassenger.passengerId ?? targetPassenger.id,
+                      passengerName: targetPassenger.passengerName,
+                      rating: selectedRating.value,
+                      comment: combinedComment,
+                      trip: trip,
+                      bookingId: targetPassenger.id,
+                      fare: targetPassenger.fare,
+                      paymentMethod: 'cash',
+                      isAlreadyCompleted:
+                          trip.status.value.toLowerCase() == 'completed',
+                    );
+                  },
+                  child: Text(
+                    'Submit Rating',
+                    style: AppTextStyle.text14Semibold.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1393,7 +1943,7 @@ class DriverTripsController extends GetxController {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(sheetCtx),
+                    onPressed: () => Get.back(),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 12.h),
                       side: const BorderSide(color: AppColors.borderColor),
@@ -1413,12 +1963,14 @@ class DriverTripsController extends GetxController {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(sheetCtx);
+                      Get.back();
                       trip.status.value = 'Cancelled';
-                      TripService.instance.updateTripStatus(
-                        trip.id,
-                        'cancelled',
+                      final driverUid = AuthService.instance.currentUser?.uid ?? '';
+                      TripService.instance.cancelTripAsDriver(
+                        tripId: trip.id,
+                        driverId: driverUid,
                       );
+                      myTrips.refresh();
                       AppSnackBar.info(message: 'Trip has been cancelled.');
                     },
                     style: ElevatedButton.styleFrom(
@@ -1587,7 +2139,7 @@ class DriverTripsController extends GetxController {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(sheetCtx),
+                    onPressed: () => Get.back(),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 12.h),
                       side: const BorderSide(color: AppColors.borderColor),
@@ -1622,7 +2174,7 @@ class DriverTripsController extends GetxController {
                       }
                       trip.pricePerSeat.value = newPrice;
                       trip.totalSeats.value = newSeats;
-                      Navigator.pop(sheetCtx);
+                      Get.back();
                       AppSnackBar.success(
                         message: 'Trip details updated successfully!',
                       );

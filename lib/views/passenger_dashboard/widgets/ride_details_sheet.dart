@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
@@ -156,7 +157,7 @@ class RideDetailsSheet extends StatelessWidget {
                           child: Column(
                             children: [
                               Text(
-                                '\$${ride.pricePerSeat.toStringAsFixed(0)}',
+                                Utils.formatPrice(ride.pricePerSeat),
                                 style: AppTextStyle.text18Semibold.copyWith(
                                   color: AppColors.primaryColor,
                                 ),
@@ -496,7 +497,7 @@ class RideDetailsSheet extends StatelessWidget {
             // Book Button
             AppButton(
               onPressed: () {
-                Navigator.of(context).pop();
+                Get.back();
                 controller.bookRide(ride, selectedSeats.value);
               },
               label: 'Confirm & Book Seat',

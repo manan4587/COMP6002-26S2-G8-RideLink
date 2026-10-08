@@ -64,7 +64,7 @@ class _RideChatPageState extends State<RideChatPage> {
     _tripId = widget.tripId ?? args?['tripId'] ?? 'trip_general';
     _driverName = widget.driverName ?? args?['driverName'] ?? 'James Miller';
     _carModel = widget.carModel ?? args?['carModel'] ?? 'Toyota Camry (White)';
-    _route = widget.route ?? args?['route'] ?? 'Landsdale → Curtin University';
+    _route = widget.route ?? args?['route'] ?? 'Trip Route';
 
     _subscribeToTripChat();
   }

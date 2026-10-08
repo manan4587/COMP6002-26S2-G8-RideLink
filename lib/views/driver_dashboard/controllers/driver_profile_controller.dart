@@ -26,7 +26,7 @@ class DriverProfileController extends GetxController {
   final RxString driverPhone = Preferences.userPhone.isEmpty
       ? 'N/A'.obs
       : Preferences.userPhone.obs;
-  final RxDouble driverRating = 0.0.obs;
+  final RxDouble driverRating = 5.0.obs;
   final RxInt driverTripsCount = 0.obs;
 
   // Vehicle Information
@@ -141,7 +141,7 @@ class DriverProfileController extends GetxController {
     driverName.value = 'N/A';
     driverEmail.value = 'N/A';
     driverPhone.value = 'N/A';
-    driverRating.value = 0.0;
+    driverRating.value = 5.0;
     driverTripsCount.value = 0;
     vehicleModel.value = 'N/A';
     vehicleNumber.value = 'N/A';
@@ -274,23 +274,31 @@ class DriverProfileController extends GetxController {
               : 'N/A';
           vehicleColor.value = v.color.isNotEmpty ? v.color : 'N/A';
           vehicleType.value = v.type.isNotEmpty ? v.type : 'N/A';
-          Preferences.vehicleModel = vehicleModel.value;
-          Preferences.vehicleNumber = vehicleNumber.value;
-          Preferences.vehicleColor = vehicleColor.value;
-          Preferences.vehicleType = vehicleType.value;
+          if (vehicleModel.value != 'N/A') {
+            Preferences.vehicleModel = vehicleModel.value;
+          }
+          if (vehicleNumber.value != 'N/A') {
+            Preferences.vehicleNumber = vehicleNumber.value;
+          }
+          if (vehicleColor.value != 'N/A') {
+            Preferences.vehicleColor = vehicleColor.value;
+          }
+          if (vehicleType.value != 'N/A') {
+            Preferences.vehicleType = vehicleType.value;
+          }
         } else {
-          vehicleModel.value = Preferences.vehicleModel.isNotEmpty
-              ? Preferences.vehicleModel
-              : 'N/A';
-          vehicleNumber.value = Preferences.vehicleNumber.isNotEmpty
-              ? Preferences.vehicleNumber
-              : 'N/A';
-          vehicleColor.value = Preferences.vehicleColor.isNotEmpty
-              ? Preferences.vehicleColor
-              : 'N/A';
-          vehicleType.value = Preferences.vehicleType.isNotEmpty
-              ? Preferences.vehicleType
-              : 'N/A';
+          if (Preferences.vehicleModel.isNotEmpty && Preferences.vehicleModel != 'N/A') {
+            vehicleModel.value = Preferences.vehicleModel;
+          }
+          if (Preferences.vehicleNumber.isNotEmpty && Preferences.vehicleNumber != 'N/A') {
+            vehicleNumber.value = Preferences.vehicleNumber;
+          }
+          if (Preferences.vehicleColor.isNotEmpty && Preferences.vehicleColor != 'N/A') {
+            vehicleColor.value = Preferences.vehicleColor;
+          }
+          if (Preferences.vehicleType.isNotEmpty && Preferences.vehicleType != 'N/A') {
+            vehicleType.value = Preferences.vehicleType;
+          }
         }
       }
     } catch (_) {}
@@ -342,7 +350,7 @@ class DriverProfileController extends GetxController {
               fileName = val['file_name']?.toString() ??
                   val['fileName']?.toString() ??
                   '';
-              rejectionReason = val['rejectionReason']?.toString() ?? '';
+              rejectionReason = val['rejection_reason']?.toString() ?? '';
             }
 
             final preview = fileUrl.trim();
@@ -522,7 +530,7 @@ class DriverProfileController extends GetxController {
     if (uploadingDocIds.contains(docKey)) return;
     try {
       uploadingDocIds.add(docKey);
-      AppSnackBar.info(message: 'Uploading $title to Firebase Storage...');
+      AppSnackBar.info(message: 'Document is uploading...');
 
       final downloadUrl = await DriverVerificationService.instance
           .uploadDriverDocument(
@@ -579,7 +587,9 @@ class DriverProfileController extends GetxController {
     try {
       await Utils.launchURL('tel:000');
     } catch (_) {
-      AppSnackBar.info(message: 'Calling Emergency Services (000)...');
+      AppSnackBar.warning(
+        message: 'Could not open phone dialer. Please dial 000 immediately.',
+      );
     }
   }
 
@@ -700,7 +710,7 @@ class DriverProfileController extends GetxController {
                         borderRadius: BorderRadius.circular(14.r),
                       ),
                     ),
-                    onPressed: () => Navigator.of(ctx).pop(),
+                    onPressed: () => Get.back(),
                     child: Text(
                       'Cancel',
                       style: AppTextStyle.text14Medium.copyWith(
@@ -722,7 +732,7 @@ class DriverProfileController extends GetxController {
                       ),
                     ),
                     onPressed: () async {
-                      Navigator.of(ctx).pop();
+                      Get.back();
                       Preferences.logout();
                       if (Get.isRegistered<DriverDashboardController>()) {
                         Get.find<DriverDashboardController>().cleanupAll();
@@ -886,7 +896,7 @@ class DriverProfileController extends GetxController {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
+                    onPressed: () => Get.back(),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 12.h),
                       side: const BorderSide(color: AppColors.borderColor),
@@ -906,7 +916,7 @@ class DriverProfileController extends GetxController {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(ctx);
+                      Get.back();
                       deleteAccount();
                     },
                     style: ElevatedButton.styleFrom(

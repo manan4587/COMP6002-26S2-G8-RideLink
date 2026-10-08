@@ -13,7 +13,37 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
 
   @override
   Widget build(BuildContext context) {
-    final ride = controller.currentSelectedRide.value ?? controller.availableRides.first;
+    final ride = controller.currentSelectedRide.value ??
+        (controller.availableRides.isNotEmpty
+            ? controller.availableRides.first
+            : null);
+
+    if (ride == null) {
+      return Scaffold(
+        backgroundColor: AppColors.secondaryBgColor,
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(CupertinoIcons.checkmark_seal_fill, size: 48, color: Color(0xFF16A34A)),
+                12.verticalSpace,
+                Text('Booking Approved', style: AppTextStyle.text18Semibold),
+                16.verticalSpace,
+                ElevatedButton(
+                  onPressed: () {
+                    controller.currentTabIndex.value = 2; // Trips tab
+                    Get.offAllNamed(AppRoutes.passengerDashboard);
+                  },
+                  child: const Text('View My Trips'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final int seatsNeeded = controller.requestedSeats.value;
 
     return Scaffold(
@@ -115,78 +145,14 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
                 subtitle: '${ride.carModel} • ${ride.carPlate}',
               ),
 
-              12.verticalSpace,
-
-              // Ride PIN Tile (For Driver Verification at Pickup)
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(16.r),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(10.r),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF2563EB),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        CupertinoIcons.lock_shield_fill,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    14.horizontalSpace,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Your Pickup PIN',
-                            style: AppTextStyle.text11Medium.copyWith(
-                              color: const Color(0xFF1E40AF),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          4.verticalSpace,
-                          Text(
-                            'Share this 4-digit PIN with driver when boarding',
-                            style: AppTextStyle.text11Regular.copyWith(
-                              color: const Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10.r),
-                        border: Border.all(color: const Color(0xFF93C5FD)),
-                      ),
-                      child: Text(
-                        '1234',
-                        style: AppTextStyle.text18Bold.copyWith(
-                          color: const Color(0xFF1E3A8A),
-                          letterSpacing: 3.0,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
               24.verticalSpace,
 
               // Start Live Trip CTA Button
               GestureDetector(
                 onTap: () {
+                  if (controller.currentSelectedRide.value == null) {
+                    controller.currentSelectedRide.value = ride;
+                  }
                   Get.toNamed(AppRoutes.liveTripTracking);
                 },
                 child: Container(

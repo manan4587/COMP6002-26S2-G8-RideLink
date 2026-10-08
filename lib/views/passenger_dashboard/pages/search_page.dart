@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/simmer_utils.dart';
+import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
@@ -87,62 +89,337 @@ class SearchPage extends GetView<PassengerDashboardController> {
 
                     14.verticalSpace,
 
-                    // Preferred Time
-                    _FormFieldLabel(label: 'Preferred Time'),
-                    6.verticalSpace,
-                    GestureDetector(
-                      onTap: () => _showTimePicker(context),
-                      child: _InputFieldContainer(
-                        icon: CupertinoIcons.clock,
-                        child: Obx(
-                          () => Text(
-                            controller.preferredTime.value,
-                            style: AppTextStyle.text14Medium.copyWith(
-                              color: const Color(0xFF64748B),
+                    // Ride Schedule & Preferred Timing Section
+                    Container(
+                      padding: EdgeInsets.all(14.w),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(18.r),
+                        border: Border.all(
+                          color: const Color(0xFFE2E8F0),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.calendar_badge_plus,
+                                size: 16.sp,
+                                color: AppColors.primaryColor,
+                              ),
+                              8.horizontalSpace,
+                              Text(
+                                'DATE & PREFERRED TIME',
+                                style: AppTextStyle.text11Medium.copyWith(
+                                  color: AppColors.primaryColor,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                            ],
+                          ),
+                          12.verticalSpace,
+
+                          // Date Option Quick Chips
+                          Text(
+                            'Date Options',
+                            style: AppTextStyle.text12Semibold.copyWith(
+                              color: AppColors.primaryTextColor,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
+                          6.verticalSpace,
+                          Obx(() {
+                            final activePreset = controller.activeDatePreset.value;
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: Row(
+                                children: [
+                                  _DateFilterChip(
+                                    label: 'Today',
+                                    isSelected: activePreset == 'Today',
+                                    onTap: () => controller.selectToday(),
+                                  ),
+                                  8.horizontalSpace,
+                                  _DateFilterChip(
+                                    label: 'Tomorrow',
+                                    isSelected: activePreset == 'Tomorrow',
+                                    onTap: () => controller.selectTomorrow(),
+                                  ),
+                                  8.horizontalSpace,
+                                  _DateFilterChip(
+                                    label: 'This Weekend',
+                                    isSelected: activePreset == 'Weekend',
+                                    onTap: () => controller.selectWeekend(),
+                                  ),
+                                  8.horizontalSpace,
+                                  _DateFilterChip(
+                                    label: activePreset == 'Custom'
+                                        ? controller.formattedSearchDate
+                                        : 'Pick Date 📅',
+                                    isSelected: activePreset == 'Custom',
+                                    onTap: () => controller.pickSearchDate(context),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+
+                          12.verticalSpace,
+
+                          // Time Option Quick Chips
+                          Text(
+                            'Time Options',
+                            style: AppTextStyle.text12Semibold.copyWith(
+                              color: AppColors.primaryTextColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          6.verticalSpace,
+                          Obx(() {
+                            final activePreset = controller.activeTimePreset.value;
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: Row(
+                                children: [
+                                  _DateFilterChip(
+                                    label: 'Morning (8:00 AM)',
+                                    isSelected: activePreset == 'Morning',
+                                    onTap: () => controller.selectMorning(),
+                                  ),
+                                  8.horizontalSpace,
+                                  _DateFilterChip(
+                                    label: 'Noon (12:30 PM)',
+                                    isSelected: activePreset == 'Noon',
+                                    onTap: () => controller.selectNoon(),
+                                  ),
+                                  8.horizontalSpace,
+                                  _DateFilterChip(
+                                    label: 'Evening (5:30 PM)',
+                                    isSelected: activePreset == 'Evening',
+                                    onTap: () => controller.selectEvening(),
+                                  ),
+                                  8.horizontalSpace,
+                                  _DateFilterChip(
+                                    label: activePreset == 'Custom'
+                                        ? controller.formattedSearchTime
+                                        : 'Exact Clock ⏰',
+                                    isSelected: activePreset == 'Custom',
+                                    onTap: () => controller.pickSearchTime(context),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+
+                          14.verticalSpace,
+
+                          // Active Selected Date & Time Cards
+                          Row(
+                            children: [
+                              // Ride Date Card
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => controller.pickSearchDate(context),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 10.w,
+                                      vertical: 10.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.white,
+                                      borderRadius: BorderRadius.circular(12.r),
+                                      border: Border.all(
+                                        color: const Color(0xFFE2E8F0),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: EdgeInsets.all(7.w),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryColor
+                                                .withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(8.r),
+                                          ),
+                                          child: Icon(
+                                            CupertinoIcons.calendar,
+                                            color: AppColors.primaryColor,
+                                            size: 16.sp,
+                                          ),
+                                        ),
+                                        8.horizontalSpace,
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'SELECTED DATE',
+                                                style: AppTextStyle.text10Medium
+                                                    .copyWith(
+                                                  color:
+                                                      AppColors.secondaryTextColor,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              2.verticalSpace,
+                                              Obx(
+                                                () => Text(
+                                                  controller.formattedSearchDate,
+                                                  style: AppTextStyle.text12Semibold,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              8.horizontalSpace,
+                              // Preferred Time Card
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => _showTimePicker(context),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 10.w,
+                                      vertical: 10.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.white,
+                                      borderRadius: BorderRadius.circular(12.r),
+                                      border: Border.all(
+                                        color: const Color(0xFFE2E8F0),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: EdgeInsets.all(7.w),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryColor
+                                                .withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(8.r),
+                                          ),
+                                          child: Icon(
+                                            CupertinoIcons.clock,
+                                            color: AppColors.primaryColor,
+                                            size: 16.sp,
+                                          ),
+                                        ),
+                                        8.horizontalSpace,
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'PREFERRED TIME',
+                                                style: AppTextStyle.text10Medium
+                                                    .copyWith(
+                                                  color:
+                                                      AppColors.secondaryTextColor,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              2.verticalSpace,
+                                              Obx(
+                                                () => Text(
+                                                  controller.formattedSearchTime,
+                                                  style: AppTextStyle.text12Semibold,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
 
                     14.verticalSpace,
 
-                    // Time Flexibility
-                    _FormFieldLabel(label: 'Time Flexibility'),
-                    6.verticalSpace,
-                    GestureDetector(
-                      onTap: () => _showFlexibilityPicker(context),
-                      child: _InputFieldContainer(
-                        icon: CupertinoIcons.clock,
-                        child: Obx(
-                          () => Text(
-                            controller.timeFlexibility.value,
-                            style: AppTextStyle.text14Medium.copyWith(
-                              color: const Color(0xFF64748B),
-                            ),
+                    // Time Flexibility & Seats Needed Row
+                    Row(
+                      children: [
+                        // Time Flexibility
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _FormFieldLabel(label: 'Time Flexibility'),
+                              6.verticalSpace,
+                              GestureDetector(
+                                onTap: () => _showFlexibilityPicker(context),
+                                child: _InputFieldContainer(
+                                  icon: CupertinoIcons.slider_horizontal_3,
+                                  child: Obx(
+                                    () => Text(
+                                      controller.timeFlexibility.value,
+                                      style: AppTextStyle.text14Medium
+                                          .copyWith(
+                                        color: AppColors.primaryTextColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ),
-
-                    14.verticalSpace,
-
-                    // Seats Needed
-                    _FormFieldLabel(label: 'Seats Needed'),
-                    6.verticalSpace,
-                    GestureDetector(
-                      onTap: () => _showSeatsPicker(context),
-                      child: _InputFieldContainer(
-                        icon: CupertinoIcons.car_detailed,
-                        child: Obx(
-                          () => Text(
-                            controller.seatsNote.value,
-                            style: AppTextStyle.text14Medium.copyWith(
-                              color: const Color(0xFF64748B),
-                            ),
+                        10.horizontalSpace,
+                        // Seats Needed
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _FormFieldLabel(label: 'Seats Needed'),
+                              6.verticalSpace,
+                              GestureDetector(
+                                onTap: () => _showSeatsPicker(context),
+                                child: _InputFieldContainer(
+                                  icon: CupertinoIcons.car_detailed,
+                                  child: Obx(
+                                    () => Text(
+                                      controller.seatsNote.value.isNotEmpty
+                                          ? controller.seatsNote.value
+                                          : '${controller.requestedSeats.value} Seat${controller.requestedSeats.value > 1 ? 's' : ''}',
+                                      style: AppTextStyle.text14Medium
+                                          .copyWith(
+                                        color: AppColors.primaryTextColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
+                      ],
                     ),
 
                     20.verticalSpace,
@@ -393,8 +670,14 @@ class SearchPage extends GetView<PassengerDashboardController> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) => Container(
-        padding: EdgeInsets.all(20.w),
+        padding: EdgeInsets.only(
+          top: 12.h,
+          left: 20.w,
+          right: 20.w,
+          bottom: MediaQuery.of(ctx).padding.bottom + 20.h,
+        ),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -403,31 +686,164 @@ class SearchPage extends GetView<PassengerDashboardController> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(
+              child: Container(
+                width: 44.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: AppColors.borderColor,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ),
+            16.verticalSpace,
             Text(
               'Select Preferred Time',
-              style: AppTextStyle.text16Semibold.copyWith(
+              style: AppTextStyle.text18Semibold.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            14.verticalSpace,
+            4.verticalSpace,
+            Text(
+              'Choose an exact time on the clock or pick a quick commute hour',
+              style: AppTextStyle.text12Regular.copyWith(
+                color: AppColors.secondaryTextColor,
+              ),
+            ),
+            16.verticalSpace,
+
+            // Clock dial button
+            InkWell(
+              onTap: () {
+                Get.back();
+                controller.pickSearchTime(context);
+              },
+              borderRadius: BorderRadius.circular(14.r),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(14.r),
+                  border: Border.all(
+                    color: AppColors.primaryColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(8.w),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.clock_fill,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    12.horizontalSpace,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Open Clock Time Picker',
+                            style: AppTextStyle.text14Semibold.copyWith(
+                              color: AppColors.primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          2.verticalSpace,
+                          Text(
+                            'Rotate the clock dial to pick any exact hour and minute',
+                            style: AppTextStyle.text12Regular.copyWith(
+                              color: AppColors.secondaryTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      CupertinoIcons.chevron_right,
+                      color: AppColors.primaryColor,
+                      size: 16.sp,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            18.verticalSpace,
+            Text(
+              'QUICK COMMUTE PRESETS',
+              style: AppTextStyle.text10Medium.copyWith(
+                color: AppColors.secondaryTextColor,
+                letterSpacing: 0.6,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            10.verticalSpace,
             Wrap(
               spacing: 8.w,
               runSpacing: 8.h,
               children: [
+                '07:00 AM',
                 '07:30 AM',
                 '08:00 AM',
                 '08:30 AM',
                 '09:00 AM',
                 '05:00 PM',
                 '05:30 PM',
+                '06:00 PM',
               ].map((time) {
-                return ActionChip(
-                  label: Text(time),
-                  onPressed: () {
-                    controller.preferredTime.value = time;
-                    Navigator.of(ctx).pop();
-                  },
-                );
+                return Obx(() {
+                  final isSelected = controller.preferredTime.value == time;
+                  return ChoiceChip(
+                    label: Text(time),
+                    selected: isSelected,
+                    selectedColor: AppColors.primaryColor,
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    labelStyle: AppTextStyle.text12Medium.copyWith(
+                      color: isSelected ? Colors.white : AppColors.primaryTextColor,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    onSelected: (val) {
+                      if (val) {
+                        final now = DateTime.now();
+                        final isToday = controller.selectedSearchDate.value.year == now.year &&
+                            controller.selectedSearchDate.value.month == now.month &&
+                            controller.selectedSearchDate.value.day == now.day;
+                        if (isToday) {
+                          // Parse e.g. "07:30 AM" or "05:00 PM"
+                          final parts = time.split(' ');
+                          if (parts.length == 2) {
+                            final hm = parts[0].split(':');
+                            if (hm.length == 2) {
+                              int h = int.tryParse(hm[0]) ?? 0;
+                              final int m = int.tryParse(hm[1]) ?? 0;
+                              final isPm = parts[1].toUpperCase() == 'PM';
+                              if (isPm && h < 12) h += 12;
+                              if (!isPm && h == 12) h = 0;
+                              final totalMins = h * 60 + m;
+                              final nowMins = now.hour * 60 + now.minute;
+                              if (totalMins < nowMins) {
+                                AppSnackBar.error(
+                                  message:
+                                      'Cannot select a time in the past. Please choose an upcoming time.',
+                                );
+                                return;
+                              }
+                            }
+                          }
+                        }
+                        controller.preferredTime.value = time;
+                        Get.back();
+                      }
+                    },
+                  );
+                });
               }).toList(),
             ),
           ],
@@ -440,8 +856,14 @@ class SearchPage extends GetView<PassengerDashboardController> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) => Container(
-        padding: EdgeInsets.all(20.w),
+        padding: EdgeInsets.only(
+          top: 12.h,
+          left: 20.w,
+          right: 20.w,
+          bottom: MediaQuery.of(ctx).padding.bottom + 20.h,
+        ),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -450,13 +872,31 @@ class SearchPage extends GetView<PassengerDashboardController> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(
+              child: Container(
+                width: 44.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: AppColors.borderColor,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ),
+            16.verticalSpace,
             Text(
               'Select Time Flexibility',
-              style: AppTextStyle.text16Semibold.copyWith(
+              style: AppTextStyle.text18Semibold.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            14.verticalSpace,
+            4.verticalSpace,
+            Text(
+              'Rides departing within this window from your preferred time will be matched',
+              style: AppTextStyle.text12Regular.copyWith(
+                color: AppColors.secondaryTextColor,
+              ),
+            ),
+            16.verticalSpace,
             Wrap(
               spacing: 8.w,
               runSpacing: 8.h,
@@ -466,14 +906,27 @@ class SearchPage extends GetView<PassengerDashboardController> {
                 '±30 minutes',
                 '±45 minutes',
                 '±1 hour',
+                'Anytime',
               ].map((flex) {
-                return ActionChip(
-                  label: Text(flex),
-                  onPressed: () {
-                    controller.timeFlexibility.value = flex;
-                    Navigator.of(ctx).pop();
-                  },
-                );
+                return Obx(() {
+                  final isSelected = controller.timeFlexibility.value == flex;
+                  return ChoiceChip(
+                    label: Text(flex),
+                    selected: isSelected,
+                    selectedColor: AppColors.primaryColor,
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    labelStyle: AppTextStyle.text12Medium.copyWith(
+                      color: isSelected ? Colors.white : AppColors.primaryTextColor,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    onSelected: (val) {
+                      if (val) {
+                        controller.timeFlexibility.value = flex;
+                        Get.back();
+                      }
+                    },
+                  );
+                });
               }).toList(),
             ),
           ],
@@ -486,51 +939,215 @@ class SearchPage extends GetView<PassengerDashboardController> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Material(
-        color: AppColors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          padding: EdgeInsets.all(20.w),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Select Seats Needed',
-                style: AppTextStyle.text16Semibold.copyWith(
-                  fontWeight: FontWeight.bold,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          top: 12.h,
+          left: 20.w,
+          right: 20.w,
+          bottom: MediaQuery.of(ctx).padding.bottom + 20.h,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: AppColors.borderColor,
+                  borderRadius: BorderRadius.circular(2.r),
                 ),
               ),
-              14.verticalSpace,
-              ListTile(
-                leading: const Icon(CupertinoIcons.person),
-                title: const Text('1 seat - just me'),
-                onTap: () {
-                  controller.requestedSeats.value = 1;
-                  controller.seatsNote.value = '1 seat - just me';
-                  Navigator.of(ctx).pop();
-                },
+            ),
+            16.verticalSpace,
+            Text(
+              'Select Seats Needed',
+              style: AppTextStyle.text18Semibold.copyWith(
+                fontWeight: FontWeight.bold,
               ),
-              ListTile(
-                leading: const Icon(CupertinoIcons.person_2),
-                title: const Text('2 seats - me + friend / family'),
-                onTap: () {
-                  controller.requestedSeats.value = 2;
-                  controller.seatsNote.value = '2 seats - me + my brother';
-                  Navigator.of(ctx).pop();
-                },
+            ),
+            4.verticalSpace,
+            Text(
+              'Filter rides that have enough empty seats available',
+              style: AppTextStyle.text12Regular.copyWith(
+                color: AppColors.secondaryTextColor,
               ),
-              ListTile(
-                leading: const Icon(CupertinoIcons.person_3),
-                title: const Text('3 seats - small group'),
-                onTap: () {
-                  controller.requestedSeats.value = 3;
-                  controller.seatsNote.value = '3 seats - small group';
-                  Navigator.of(ctx).pop();
-                },
+            ),
+            16.verticalSpace,
+            ListTile(
+              leading: Icon(
+                CupertinoIcons.person,
+                color: controller.requestedSeats.value == 1
+                    ? AppColors.primaryColor
+                    : AppColors.secondaryTextColor,
               ),
-            ],
+              title: Text(
+                '1 seat - just me',
+                style: AppTextStyle.text14Medium.copyWith(
+                  fontWeight: controller.requestedSeats.value == 1
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  color: controller.requestedSeats.value == 1
+                      ? AppColors.primaryColor
+                      : AppColors.primaryTextColor,
+                ),
+              ),
+              trailing: controller.requestedSeats.value == 1
+                  ? const Icon(
+                      CupertinoIcons.checkmark_circle_fill,
+                      color: AppColors.primaryColor,
+                    )
+                  : null,
+              onTap: () {
+                controller.requestedSeats.value = 1;
+                controller.seatsNote.value = '1 seat - just me';
+                Get.back();
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                CupertinoIcons.person_2,
+                color: controller.requestedSeats.value == 2
+                    ? AppColors.primaryColor
+                    : AppColors.secondaryTextColor,
+              ),
+              title: Text(
+                '2 seats - me + friend / family',
+                style: AppTextStyle.text14Medium.copyWith(
+                  fontWeight: controller.requestedSeats.value == 2
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  color: controller.requestedSeats.value == 2
+                      ? AppColors.primaryColor
+                      : AppColors.primaryTextColor,
+                ),
+              ),
+              trailing: controller.requestedSeats.value == 2
+                  ? const Icon(
+                      CupertinoIcons.checkmark_circle_fill,
+                      color: AppColors.primaryColor,
+                    )
+                  : null,
+              onTap: () {
+                controller.requestedSeats.value = 2;
+                controller.seatsNote.value = '2 seats - me + friend';
+                Get.back();
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                CupertinoIcons.person_3,
+                color: controller.requestedSeats.value == 3
+                    ? AppColors.primaryColor
+                    : AppColors.secondaryTextColor,
+              ),
+              title: Text(
+                '3 seats - small group',
+                style: AppTextStyle.text14Medium.copyWith(
+                  fontWeight: controller.requestedSeats.value == 3
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  color: controller.requestedSeats.value == 3
+                      ? AppColors.primaryColor
+                      : AppColors.primaryTextColor,
+                ),
+              ),
+              trailing: controller.requestedSeats.value == 3
+                  ? const Icon(
+                      CupertinoIcons.checkmark_circle_fill,
+                      color: AppColors.primaryColor,
+                    )
+                  : null,
+              onTap: () {
+                controller.requestedSeats.value = 3;
+                controller.seatsNote.value = '3 seats - small group';
+                Get.back();
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                CupertinoIcons.person_3_fill,
+                color: controller.requestedSeats.value == 4
+                    ? AppColors.primaryColor
+                    : AppColors.secondaryTextColor,
+              ),
+              title: Text(
+                '4 seats - full vehicle (rideshare max)',
+                style: AppTextStyle.text14Medium.copyWith(
+                  fontWeight: controller.requestedSeats.value == 4
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  color: controller.requestedSeats.value == 4
+                      ? AppColors.primaryColor
+                      : AppColors.primaryTextColor,
+                ),
+              ),
+              trailing: controller.requestedSeats.value == 4
+                  ? const Icon(
+                      CupertinoIcons.checkmark_circle_fill,
+                      color: AppColors.primaryColor,
+                    )
+                  : null,
+              onTap: () {
+                controller.requestedSeats.value = 4;
+                controller.seatsNote.value = '4 seats - full vehicle';
+                Get.back();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DateFilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _DateFilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10.r),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: EdgeInsets.symmetric(horizontal: 11.w, vertical: 6.h),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryColor : AppColors.white,
+          borderRadius: BorderRadius.circular(10.r),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryColor : const Color(0xFFCBD5E1),
+            width: 1.1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primaryColor.withValues(alpha: 0.25),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: AppTextStyle.text11Medium.copyWith(
+            color: isSelected ? Colors.white : AppColors.primaryTextColor,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
       ),
@@ -709,7 +1326,7 @@ class _RideResultCard extends StatelessWidget {
                       children: [
                         if (ride.isEnRouteMatch && ride.enRouteSubFare != null) ...[
                           Text(
-                            '\$${ride.enRouteSubFare!.toStringAsFixed(0)}',
+                            Utils.formatPrice(ride.enRouteSubFare!),
                             style: AppTextStyle.text18Semibold.copyWith(
                               color: const Color(0xFF16A34A),
                               fontWeight: FontWeight.bold,
@@ -723,7 +1340,7 @@ class _RideResultCard extends StatelessWidget {
                           ),
                         ] else ...[
                           Text(
-                            '\$${ride.pricePerSeat.toStringAsFixed(0)}',
+                            Utils.formatPrice(ride.pricePerSeat),
                             style: AppTextStyle.text18Semibold.copyWith(
                               color: AppColors.primaryColor,
                             ),

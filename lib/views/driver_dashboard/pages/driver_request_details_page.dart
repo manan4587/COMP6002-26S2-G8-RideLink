@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/theme/app_text_style.dart';
@@ -59,9 +60,7 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                     ),
                     Text(
                       'Request Details',
-                      style: AppTextStyle.text20Semibold.copyWith(
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.w800,
+                      style: AppTextStyle.text18Bold.copyWith(
                         color: AppColors.primaryTextColor,
                       ),
                     ),
@@ -185,8 +184,7 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                                   8.verticalSpace,
                                   Text(
                                     '${req.pastTrips}',
-                                    style: AppTextStyle.text20Semibold.copyWith(
-                                      fontSize: 22.sp,
+                                    style: AppTextStyle.text16Semibold.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: const Color(0xFF0F172A),
                                     ),
@@ -244,9 +242,8 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                                               req.seats);
                                       return Text(
                                         '$afterAccept/${trip.totalSeats.value} seats',
-                                        style: AppTextStyle.text20Semibold
+                                        style: AppTextStyle.text16Semibold
                                             .copyWith(
-                                          fontSize: 20.sp,
                                           fontWeight: FontWeight.bold,
                                           color: const Color(0xFF0F172A),
                                         ),
@@ -266,7 +263,7 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                       _DetailCard(
                         icon: CupertinoIcons.bolt_fill,
                         title: 'AI Detour Check',
-                        subtitle: req.detour,
+                        subtitle: _calculateDynamicDetour(trip, req),
                       ),
 
                       20.verticalSpace,
@@ -410,6 +407,55 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
       ),
     );
   }
+
+  String _calculateDynamicDetour(
+    DriverTripModel trip,
+    PassengerRequestModel req,
+  ) {
+    if (trip.fromLat == 0.0 ||
+        trip.toLat == 0.0 ||
+        req.pickupLat == 0.0 ||
+        req.dropLat == 0.0) {
+      if (req.detour.isNotEmpty && req.detour != '+4 minutes only') {
+        return req.detour;
+      }
+      return '+2 mins detour (Direct commute corridor)';
+    }
+
+    final directDist = Geolocator.distanceBetween(
+      trip.fromLat,
+      trip.fromLng,
+      trip.toLat,
+      trip.toLng,
+    );
+    final detourDist = Geolocator.distanceBetween(
+          trip.fromLat,
+          trip.fromLng,
+          req.pickupLat,
+          req.pickupLng,
+        ) +
+        Geolocator.distanceBetween(
+          req.pickupLat,
+          req.pickupLng,
+          req.dropLat,
+          req.dropLng,
+        ) +
+        Geolocator.distanceBetween(
+          req.dropLat,
+          req.dropLng,
+          trip.toLat,
+          trip.toLng,
+        );
+
+    final extraMeters = (detourDist - directDist).clamp(0.0, 50000.0);
+    final extraKm = extraMeters / 1000.0;
+    final extraMins = (extraKm / 35.0 * 60).round();
+
+    if (extraMins <= 1) {
+      return '+1 min detour (~${extraKm.toStringAsFixed(1)} km extra • Optimal Route)';
+    }
+    return '+$extraMins mins detour (~${extraKm.toStringAsFixed(1)} km extra route)';
+  }
 }
 
 class _DetailCard extends StatelessWidget {
@@ -469,9 +515,10 @@ class _DetailCard extends StatelessWidget {
                 4.verticalSpace,
                 Text(
                   subtitle,
-                  style: AppTextStyle.text16Medium.copyWith(
-                    fontWeight: FontWeight.bold,
+                  style: AppTextStyle.text14Medium.copyWith(
+                    fontWeight: FontWeight.w600,
                     color: const Color(0xFF0F172A),
+                    height: 1.3,
                   ),
                 ),
               ],

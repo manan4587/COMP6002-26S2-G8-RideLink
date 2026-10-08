@@ -113,9 +113,9 @@ class DriverSafetySosPage extends GetView<DriverProfileController> {
                             borderRadius: BorderRadius.circular(30.r),
                           ),
                         ),
-                        icon: const Icon(Icons.phone, size: 18),
+                        icon: const Icon(CupertinoIcons.phone_fill, size: 18),
                         label: Text(
-                          'Call Emergency Services Now',
+                          'Call Emergency 000 Now',
                           style: AppTextStyle.text14Semibold.copyWith(
                             color: const Color(0xFFDC2626),
                             fontWeight: FontWeight.bold,
@@ -147,20 +147,6 @@ class DriverSafetySosPage extends GetView<DriverProfileController> {
                   actionText: 'Dial 1800 743 354',
                   onTap: controller.callSafetyHotline,
                 ),
-                10.verticalSpace,
-
-                // Safety Email Reporting
-                _QuickActionTile(
-                  icon: CupertinoIcons.mail_solid,
-                  iconColor: const Color(0xFF7C3AED),
-                  iconBg: const Color(0xFFF5F3FF),
-                  title: 'Report Incident via Email',
-                  subtitle:
-                      'Opens mail composer directly to safety@ridelink.com',
-                  actionText: 'Send Email',
-                  onTap: controller.sendSafetyEmail,
-                ),
-
                 18.verticalSpace,
 
                 // Driver Safety Guidelines & Checklist

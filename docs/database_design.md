@@ -54,7 +54,12 @@ Stores user profiles for both Passengers and Drivers.
   "isEmailVerified": true,
   "isOnline": true,
   "fcmToken": "eK...deviceTokenString...",
+  "rideOtp": "4821",
   "is_verified_driver": false,
+  "status": "pending",
+  "rejection_reason": null,
+  "rejected_doc_id": null,
+  "rejected_doc_title": null,
   "passengerStats": {
     "rating": 4.9,
     "ratingCount": 18,
@@ -107,7 +112,12 @@ Stores user profiles for both Passengers and Drivers.
 - `roles` _(array of strings)_: Allowed roles: `["passenger"]`, `["driver"]`, or `["passenger", "driver"]`.
 - `isOnline` _(boolean)_: Real-time driver presence status (`true` = online/accepting rides, `false` = offline).
 - `fcmToken` _(string)_: The singular, most current FCM device registration token for push notifications.
-- `is_verified_driver` _(boolean)_: Singular verification flag set to `true` when admin approves the driver.
+- `rideOtp` _(string)_: Permanent static 4-digit PIN generated upon user account creation for safety boarding/pickup verification.
+- `is_verified_driver` _(boolean)_: Verification flag set to `true` when all required documents are verified; `false` when pending or rejected.
+- `status` _(string)_: Driver verification status matching DB schema: `"pending"` | `"verified"` | `"rejected"`.
+- `rejection_reason` _(string | null)_: Rejection explanation entered by admin when driver or a document is rejected (strictly snake_case). `null` when verified.
+- `rejected_doc_id` _(string | null)_: ID of the rejected document (e.g., `"driving_licence"`) if rejected at document level.
+- `rejected_doc_title` _(string | null)_: Display title of the rejected document (e.g., `"Driving Licence"`).
 - `passengerStats` _(map)_: Passenger metrics (`rating`, `ratingCount`, `tripsCompleted`).
 - `driverStats` _(map)_: Driver metrics (`rating`, `ratingCount`, `tripsCompleted`, `totalEarnings`, `acceptanceRate`).
 - `vehicle` _(map)_: Driver vehicle configuration (`make`, `model`, `color`, `licensePlate`, `type`).
@@ -145,11 +155,12 @@ export enum DocumentVerificationStatus {
   "file_name": "driving_licence.jpg",
   "file_url": "https://firebasestorage.googleapis.com/v0/b/ridelink-d4408.firebasestorage.app/o/driver_documents%2Fusr_98a7sd8f97a8sdf%2Fdriving_licence.jpg?alt=media",
   "status": "pending", // DocumentVerificationStatus: "pending" | "verified" | "rejected"
-  "rejectionReason": null,
+  "rejection_reason": null,
   "uploaded_at": "2026-10-14T06:00:00.000Z",
   "updated_at": "2026-10-14T06:00:00.000Z",
   "verified_at": null,
   "verified_by": null
+  
 }
 ```
 
@@ -220,6 +231,7 @@ Stores booking requests submitted by passengers.
   "fare": 25.0,
   "pickupAddress": "Surat Central",
   "dropAddress": "Ahmedabad Airport",
+  "pickupOtp": "4821",
   "status": "pending",
   "createdAt": "2026-10-12T11:00:00.000Z",
   "updatedAt": "2026-10-12T11:05:00.000Z"
@@ -232,6 +244,9 @@ Stores booking requests submitted by passengers.
 2. `accepted`: Driver approves -> `availableSeats` decreases, passenger receives push notification, booking confirmed.
 3. `declined`: Driver declines -> Passenger receives push notification.
 4. `cancelled`: Passenger or Driver cancels before ride initiation.
+
+#### Boarding Verification:
+- `pickupOtp` _(string)_: 4-digit security PIN provided by the passenger (from their profile `rideOtp`) that the driver verifies when boarding the passenger to start the trip.
 
 ---
 
@@ -284,13 +299,24 @@ Verified commuter networks and carpool groups.
   "id": "comm_curtin",
   "name": "Curtin Community",
   "routeSummary": "Landsdale → Curtin University",
+  "pickupLocation": "Landsdale, WA",
+  "dropOffLocation": "Curtin University, Bentley WA",
+  "fixedLocationType": "dropoff",
+  "isFixedPickup": false,
+  "isFixedDropOff": true,
+  "fixedLocation": "Curtin University, Bentley WA",
   "commonTime": "7:30 AM - 9:00 AM",
+  "nextRideTime": "22/10/2026 08:00 AM",
+  "recurringOption": "Weekdays (Mon-Fri)",
+  "recurringDays": ["Mon", "Tue", "Wed", "Thu", "Fri"],
   "description": "Daily shared rides for Curtin University students & staff.",
   "passengersCount": 14,
   "driversCount": 5,
-  "nextRideTime": "Tomorrow 8:00 AM",
   "nextRideSeatsOpen": 3,
   "icon": "school",
+  "category": "corridor",
+  "coverImageUrl": "",
+  "isActive": true,
   "memberIds": ["user_1", "user_2"],
   "passengerMemberIds": ["user_1"],
   "driverMemberIds": ["user_2"],
@@ -299,37 +325,73 @@ Verified commuter networks and carpool groups.
 }
 ```
 
+#### Fields Breakdown:
+
+- `id` _(string)_: Community unique document identifier.
+- `name` _(string)_: Community title.
+- `routeSummary` _(string)_: Corridor route string (e.g. `"Landsdale → Curtin University"`).
+- `pickupLocation` _(string)_: Origin address / corridor origin.
+- `dropOffLocation` _(string)_: Destination address / corridor destination.
+- `fixedLocationType` _(string)_: Designates which terminal point is fixed:
+  - `"dropoff"`: Destination is fixed (e.g., Stadium for concert/event, Metro station, University campus). Pick-up is flexible.
+  - `"pickup"`: Origin is fixed (e.g., Airport, Central terminal). Drop-off is flexible.
+  - `"both"`: Point-to-point corridor (both pickup and dropoff fixed).
+  - `"none"`: Fully flexible corridor.
+- `isFixedPickup` _(boolean)_: `true` if pickup origin is fixed; `false` if flexible.
+- `isFixedDropOff` _(boolean)_: `true` if drop-off destination is fixed; `false` if flexible.
+- `fixedLocation` _(string)_: Address or name of the locked fixed location.
+- `commonTime` _(string)_: Peak commute hours (e.g., `"7:30 AM - 9:00 AM"`).
+- `nextRideTime` _(string)_: Scheduled next commute date & time (e.g., `"22/10/2026 08:00 AM"`).
+- `recurringOption` _(string)_: Commute cadence: `"Daily"` | `"Weekdays (Mon-Fri)"` | `"Weekends (Sat-Sun)"` | `"Weekly"` | `"Custom Days"` | `"One-time"`.
+- `recurringDays` _(array of strings)_: Active recurring days: `["Mon", "Tue", "Wed", "Thu", "Fri"]`.
+- `icon` _(string)_: Community icon identifier: `"school"` | `"business"` | `"hospital"` | `"home"` | `"stadium"`. (`"car"` is deprecated/removed).
+- `category` _(string)_: Category tag (defaults to `"corridor"`).
+- `isActive` _(boolean)_: Whether community is open for rides and members.
+
 ---
 
 ### 3.7 `notifications` Collection (Cloud Function FCM Pipeline)
 
-Triggers Cloud Function Gen 2: `sendNotificationOnCreate`.
+Triggers Cloud Function Gen 2: `sendNotificationOnCreate` to deliver push notifications to Driver and Passenger mobile apps.
+
+#### Schema
 
 ```json
 {
-  "title": "New Ride Request! 🚗",
-  "body": "Emma Watson requested 1 seat for your trip (Surat Central → Ahmedabad Airport).",
   "userId": "jack_driver_uid",
+  "title": "Document Rejected: Driving Licence",
+  "body": "Driving Licence was rejected: Photo is blurry. Please upload a clear picture.",
+  "message": "Driving Licence was rejected: Photo is blurry. Please upload a clear picture.",
+  "type": "document_rejected",
+  "docId": "driving_licence",
+  "docTitle": "Driving Licence",
+  "rejection_reason": "Photo is blurry. Please upload a clear picture.",
+  "isRead": false,
+  "read": false,
   "status": "pending",
+  "createdAt": "2026-10-21T06:00:00.000Z",
   "data": {
-    "type": "ride_request",
-    "tripId": "dt_1791523936000",
-    "bookingId": "bk_1791524100000",
-    "passengerId": "emma_passenger_uid",
-    "passengerName": "Emma Watson",
-    "seats": "1"
-  },
-  "sound": "default",
-  "channelId": "high_importance_channel",
-  "createdAt": "2026-10-12T11:00:01.000Z",
-  "sentAt": "2026-10-12T11:00:02.000Z"
+    "type": "document_rejected",
+    "docId": "driving_licence",
+    "click_action": "FLUTTER_NOTIFICATION_CLICK"
+  }
 }
 ```
 
-#### Processing Pipeline:
+#### Supported Notification Types:
 
-- When a new document is inserted with `"status": "pending"`, the Cloud Function extracts `userId`, resolves `users/{userId}.fcmToken`, constructs the FCM payload, and sends the notification.
-- Upon dispatch, Cloud Function updates the document with `"status": "sent"` and `"messageId": "..."` (or `"status": "failed"` and `"error": "..."`).
+1. **`document_rejected`**:
+   - Sent when an individual driver document is rejected by the admin.
+   - Contains: `docId`, `docTitle`, `rejection_reason`.
+2. **`driver_application_rejected`**:
+   - Sent when a driver's full application is rejected.
+   - Contains: `rejection_reason`.
+3. **`support_ticket_reply`**:
+   - Sent when the admin replies to a support ticket.
+   - Contains: `ticketId`, `subject`, `senderName`, `senderRole`: `"admin"`.
+4. **`ride_request`**:
+   - Sent when a passenger submits a booking request for a driver's ride.
+   - Contains: `tripId`, `bookingId`, `passengerId`, `passengerName`, `seats`.
 
 ---
 
@@ -339,39 +401,47 @@ Customer care ticketing system.
 
 ```json
 {
-  "ticketId": "TICK-1791520000",
+  "id": "TICK-1791520000",
   "userId": "jack_driver_uid",
   "userName": "Jack Miller",
   "userEmail": "jack.miller@example.com",
   "userPhone": "+61 412 345 678",
-  "userRole": "Driver",
+  "userRole": "driver",
   "subject": "Payout enquiry for weekend trip",
   "category": "Billing & Payments",
   "message": "Hi, I completed 3 trips on Saturday and would like to confirm payout timing.",
-  "status": "Open",
-  "priority": "Normal",
+  "status": "open",
+  "adminReply": "Hello Jack, payouts are processed automatically every Monday morning.",
   "createdAt": "2026-10-10T09:00:00.000Z",
   "updatedAt": "2026-10-10T10:00:00.000Z",
   "messages": [
     {
       "id": "msg_001",
-      "senderId": "jack_driver_uid",
       "senderName": "Jack Miller",
+      "senderRole": "driver",
       "message": "Hi, I completed 3 trips on Saturday and would like to confirm payout timing.",
-      "timestamp": "2026-10-10T09:00:00.000Z",
-      "isAdmin": false
+      "timestamp": "2026-10-10T09:00:00.000Z"
     },
     {
       "id": "msg_002",
-      "senderId": "admin_uid",
-      "senderName": "RideLink Support Support",
+      "senderName": "RideLink Support Team",
+      "senderRole": "admin",
       "message": "Hello Jack, payouts are processed automatically every Monday morning.",
-      "timestamp": "2026-10-10T10:00:00.000Z",
-      "isAdmin": true
+      "timestamp": "2026-10-10T10:00:00.000Z"
     }
   ]
 }
 ```
+
+#### Ticket Statuses:
+
+- Strictly `"open"` or `"resolved"`. (`"in_progress"` has been deprecated and removed).
+
+---
+
+### 3.9 Deprecated Features & Collections
+
+- **`allowed_locations`**: The Allowed Locations feature and collection have been completely decommissioned and removed. Geographic corridors and points of interest are now managed via the **`communities`** collection with Fixed Pick-up / Drop-off terminal support.
 
 ---
 

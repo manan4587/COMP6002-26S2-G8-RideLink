@@ -17,6 +17,7 @@ class UserProfileModel {
   final List<EmergencyContactItem> emergencyContacts;
   final Map<String, dynamic>? driverDocs;
   final String? fcmToken;
+  final String rideOtp;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -29,7 +30,7 @@ class UserProfileModel {
     this.activeRole = 'passenger',
     this.roles = const ['passenger'],
     this.isEmailVerified = false,
-    this.rating = 0.0,
+    this.rating = 5.0,
     this.ratingCount = 0,
     this.tripsCompleted = 0,
     this.isVerifiedDriver = false,
@@ -39,6 +40,7 @@ class UserProfileModel {
     this.emergencyContacts = const [],
     this.driverDocs,
     this.fcmToken,
+    this.rideOtp = '1234',
     this.createdAt,
     this.updatedAt,
   });
@@ -64,7 +66,7 @@ class UserProfileModel {
       rating: (map['passengerStats']?['rating'] as num?)?.toDouble() ??
           (map['driverStats']?['rating'] as num?)?.toDouble() ??
           (map['rating'] as num?)?.toDouble() ??
-          0.0,
+          5.0,
       ratingCount: (map['passengerStats']?['ratingCount'] as num?)?.toInt() ??
           (map['driverStats']?['ratingCount'] as num?)?.toInt() ??
           0,
@@ -89,6 +91,8 @@ class UserProfileModel {
           [],
       driverDocs: null,
       fcmToken: map['fcmToken'] as String?,
+      rideOtp: (map['rideOtp'] ?? map['pickupOtp'])?.toString() ??
+          (id.isNotEmpty ? (id.hashCode.abs() % 9000 + 1000).toString() : '1234'),
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt'].toString())
           : null,
@@ -124,6 +128,7 @@ class UserProfileModel {
       'savedLocations': savedLocations.map((e) => e.toMap()).toList(),
       'emergencyContacts': emergencyContacts.map((e) => e.toMap()).toList(),
       if (fcmToken != null && fcmToken!.isNotEmpty) 'fcmToken': fcmToken,
+      'rideOtp': rideOtp,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -192,8 +197,14 @@ class SavedLocationItem {
       id: map['id'] as String? ?? '',
       label: map['label'] as String? ?? '',
       address: map['address'] as String? ?? '',
-      lat: (map['location']?['_lat'] as num?)?.toDouble() ?? 0.0,
-      lng: (map['location']?['_long'] as num?)?.toDouble() ?? 0.0,
+      lat: (map['location']?['_lat'] as num?)?.toDouble() ??
+          (map['latitude'] as num?)?.toDouble() ??
+          (map['lat'] as num?)?.toDouble() ??
+          0.0,
+      lng: (map['location']?['_long'] as num?)?.toDouble() ??
+          (map['longitude'] as num?)?.toDouble() ??
+          (map['lng'] as num?)?.toDouble() ??
+          0.0,
     );
   }
 

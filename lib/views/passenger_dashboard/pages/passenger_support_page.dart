@@ -340,7 +340,7 @@ class _PassengerSupportPageState extends State<PassengerSupportPage> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: ['All', 'Open', 'In Progress', 'Resolved'].map((filter) {
+                    children: ['All', 'Open', 'Resolved'].map((filter) {
                       final isSelected = _selectedStatusFilter == filter;
                       return Padding(
                         padding: EdgeInsets.only(right: 8.w),
@@ -381,15 +381,7 @@ class _PassengerSupportPageState extends State<PassengerSupportPage> {
                     final normalizedStatus = t.displayStatus;
                     if (_selectedStatusFilter == 'All') return true;
                     if (_selectedStatusFilter == 'Resolved') return t.isLocked;
-                    if (_selectedStatusFilter == 'Open') return normalizedStatus == 'Open';
-                    if (_selectedStatusFilter == 'In Progress') {
-                      return normalizedStatus == 'In Progress' ||
-                          t.status.value
-                                  .toLowerCase()
-                                  .replaceAll('-', '_')
-                                  .replaceAll(' ', '_') ==
-                              'in_progress';
-                    }
+                    if (_selectedStatusFilter == 'Open') return !t.isLocked;
                     return normalizedStatus.toLowerCase() ==
                         _selectedStatusFilter
                             .toLowerCase()
@@ -449,18 +441,12 @@ class _PassengerSupportPageState extends State<PassengerSupportPage> {
                                   ),
                                   Obx(() {
                                     final isResolved = ticket.isLocked;
-                                    final isInProgress =
-                                        ticket.displayStatus == 'In Progress';
                                     final Color badgeBg = isResolved
                                         ? const Color(0xFFDCFCE7)
-                                        : isInProgress
-                                            ? const Color(0xFFFEF3C7)
-                                            : const Color(0xFFEFF6FF);
+                                        : const Color(0xFFEFF6FF);
                                     final Color badgeTextColor = isResolved
                                         ? const Color(0xFF16A34A)
-                                        : isInProgress
-                                            ? const Color(0xFFD97706)
-                                            : AppColors.primaryColor;
+                                        : AppColors.primaryColor;
                                     return Container(
                                       padding: EdgeInsets.symmetric(
                                         horizontal: 8.w,
@@ -483,7 +469,7 @@ class _PassengerSupportPageState extends State<PassengerSupportPage> {
                                             3.horizontalSpace,
                                           ],
                                           Text(
-                                            ticket.displayStatus,
+                                            isResolved ? 'Resolved' : 'Open',
                                             style: AppTextStyle.text10Medium
                                                 .copyWith(
                                               color: badgeTextColor,

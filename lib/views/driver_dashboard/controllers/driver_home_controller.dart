@@ -36,6 +36,14 @@ class DriverHomeController extends GetxController {
     });
   }
 
+  Future<void> reloadStats() async {
+    final user = AuthService.instance.currentUser;
+    if (user != null) {
+      _listenToOnlineStatus(user.uid);
+      _listenToDriverStats(user.uid);
+    }
+  }
+
   void _listenToDriverStats(String uid) {
     _statsSubscription?.cancel();
     _statsSubscription = AuthService.instance

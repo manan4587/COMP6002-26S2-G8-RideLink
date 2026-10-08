@@ -33,7 +33,7 @@ class CreateRidePage extends GetView<DriverTripsController> {
             children: [
               Row(
                 children: [
-                  if (Navigator.of(context).canPop()) ...[
+                  if (Get.key.currentState?.canPop() == true) ...[
                     IconButton(
                       onPressed: () => Get.back(),
                       icon: const Icon(CupertinoIcons.back),
@@ -1814,7 +1814,7 @@ class CreateRidePage extends GetView<DriverTripsController> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(sheetCtx),
+                      onPressed: () => Get.back(),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 12.h),
                         side: const BorderSide(color: AppColors.borderColor),
@@ -1837,7 +1837,7 @@ class CreateRidePage extends GetView<DriverTripsController> {
                         final val = double.tryParse(textCtrl.text.trim());
                         if (val != null && val >= 1.0 && val <= 500.0) {
                           controller.setPrice(val);
-                          Navigator.pop(sheetCtx);
+                          Get.back();
                         } else {
                           AppSnackBar.warning(
                             message:

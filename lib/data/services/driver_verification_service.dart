@@ -124,7 +124,7 @@ class DriverVerificationService {
 
       // Never fallback to local paths or fake URLs - throw clear exception on failure
       if (downloadUrl.isEmpty) {
-        throw Exception('Failed to upload $title to storage. Please check your connection and try again.');
+        throw Exception('Failed to upload $title. Please check your connection and try again.');
       }
 
       final validStatus = DocumentVerificationStatus.fromString(status).value;
@@ -137,7 +137,7 @@ class DriverVerificationService {
         'file_name': fileName,
         'file_url': downloadUrl,
         'status': validStatus,
-        'rejectionReason': null,
+        'rejection_reason': null,
         'uploaded_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
         'verified_at': null,
@@ -191,7 +191,7 @@ class DriverVerificationService {
         );
 
         if (downloadUrl.isEmpty) {
-          throw Exception('Failed to upload $title to storage. Please check your connection and try again.');
+          throw Exception('Failed to upload $title. Please check your connection and try again.');
         }
 
         // 2. Write to subcollection: users/{userId}/docs/{doc_id}
@@ -202,7 +202,7 @@ class DriverVerificationService {
           'file_name': fileName,
           'file_url': downloadUrl,
           'status': DocumentVerificationStatus.pending.value,
-          'rejectionReason': null,
+          'rejection_reason': null,
           'uploaded_at': FieldValue.serverTimestamp(),
           'updated_at': FieldValue.serverTimestamp(),
           'verified_at': null,
@@ -270,9 +270,10 @@ class DriverVerificationService {
     final cleanDocId = normalizeDocId(docType);
     final validStatus = DocumentVerificationStatus.fromString(status).value;
 
+    final reason = validStatus == 'rejected' ? rejectionReason : null;
     await _docsRef(userId).doc(cleanDocId).set({
       'status': validStatus,
-      'rejectionReason': validStatus == 'rejected' ? rejectionReason : null,
+      'rejection_reason': reason,
       'verified_at': FieldValue.serverTimestamp(),
       'updated_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

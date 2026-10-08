@@ -8,6 +8,7 @@ import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/enums/verification_status.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/utils.dart';
+import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/controllers/driver_profile_controller.dart';
 import 'package:ridelink/widgets/app_border_container.dart';
@@ -234,6 +235,129 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
 
                 16.verticalSpace,
 
+                // Vehicle Details Status Card (Requirement: Vehicle details must be added before verifications)
+                Obx(() {
+                  final hasVehicle =
+                      controller.vehicleNumber.value.isNotEmpty &&
+                      controller.vehicleNumber.value != 'N/A';
+                  final vehicleText = hasVehicle
+                      ? '${controller.vehicleType.value != "N/A" ? controller.vehicleType.value : "Vehicle"} • Plate ${controller.vehicleNumber.value}'
+                      : 'No vehicle registered yet';
+
+                  return Container(
+                    margin: EdgeInsets.only(bottom: 16.h),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 14.w,
+                      vertical: 12.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: hasVehicle
+                          ? const Color(0xFFF8FAFC)
+                          : const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(14.r),
+                      border: Border.all(
+                        color: hasVehicle
+                            ? const Color(0xFFE2E8F0)
+                            : const Color(0xFFFDE68A),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(8.w),
+                          decoration: BoxDecoration(
+                            color: hasVehicle
+                                ? const Color(0xFFEFF6FF)
+                                : const Color(0xFFFEF3C7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            CupertinoIcons.car_detailed,
+                            color: hasVehicle
+                                ? AppColors.primaryColor
+                                : const Color(0xFFD97706),
+                            size: 18.sp,
+                          ),
+                        ),
+                        10.horizontalSpace,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Vehicle Details',
+                                    style: AppTextStyle.text14Semibold.copyWith(
+                                      color: hasVehicle
+                                          ? AppColors.primaryTextColor
+                                          : const Color(0xFFB45309),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  6.horizontalSpace,
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 6.w,
+                                      vertical: 2.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: hasVehicle
+                                          ? const Color(0xFFDCFCE7)
+                                          : const Color(0xFFFEE2E2),
+                                      borderRadius: BorderRadius.circular(6.r),
+                                    ),
+                                    child: Text(
+                                      hasVehicle ? 'Added' : 'Required First',
+                                      style: AppTextStyle.text10Medium.copyWith(
+                                        color: hasVehicle
+                                            ? const Color(0xFF16A34A)
+                                            : const Color(0xFFDC2626),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              2.verticalSpace,
+                              Text(
+                                hasVehicle
+                                    ? vehicleText
+                                    : 'Please enter vehicle details before uploading documents.',
+                                style: AppTextStyle.text12Regular.copyWith(
+                                  color: hasVehicle
+                                      ? AppColors.secondaryTextColor
+                                      : const Color(0xFF92400E),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () =>
+                              Get.toNamed(AppRoutes.vehicleRegistration),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 10.w,
+                              vertical: 4.h,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            hasVehicle ? 'View / Edit' : 'Add Now',
+                            style: AppTextStyle.text12Semibold.copyWith(
+                              color: AppColors.primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+
                 // Documents List
                 AppBorderContainer(
                   margin: EdgeInsets.symmetric(horizontal: 0),
@@ -420,6 +544,17 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
     VoidCallback onUpload, {
     String? docId,
   }) {
+    final hasVehicle = controller.vehicleNumber.value.isNotEmpty &&
+        controller.vehicleNumber.value != 'N/A';
+    if (!hasVehicle) {
+      AppSnackBar.warning(
+        message:
+            'Please add your vehicle details before uploading verification documents.',
+      );
+      Get.toNamed(AppRoutes.vehicleRegistration);
+      return;
+    }
+
     if (docId != null && controller.isDocUploading(docId)) {
       AppSnackBar.info(message: '$docTitle is already uploading. Please wait.');
       return;
@@ -560,13 +695,13 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(
-                        Icons.lock_rounded,
+                        Icons.check_circle_rounded,
                         color: Color(0xFF16A34A),
                         size: 16,
                       ),
                       8.horizontalSpace,
                       Text(
-                        'Verified by Admin • Cannot be changed',
+                        'Verified by Admin • Read Only',
                         style: AppTextStyle.text12Semibold.copyWith(
                           color: const Color(0xFF15803D),
                           fontWeight: FontWeight.bold,
@@ -849,9 +984,7 @@ class _DocumentStatusTile extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isApproved
-                              ? Icons.check_circle_rounded
-                              : Icons.lock_rounded,
+                          Icons.check_circle_rounded,
                           size: 13.sp,
                           color: isApproved
                               ? status.primaryColor
@@ -859,7 +992,7 @@ class _DocumentStatusTile extends StatelessWidget {
                         ),
                         4.horizontalSpace,
                         Text(
-                          isApproved ? status.label : 'Locked',
+                          isApproved ? status.label : 'Verified',
                           style: AppTextStyle.text11Medium.copyWith(
                             color: isApproved
                                 ? status.primaryColor
@@ -972,7 +1105,7 @@ class _DocumentStatusTile extends StatelessWidget {
                       ),
                       8.horizontalSpace,
                       Text(
-                        'Uploading document to Storage...',
+                        'Document is uploading...',
                         style: AppTextStyle.text12Semibold.copyWith(
                           color: AppColors.primaryColor,
                         ),

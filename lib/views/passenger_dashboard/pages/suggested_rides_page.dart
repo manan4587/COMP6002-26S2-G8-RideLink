@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
@@ -57,7 +58,180 @@ class SuggestedRidesPage extends GetView<PassengerDashboardController> {
                 ],
               ),
 
-              18.verticalSpace,
+              16.verticalSpace,
+
+              // Search Filter Bar (Date, Time, Seats)
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        // Ride Date Chip / Button
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => controller.pickSearchDate(context),
+                            borderRadius: BorderRadius.circular(10.r),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10.w,
+                                vertical: 8.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(10.r),
+                                border: Border.all(
+                                  color: const Color(0xFFBFDBFE),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.calendar,
+                                    size: 15.sp,
+                                    color: AppColors.primaryColor,
+                                  ),
+                                  6.horizontalSpace,
+                                  Expanded(
+                                    child: Obx(
+                                      () => Text(
+                                        controller.formattedSearchDate,
+                                        style: AppTextStyle.text12Semibold
+                                            .copyWith(
+                                          color: AppColors.primaryColor,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    CupertinoIcons.chevron_down,
+                                    size: 11.sp,
+                                    color: AppColors.primaryColor,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        8.horizontalSpace,
+                        // Preferred Time Chip / Button
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => controller.pickSearchTime(context),
+                            borderRadius: BorderRadius.circular(10.r),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10.w,
+                                vertical: 8.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(10.r),
+                                border: Border.all(
+                                  color: const Color(0xFFBFDBFE),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.clock,
+                                    size: 15.sp,
+                                    color: AppColors.primaryColor,
+                                  ),
+                                  6.horizontalSpace,
+                                  Expanded(
+                                    child: Obx(
+                                      () => Text(
+                                        controller.formattedSearchTime,
+                                        style: AppTextStyle.text12Semibold
+                                            .copyWith(
+                                          color: AppColors.primaryColor,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    CupertinoIcons.chevron_down,
+                                    size: 11.sp,
+                                    color: AppColors.primaryColor,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    10.verticalSpace,
+                    // Quick Date Preset Chips in Suggested Rides
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Obx(() {
+                        final activePreset = controller.activeDatePreset.value;
+                        return Row(
+                          children: [
+                            _QuickFilterChip(
+                              label: 'Today',
+                              isSelected: activePreset == 'Today',
+                              onTap: () => controller.selectToday(),
+                            ),
+                            6.horizontalSpace,
+                            _QuickFilterChip(
+                              label: 'Tomorrow',
+                              isSelected: activePreset == 'Tomorrow',
+                              onTap: () => controller.selectTomorrow(),
+                            ),
+                            6.horizontalSpace,
+                            _QuickFilterChip(
+                              label: 'This Weekend',
+                              isSelected: activePreset == 'Weekend',
+                              onTap: () => controller.selectWeekend(),
+                            ),
+                            6.horizontalSpace,
+                            _QuickFilterChip(
+                              label: 'Morning (8am)',
+                              isSelected: controller.activeTimePreset.value == 'Morning',
+                              onTap: () => controller.selectMorning(),
+                            ),
+                            6.horizontalSpace,
+                            _QuickFilterChip(
+                              label: 'Evening (5:30pm)',
+                              isSelected: controller.activeTimePreset.value == 'Evening',
+                              onTap: () => controller.selectEvening(),
+                            ),
+                          ],
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+
+              16.verticalSpace,
 
               // List of AI Suggested Rides
               Obx(() {
@@ -250,7 +424,7 @@ class _SuggestedRideCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                '\$${ride.pricePerSeat.toStringAsFixed(0)} each • Total \$${totalPrice.toStringAsFixed(0)}',
+                '${Utils.formatPrice(ride.pricePerSeat)} each • Total ${Utils.formatPrice(totalPrice)}',
                 style: AppTextStyle.text14Semibold.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.primaryTextColor,
@@ -283,6 +457,45 @@ class _SuggestedRideCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickFilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _QuickFilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8.r),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryColor : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8.r),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryColor : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyle.text11Medium.copyWith(
+            color: isSelected ? Colors.white : AppColors.primaryTextColor,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
       ),
     );
   }

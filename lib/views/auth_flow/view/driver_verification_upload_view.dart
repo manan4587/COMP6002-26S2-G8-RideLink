@@ -128,6 +128,218 @@ class _DriverVerificationUploadViewState
 
                 20.verticalSpace,
 
+                // Vehicle Details Card (Required before verifications)
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 14.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(16.r),
+                    border: Border.all(
+                      color: AppColors.borderColor,
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            CupertinoIcons.car_detailed,
+                            color: AppColors.primaryColor,
+                            size: 20.sp,
+                          ),
+                          8.horizontalSpace,
+                          Text(
+                            'Vehicle Details',
+                            style: AppTextStyle.text14Semibold.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8.w,
+                              vertical: 3.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(8.r),
+                            ),
+                            child: Text(
+                              'Required First',
+                              style: AppTextStyle.text10Medium.copyWith(
+                                color: AppColors.primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      4.verticalSpace,
+                      Text(
+                        'Enter your vehicle details before uploading verification credentials.',
+                        style: AppTextStyle.text12Regular.copyWith(
+                          color: AppColors.secondaryTextColor,
+                        ),
+                      ),
+                      12.verticalSpace,
+
+                      // Plate Number
+                      Text(
+                        'Vehicle Plate Number',
+                        style: AppTextStyle.text12Medium.copyWith(
+                          color: AppColors.primaryTextColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      6.verticalSpace,
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 2.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.containerFillColor,
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: AppColors.borderColor),
+                        ),
+                        child: TextField(
+                          controller: controller.vehiclePlateController,
+                          textCapitalization: TextCapitalization.characters,
+                          style: AppTextStyle.text14Semibold,
+                          decoration: const InputDecoration(
+                            hintText: '1ABC 123',
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      12.verticalSpace,
+
+                      // Make & Model
+                      Text(
+                        'Vehicle Make & Model',
+                        style: AppTextStyle.text12Medium.copyWith(
+                          color: AppColors.primaryTextColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      6.verticalSpace,
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 2.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.containerFillColor,
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: AppColors.borderColor),
+                        ),
+                        child: TextField(
+                          controller: controller.vehicleMakeModelController,
+                          style: AppTextStyle.text14Medium,
+                          decoration: const InputDecoration(
+                            hintText: 'e.g. Toyota Camry 2022',
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      12.verticalSpace,
+
+                      // Vehicle Color
+                      Text(
+                        'Vehicle Color',
+                        style: AppTextStyle.text12Medium.copyWith(
+                          color: AppColors.primaryTextColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      6.verticalSpace,
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 2.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.containerFillColor,
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: AppColors.borderColor),
+                        ),
+                        child: TextField(
+                          controller: controller.vehicleColorController,
+                          style: AppTextStyle.text14Medium,
+                          decoration: const InputDecoration(
+                            hintText: 'e.g. White, Silver, Black',
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      12.verticalSpace,
+
+                      // Vehicle Type Chips
+                      Text(
+                        'Vehicle Category',
+                        style: AppTextStyle.text12Medium.copyWith(
+                          color: AppColors.primaryTextColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      8.verticalSpace,
+                      Obx(() {
+                        final currentType =
+                            controller.selectedVehicleType.value;
+                        final types = ['Sedan', 'SUV', 'Hatchback', 'Van'];
+                        return Wrap(
+                          spacing: 8.w,
+                          runSpacing: 6.h,
+                          children: types.map((t) {
+                            final isSel = currentType == t;
+                            return GestureDetector(
+                              onTap: () =>
+                                  controller.selectedVehicleType.value = t,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 12.w,
+                                  vertical: 6.h,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSel
+                                      ? const Color(0xFFEFF6FF)
+                                      : AppColors.containerFillColor,
+                                  borderRadius: BorderRadius.circular(10.r),
+                                  border: Border.all(
+                                    color: isSel
+                                        ? AppColors.primaryColor
+                                        : AppColors.borderColor,
+                                    width: isSel ? 1.5 : 1.0,
+                                  ),
+                                ),
+                                child: Text(
+                                  t,
+                                  style: AppTextStyle.text12Semibold.copyWith(
+                                    color: isSel
+                                        ? AppColors.primaryColor
+                                        : AppColors.primaryTextColor,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+
+                16.verticalSpace,
+
                 // Document Upload Cards List
                 Obx(
                   () => _DriverDocsUploadCard(
@@ -138,6 +350,8 @@ class _DriverVerificationUploadViewState
                     uploadedFileName: controller.drivingLicencePath.value,
                     filePath: controller.drivingLicenceFilePath.value,
                     status: controller.drivingLicenceStatus.value,
+                    rejectionReason:
+                        controller.drivingLicenceRejectionReason.value,
                     isUploading: controller.isDocUploading(
                       DriverDocumentId.drivingLicence,
                     ),
@@ -155,6 +369,8 @@ class _DriverVerificationUploadViewState
                     uploadedFileName: controller.vehicleRegistrationPath.value,
                     filePath: controller.vehicleRegistrationFilePath.value,
                     status: controller.vehicleRegistrationStatus.value,
+                    rejectionReason:
+                        controller.vehicleRegistrationRejectionReason.value,
                     isUploading: controller.isDocUploading(
                       DriverDocumentId.vehicleRegistration,
                     ),
@@ -172,6 +388,8 @@ class _DriverVerificationUploadViewState
                     uploadedFileName: controller.vehicleInsurancePath.value,
                     filePath: controller.vehicleInsuranceFilePath.value,
                     status: controller.vehicleInsuranceStatus.value,
+                    rejectionReason:
+                        controller.vehicleInsuranceRejectionReason.value,
                     isUploading: controller.isDocUploading(
                       DriverDocumentId.vehicleInsurance,
                     ),
@@ -189,6 +407,8 @@ class _DriverVerificationUploadViewState
                     uploadedFileName: controller.policeCheckPath.value,
                     filePath: controller.policeCheckFilePath.value,
                     status: controller.policeCheckStatus.value,
+                    rejectionReason:
+                        controller.policeCheckRejectionReason.value,
                     isUploading: controller.isDocUploading(
                       DriverDocumentId.policeCheck,
                     ),
@@ -323,6 +543,7 @@ class _DriverDocsUploadCard extends StatelessWidget {
     required this.uploadedFileName,
     this.filePath,
     required this.status,
+    this.rejectionReason,
     this.isUploading = false,
     required this.onTap,
   });
@@ -334,6 +555,7 @@ class _DriverDocsUploadCard extends StatelessWidget {
   final String uploadedFileName;
   final String? filePath;
   final DocumentVerificationStatus status;
+  final String? rejectionReason;
   final bool isUploading;
   final VoidCallback onTap;
 
@@ -621,6 +843,28 @@ class _DriverDocsUploadCard extends StatelessWidget {
                           color: AppColors.secondaryTextColor,
                         ),
                       ),
+                      if (isRejected &&
+                          rejectionReason != null &&
+                          rejectionReason!.trim().isNotEmpty) ...[
+                        4.verticalSpace,
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 3.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(6.r),
+                          ),
+                          child: Text(
+                            'Reason: ${rejectionReason!.trim()}',
+                            style: AppTextStyle.text10Medium.copyWith(
+                              color: const Color(0xFFDC2626),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -663,7 +907,7 @@ class _DriverDocsUploadCard extends StatelessWidget {
                     ),
                     8.horizontalSpace,
                     Text(
-                      'Uploading to Storage...',
+                      'Document is uploading...',
                       style: AppTextStyle.text12Semibold.copyWith(
                         color: AppColors.primaryColor,
                       ),

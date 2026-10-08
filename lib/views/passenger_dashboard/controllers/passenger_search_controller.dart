@@ -1,13 +1,18 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/route_matching_helper.dart';
 import 'package:ridelink/data/models/passenger/passenger_models.dart';
 import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/data/services/google_places_service.dart';
+import 'package:ridelink/theme/app_text_style.dart';
 
 class PassengerSearchController extends GetxController {
   StreamSubscription? _authSubscription;
@@ -25,9 +30,18 @@ class PassengerSearchController extends GetxController {
   final RxDouble toLat = (0.0).obs;
   final RxDouble toLng = (0.0).obs;
 
-  final RxString selectedDate = 'Today, Oct 5'.obs;
-  final RxString preferredTime = '8:00 AM'.obs;
-  final RxString timeFlexibility = '±15 minutes'.obs;
+  final Rx<DateTime> selectedSearchDate = DateTime.now().obs;
+  final Rx<TimeOfDay> selectedSearchTime = const TimeOfDay(
+    hour: 8,
+    minute: 0,
+  ).obs;
+
+  final RxString activeDatePreset = 'Today'.obs; // 'Today', 'Tomorrow', 'Weekend', 'Custom'
+  final RxString activeTimePreset = 'Morning'.obs; // 'Morning', 'Noon', 'Evening', 'Custom'
+
+  final RxString selectedDate = 'Today'.obs;
+  final RxString preferredTime = '08:00 AM'.obs;
+  final RxString timeFlexibility = '±30 minutes'.obs;
   final RxInt requestedSeats = 1.obs;
   final RxString seatsNote = ''.obs;
   final RxString selectedFilter = 'All'.obs;
@@ -36,6 +50,334 @@ class PassengerSearchController extends GetxController {
 
   // Available Rides List
   final RxList<RideModel> availableRides = <RideModel>[].obs;
+
+  String get formattedSearchDate {
+    final date = selectedSearchDate.value;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(date.year, date.month, date.day);
+    final diff = target.difference(today).inDays;
+    if (diff == 0) {
+      return 'Today (${DateFormat('d MMM').format(date)})';
+    } else if (diff == 1) {
+      return 'Tomorrow (${DateFormat('d MMM').format(date)})';
+    }
+    return DateFormat('EEE, d MMM').format(date);
+  }
+
+  String get formattedSearchTime {
+    final time = selectedSearchTime.value;
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '${hour.toString().padLeft(2, '0')}:$minute $period';
+  }
+
+  void selectToday() {
+    activeDatePreset.value = 'Today';
+    selectedSearchDate.value = DateTime.now();
+    selectedDate.value = formattedSearchDate;
+    if (hasSearched.value) {
+      performSearch();
+    }
+  }
+
+  void selectTomorrow() {
+    activeDatePreset.value = 'Tomorrow';
+    selectedSearchDate.value = DateTime.now().add(const Duration(days: 1));
+    selectedDate.value = formattedSearchDate;
+    if (hasSearched.value) {
+      performSearch();
+    }
+  }
+
+  void selectWeekend() {
+    activeDatePreset.value = 'Weekend';
+    final now = DateTime.now();
+    final daysUntilSaturday = (DateTime.saturday - now.weekday + 7) % 7;
+    final target = daysUntilSaturday == 0 ? now : now.add(Duration(days: daysUntilSaturday));
+    selectedSearchDate.value = target;
+    selectedDate.value = formattedSearchDate;
+    if (hasSearched.value) {
+      performSearch();
+    }
+  }
+
+  void selectMorning() {
+    final now = DateTime.now();
+    final isToday = selectedSearchDate.value.year == now.year &&
+        selectedSearchDate.value.month == now.month &&
+        selectedSearchDate.value.day == now.day;
+    if (isToday && (now.hour * 60 + now.minute > 8 * 60)) {
+      AppSnackBar.warning(
+        message:
+            'Morning (8:00 AM) has already passed for today. Please pick an upcoming time.',
+      );
+      return;
+    }
+    activeTimePreset.value = 'Morning';
+    selectedSearchTime.value = const TimeOfDay(hour: 8, minute: 0);
+    preferredTime.value = formattedSearchTime;
+    if (hasSearched.value) {
+      performSearch();
+    }
+  }
+
+  void selectNoon() {
+    final now = DateTime.now();
+    final isToday = selectedSearchDate.value.year == now.year &&
+        selectedSearchDate.value.month == now.month &&
+        selectedSearchDate.value.day == now.day;
+    if (isToday && (now.hour * 60 + now.minute > 12 * 60 + 30)) {
+      AppSnackBar.warning(
+        message:
+            'Noon (12:30 PM) has already passed for today. Please pick an upcoming time.',
+      );
+      return;
+    }
+    activeTimePreset.value = 'Noon';
+    selectedSearchTime.value = const TimeOfDay(hour: 12, minute: 30);
+    preferredTime.value = formattedSearchTime;
+    if (hasSearched.value) {
+      performSearch();
+    }
+  }
+
+  void selectEvening() {
+    final now = DateTime.now();
+    final isToday = selectedSearchDate.value.year == now.year &&
+        selectedSearchDate.value.month == now.month &&
+        selectedSearchDate.value.day == now.day;
+    if (isToday && (now.hour * 60 + now.minute > 17 * 60 + 30)) {
+      AppSnackBar.warning(
+        message:
+            'Evening (5:30 PM) has already passed for today. Please pick an upcoming time.',
+      );
+      return;
+    }
+    activeTimePreset.value = 'Evening';
+    selectedSearchTime.value = const TimeOfDay(hour: 17, minute: 30);
+    preferredTime.value = formattedSearchTime;
+    if (hasSearched.value) {
+      performSearch();
+    }
+  }
+
+  Future<void> pickSearchDate(BuildContext context) async {
+    final now = DateTime.now();
+    DateTime tempDate = selectedSearchDate.value.isBefore(now)
+        ? now
+        : selectedSearchDate.value;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+          ),
+          padding: EdgeInsets.only(
+            top: 12.h,
+            left: 20.w,
+            right: 20.w,
+            bottom: MediaQuery.of(ctx).padding.bottom + 16.h,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top drag handle
+              Center(
+                child: Container(
+                  width: 44.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderColor,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+              ),
+              14.verticalSpace,
+              // Title Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Ride Date',
+                    style: AppTextStyle.text18Semibold.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryTextColor,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      selectedSearchDate.value = tempDate;
+                      final today = DateTime(now.year, now.month, now.day);
+                      final picked = DateTime(tempDate.year, tempDate.month, tempDate.day);
+                      final diff = picked.difference(today).inDays;
+                      if (diff == 0) {
+                        activeDatePreset.value = 'Today';
+                      } else if (diff == 1) {
+                        activeDatePreset.value = 'Tomorrow';
+                      } else {
+                        activeDatePreset.value = 'Custom';
+                      }
+                      selectedDate.value = formattedSearchDate;
+                      if (hasSearched.value) {
+                        performSearch();
+                      }
+                      Get.back();
+                    },
+                    child: Text(
+                      'Done',
+                      style: AppTextStyle.text14Semibold.copyWith(
+                        color: AppColors.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              10.verticalSpace,
+              // Calendar View
+              Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Color(0xFF2563EB),
+                    onPrimary: Colors.white,
+                    onSurface: Color(0xFF1E293B),
+                  ),
+                ),
+                child: SizedBox(
+                  height: 320.h,
+                  child: CalendarDatePicker(
+                    initialDate: tempDate,
+                    firstDate: now,
+                    lastDate: now.add(const Duration(days: 365)),
+                    onDateChanged: (val) {
+                      tempDate = val;
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> pickSearchTime(BuildContext context) async {
+    final now = DateTime.now();
+    TimeOfDay tempTime = selectedSearchTime.value;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+          ),
+          padding: EdgeInsets.only(
+            top: 12.h,
+            left: 20.w,
+            right: 20.w,
+            bottom: MediaQuery.of(ctx).padding.bottom + 16.h,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top drag handle
+              Center(
+                child: Container(
+                  width: 44.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderColor,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+              ),
+              14.verticalSpace,
+              // Title Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Preferred Time',
+                    style: AppTextStyle.text18Semibold.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryTextColor,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      final isToday = selectedSearchDate.value.year == now.year &&
+                          selectedSearchDate.value.month == now.month &&
+                          selectedSearchDate.value.day == now.day;
+                      if (isToday) {
+                        final pickedMinutes = tempTime.hour * 60 + tempTime.minute;
+                        final currentMinutes = now.hour * 60 + now.minute;
+                        if (pickedMinutes < currentMinutes) {
+                          AppSnackBar.error(
+                            message:
+                                'Cannot select a time in the past. Please choose an upcoming time.',
+                          );
+                          return;
+                        }
+                      }
+                      selectedSearchTime.value = tempTime;
+                      activeTimePreset.value = 'Custom';
+                      preferredTime.value = formattedSearchTime;
+                      if (hasSearched.value) {
+                        performSearch();
+                      }
+                      Get.back();
+                    },
+                    child: Text(
+                      'Done',
+                      style: AppTextStyle.text14Semibold.copyWith(
+                        color: AppColors.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              14.verticalSpace,
+              // Cupertino Time Wheel Picker
+              SizedBox(
+                height: 200.h,
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  initialDateTime: DateTime(
+                    now.year,
+                    now.month,
+                    now.day,
+                    selectedSearchTime.value.hour,
+                    selectedSearchTime.value.minute,
+                  ),
+                  use24hFormat: false,
+                  onDateTimeChanged: (DateTime newDateTime) {
+                    tempTime = TimeOfDay(
+                      hour: newDateTime.hour,
+                      minute: newDateTime.minute,
+                    );
+                  },
+                ),
+              ),
+              12.verticalSpace,
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   void swapLocations() {
     final temp = fromLocationController.text;
@@ -98,6 +440,25 @@ class PassengerSearchController extends GetxController {
     final fromQuery = fromLocationController.text.trim().toLowerCase();
     final toQuery = toLocationController.text.trim().toLowerCase();
     final seats = requestedSeats.value;
+    final now = DateTime.now();
+
+    // Exclude rides that have already completed, cancelled, or departed in the past
+    final validRides = availableRides.where((r) {
+      final s = r.status.toLowerCase().trim();
+      if (s == 'completed' ||
+          s == 'cancelled' ||
+          s == 'active' ||
+          s == 'started' ||
+          s == 'in_progress') {
+        return false;
+      }
+      if (r.departureDateTime != null) {
+        if (r.departureDateTime!.isBefore(now.subtract(const Duration(minutes: 5)))) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
 
     final bool hasSearchCoords = (fromLat.value != 0.0 || fromLng.value != 0.0) &&
         (toLat.value != 0.0 || toLng.value != 0.0);
@@ -109,7 +470,7 @@ class PassengerSearchController extends GetxController {
       final pPickup = LatLng(fromLat.value, fromLng.value);
       final pDrop = LatLng(toLat.value, toLng.value);
 
-      for (final r in availableRides) {
+      for (final r in validRides) {
         if (r.seatsAvailable < seats) continue;
 
         // Skip if driver route coordinates are uninitialized
@@ -153,7 +514,7 @@ class PassengerSearchController extends GetxController {
 
     // 2. If no coordinate matches, or text search was used, fallback to keyword matching
     if (list.isEmpty) {
-      list = availableRides.where((r) {
+      list = validRides.where((r) {
         if (r.seatsAvailable < seats) return false;
 
         if (fromQuery.isNotEmpty) {
@@ -189,11 +550,44 @@ class PassengerSearchController extends GetxController {
     }
 
     // 3. Fallback to all available rides if no match found
-    if (list.isEmpty && (fromQuery.isNotEmpty || toQuery.isNotEmpty)) {
-      list = availableRides.where((r) => r.seatsAvailable >= seats).toList();
+    if (list.isEmpty) {
+      list = validRides.where((r) => r.seatsAvailable >= seats).toList();
     }
 
-    // 4. Apply Tab Filter
+    // 4. Date & Time Ranking / Sorting
+    final targetMinutes = _timeToMinutes(preferredTime.value);
+    final targetDate = selectedSearchDate.value;
+
+    list.sort((a, b) {
+      // Prioritize en-route corridor matches
+      if (a.isEnRouteMatch && !b.isEnRouteMatch) return -1;
+      if (!a.isEnRouteMatch && b.isEnRouteMatch) return 1;
+
+      // Prioritize matching search date if departure date is recorded
+      final aDateMatch = a.departureDateTime != null &&
+          a.departureDateTime!.year == targetDate.year &&
+          a.departureDateTime!.month == targetDate.month &&
+          a.departureDateTime!.day == targetDate.day;
+      final bDateMatch = b.departureDateTime != null &&
+          b.departureDateTime!.year == targetDate.year &&
+          b.departureDateTime!.month == targetDate.month &&
+          b.departureDateTime!.day == targetDate.day;
+
+      if (aDateMatch && !bDateMatch) return -1;
+      if (!aDateMatch && bDateMatch) return 1;
+
+      // Prioritize time closeness to preferred commute time
+      final aTimeDelta = (_timeToMinutes(a.departureTime) - targetMinutes).abs();
+      final bTimeDelta = (_timeToMinutes(b.departureTime) - targetMinutes).abs();
+      if (aTimeDelta != bTimeDelta) {
+        return aTimeDelta.compareTo(bTimeDelta);
+      }
+
+      // Prioritize lower detour
+      return a.detourMinutes.compareTo(b.detourMinutes);
+    });
+
+    // 5. Apply Tab Filter
     if (selectedFilter.value == 'Verified') {
       list = list.where((r) => r.isVerified).toList();
     } else if (selectedFilter.value == 'Top Rated') {
@@ -211,6 +605,36 @@ class PassengerSearchController extends GetxController {
     return list;
   }
 
+  int _timeToMinutes(String timeStr) {
+    try {
+      final clean = timeStr.trim().toUpperCase();
+      final isPM = clean.contains('PM');
+      final isAM = clean.contains('AM');
+      final parts = clean
+          .replaceAll('AM', '')
+          .replaceAll('PM', '')
+          .trim()
+          .split(':');
+      if (parts.length >= 2) {
+        var hour = int.tryParse(parts[0].trim()) ?? 8;
+        final minute = int.tryParse(parts[1].trim()) ?? 0;
+        if (isPM && hour < 12) hour += 12;
+        if (isAM && hour == 12) hour = 0;
+        return hour * 60 + minute;
+      }
+    } catch (_) {}
+    return 8 * 60;
+  }
+
+  int get flexibilityWindowMinutes {
+    final flex = timeFlexibility.value.toLowerCase();
+    if (flex.contains('15')) return 15;
+    if (flex.contains('30')) return 30;
+    if (flex.contains('1 hour') || flex.contains('60')) return 60;
+    if (flex.contains('anytime')) return 99999;
+    return 30;
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -224,6 +648,10 @@ class PassengerSearchController extends GetxController {
   void clearState() {
     fromLocationController.clear();
     toLocationController.clear();
+    fromLat.value = 0.0;
+    fromLng.value = 0.0;
+    toLat.value = 0.0;
+    toLng.value = 0.0;
     hasSearched.value = false;
     selectedFilter.value = 'All';
     requestedSeats.value = 1;

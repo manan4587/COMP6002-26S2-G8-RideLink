@@ -18,6 +18,7 @@ class DriverTripModel {
   final bool isRecurring;
   final List<String> recurringDays;
   final String communityName;
+  final DateTime? departureDateTime;
   final RxList<PassengerRequestModel> requests;
   final RxList<PassengerRequestModel> acceptedPassengers;
 
@@ -39,6 +40,7 @@ class DriverTripModel {
     this.isRecurring = false,
     this.recurringDays = const [],
     this.communityName = '',
+    this.departureDateTime,
     List<PassengerRequestModel> requests = const [],
     List<PassengerRequestModel> acceptedPassengers = const [],
   })  : currentDriverLat = currentDriverLat.obs,
@@ -51,6 +53,30 @@ class DriverTripModel {
         requests = RxList<PassengerRequestModel>.from(requests),
         acceptedPassengers =
             RxList<PassengerRequestModel>.from(acceptedPassengers);
+
+  /// Driver can only start a ride 15 minutes before the scheduled start time or later
+  bool get canStartRide {
+    if (departureDateTime == null) return true;
+    final now = DateTime.now();
+    final allowedStartTime = departureDateTime!.subtract(const Duration(minutes: 15));
+    return now.isAfter(allowedStartTime);
+  }
+
+  String get timeUntilCanStartMessage {
+    if (departureDateTime == null) return '';
+    final now = DateTime.now();
+    final allowedStartTime = departureDateTime!.subtract(const Duration(minutes: 15));
+    if (now.isAfter(allowedStartTime)) return '';
+
+    final diff = allowedStartTime.difference(now);
+    if (diff.inHours > 0) {
+      return 'Can start 15m before (in ${diff.inHours}h ${diff.inMinutes % 60}m)';
+    } else if (diff.inMinutes > 0) {
+      return 'Can start 15m before (in ${diff.inMinutes}m)';
+    } else {
+      return 'Can start in less than 1m';
+    }
+  }
 }
 
 class PassengerRequestModel {
@@ -77,6 +103,8 @@ class PassengerRequestModel {
   final String emergencyContactRelation;
   final String emergencyContactPhone;
   final String pickupOtp;
+  final RxBool isRated;
+  final RxDouble passengerRatingGiven;
 
   PassengerRequestModel({
     required this.id,
@@ -102,8 +130,12 @@ class PassengerRequestModel {
     this.emergencyContactRelation = 'Mother',
     this.emergencyContactPhone = '+61 412 345 678',
     this.pickupOtp = '1234',
+    bool isRated = false,
+    double passengerRatingGiven = 5.0,
   })  : status = status.obs,
-        passengerStatus = passengerStatus.obs;
+        passengerStatus = passengerStatus.obs,
+        isRated = isRated.obs,
+        passengerRatingGiven = passengerRatingGiven.obs;
 
   bool get isWaitingPickup =>
       passengerStatus.value == 'to_pickup' || passengerStatus.value == 'arrived';

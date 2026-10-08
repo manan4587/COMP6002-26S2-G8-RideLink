@@ -16,10 +16,6 @@ class PassengerDashboardView extends GetView<PassengerDashboardController> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.reloadProfile();
-    });
-
     final List<Widget> pages = const [
       HomePage(),
       SearchPage(),
@@ -36,65 +32,79 @@ class PassengerDashboardView extends GetView<PassengerDashboardController> {
         ),
       ),
       bottomNavigationBar: Obx(
-        () => Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border(
-              top: BorderSide(color: AppColors.borderColor, width: 1),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, -3),
-              ),
-            ],
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _NavBarItem(
-                    icon: CupertinoIcons.home,
-                    activeIcon: CupertinoIcons.home,
-                    label: 'Home',
-                    isSelected: controller.currentTabIndex.value == 0,
-                    onTap: () => controller.switchTab(0),
-                  ),
-                  _NavBarItem(
-                    icon: CupertinoIcons.search,
-                    activeIcon: CupertinoIcons.search,
-                    label: 'Search',
-                    isSelected: controller.currentTabIndex.value == 1,
-                    onTap: () => controller.switchTab(1),
-                  ),
-                  _NavBarItem(
-                    icon: CupertinoIcons.car,
-                    activeIcon: CupertinoIcons.car,
-                    label: 'Trips',
-                    isSelected: controller.currentTabIndex.value == 2,
-                    onTap: () => controller.switchTab(2),
-                  ),
-                  _NavBarItem(
-                    icon: CupertinoIcons.person_2,
-                    activeIcon: CupertinoIcons.person_2,
-                    label: 'Community',
-                    isSelected: controller.currentTabIndex.value == 3,
-                    onTap: () => controller.switchTab(3),
-                  ),
-                  _NavBarItem(
-                    icon: CupertinoIcons.person,
-                    activeIcon: CupertinoIcons.person,
-                    label: 'Profile',
-                    isSelected: controller.currentTabIndex.value == 4,
-                    onTap: () => controller.switchTab(4),
+        () => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                border: Border(
+                  top: BorderSide(color: AppColors.borderColor, width: 1),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, -3),
                   ),
                 ],
               ),
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: CupertinoIcons.home,
+                          activeIcon: CupertinoIcons.home,
+                          label: 'Home',
+                          isSelected: controller.currentTabIndex.value == 0,
+                          onTap: () => controller.switchTab(0),
+                        ),
+                      ),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: CupertinoIcons.search,
+                          activeIcon: CupertinoIcons.search,
+                          label: 'Search',
+                          isSelected: controller.currentTabIndex.value == 1,
+                          onTap: () => controller.switchTab(1),
+                        ),
+                      ),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: CupertinoIcons.car,
+                          activeIcon: CupertinoIcons.car,
+                          label: 'Trips',
+                          isSelected: controller.currentTabIndex.value == 2,
+                          onTap: () => controller.switchTab(2),
+                        ),
+                      ),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: CupertinoIcons.person_2,
+                          activeIcon: CupertinoIcons.person_2,
+                          label: 'Community',
+                          isSelected: controller.currentTabIndex.value == 3,
+                          onTap: () => controller.switchTab(3),
+                        ),
+                      ),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: CupertinoIcons.person,
+                          activeIcon: CupertinoIcons.person,
+                          label: 'Profile',
+                          isSelected: controller.currentTabIndex.value == 4,
+                          onTap: () => controller.switchTab(4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -121,36 +131,45 @@ class _NavBarItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 12.w : 8.w,
-          vertical: 4.h,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              size: 20.sp,
-              color: isSelected
-                  ? AppColors.primaryColor
-                  : AppColors.secondaryTextColor,
-            ),
-            SizedBox(height: 3.h),
-            Text(
-              label,
-              style: AppTextStyle.text10Medium.copyWith(
+      child: Center(
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: 4.w,
+            vertical: 4.h,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSelected ? activeIcon : icon,
+                size: 20.sp,
                 color: isSelected
                     ? AppColors.primaryColor
                     : AppColors.secondaryTextColor,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
-            ),
-          ],
+              SizedBox(height: 3.h),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  style: AppTextStyle.text10Medium.copyWith(
+                    fontSize: 10.sp,
+                    color: isSelected
+                        ? AppColors.primaryColor
+                        : AppColors.secondaryTextColor,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

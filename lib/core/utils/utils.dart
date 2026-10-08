@@ -82,11 +82,34 @@ class Utils {
     unawaited(SystemChannels.textInput.invokeMethod('TextInput.hide'));
   }
 
-  /// Launches a URL
+  /// Launches a URL or system intent (dialer, mail, web)
   static Future<void> launchURL(String url) async {
-    if (await canLaunchUrlString(url)) {
-      await launchUrlString(url);
-    } else {
+    final clean = url.trim();
+    if (clean.isEmpty) return;
+
+    final isExternal = clean.startsWith('tel:') ||
+        clean.startsWith('mailto:') ||
+        clean.startsWith('sms:');
+
+    try {
+      if (await canLaunchUrlString(clean)) {
+        await launchUrlString(
+          clean,
+          mode: isExternal
+              ? LaunchMode.externalApplication
+              : LaunchMode.platformDefault,
+        );
+        return;
+      }
+    } catch (_) {}
+
+    // Fallback attempt: launch directly in external application (crucial for phone dialer on Android & iOS)
+    try {
+      await launchUrlString(
+        clean,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
       throw Exception('Could not open $url');
     }
   }
@@ -358,7 +381,16 @@ class Utils {
     return base64Image;
   }
 
-  static void launchCall(String contact) {
-    launchURL('tel:$contact');
+  static Future<void> launchCall(String contact) async {
+    final clean = contact.replaceAll(RegExp(r'\s+'), '');
+    await launchURL('tel:$clean');
+  }
+
+  /// Format trip money / fare cleanly without rounding $7.50 to $8.00
+  static String formatPrice(num price) {
+    if (price % 1 == 0) {
+      return '\$${price.toInt()}';
+    }
+    return '\$${price.toStringAsFixed(2)}';
   }
 }

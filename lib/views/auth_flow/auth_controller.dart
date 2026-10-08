@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -8,6 +9,8 @@ import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/enums/user_type.dart';
 import 'package:ridelink/core/services/notification_service.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
+import 'package:ridelink/core/utils/australian_phone_helper.dart';
+import 'package:ridelink/core/utils/disposable_email_checker.dart';
 import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/core/utils/validation_mixin.dart';
 import 'package:ridelink/data/repositories/auth_repository.dart';
@@ -16,7 +19,6 @@ import 'package:ridelink/data/services/driver_verification_service.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/controllers/driver_profile_controller.dart';
-import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 import 'package:ridelink/widgets/app_button.dart';
 import 'package:ridelink/widgets/app_text_field.dart';
 import 'package:ridelink/widgets/document_upload_picker_sheet.dart';
@@ -34,6 +36,7 @@ class AuthController extends GetxController with ValidationMixin {
       TextEditingController();
   final TextEditingController vehiclePlateController = TextEditingController();
   final TextEditingController vehicleColorController = TextEditingController();
+  final RxString selectedVehicleType = 'Sedan'.obs;
   final RxInt vehicleSeats = 4.obs;
 
   final GlobalKey<FormState> loginFormKey = GlobalKey<FormState>();
@@ -52,21 +55,25 @@ class AuthController extends GetxController with ValidationMixin {
   final RxString drivingLicenceFilePath = ''.obs;
   final Rx<DocumentVerificationStatus> drivingLicenceStatus =
       DocumentVerificationStatus.notUploaded.obs;
+  final RxString drivingLicenceRejectionReason = ''.obs;
 
   final RxString vehicleRegistrationPath = ''.obs;
   final RxString vehicleRegistrationFilePath = ''.obs;
   final Rx<DocumentVerificationStatus> vehicleRegistrationStatus =
       DocumentVerificationStatus.notUploaded.obs;
+  final RxString vehicleRegistrationRejectionReason = ''.obs;
 
   final RxString vehicleInsurancePath = ''.obs;
   final RxString vehicleInsuranceFilePath = ''.obs;
   final Rx<DocumentVerificationStatus> vehicleInsuranceStatus =
       DocumentVerificationStatus.notUploaded.obs;
+  final RxString vehicleInsuranceRejectionReason = ''.obs;
 
   final RxString policeCheckPath = ''.obs;
   final RxString policeCheckFilePath = ''.obs;
   final Rx<DocumentVerificationStatus> policeCheckStatus =
       DocumentVerificationStatus.optional.obs;
+  final RxString policeCheckRejectionReason = ''.obs;
 
   // Track documents currently uploading to prevent duplicate uploads and show loaders
   final RxSet<String> uploadingDocIds = <String>{}.obs;
@@ -74,6 +81,13 @@ class AuthController extends GetxController with ValidationMixin {
 
   final AuthRepository authRepository = AuthRepository();
   final AuthService _authService = AuthService.instance;
+
+  User? get currentUser => _authService.currentUser;
+
+  Future<void> signOut() async {
+    Preferences.logout();
+    await _authService.signOut();
+  }
 
   // Email verification state
   final RxInt resendEmailCountdown = 30.obs;
@@ -105,15 +119,19 @@ class AuthController extends GetxController with ValidationMixin {
     drivingLicencePath.value = '';
     drivingLicenceFilePath.value = '';
     drivingLicenceStatus.value = DocumentVerificationStatus.notUploaded;
+    drivingLicenceRejectionReason.value = '';
     vehicleRegistrationPath.value = '';
     vehicleRegistrationFilePath.value = '';
     vehicleRegistrationStatus.value = DocumentVerificationStatus.notUploaded;
+    vehicleRegistrationRejectionReason.value = '';
     vehicleInsurancePath.value = '';
     vehicleInsuranceFilePath.value = '';
     vehicleInsuranceStatus.value = DocumentVerificationStatus.notUploaded;
+    vehicleInsuranceRejectionReason.value = '';
     policeCheckPath.value = '';
     policeCheckFilePath.value = '';
     policeCheckStatus.value = DocumentVerificationStatus.optional;
+    policeCheckRejectionReason.value = '';
     selectedUserType.value = UserType.passenger;
     isLoading.value = false;
     isGoogleLoading.value = false;
@@ -122,17 +140,54 @@ class AuthController extends GetxController with ValidationMixin {
     isSignupPasswordVisible.value = false;
   }
 
+  bool _isSplashNavigating = false;
+
   void onNavigateToScreens() {
-    Future.delayed(const Duration(seconds: 2), () {
-      if (Preferences.isLogged) {
-        if (Preferences.userRole == 'driver') {
-          Get.offAllNamed(AppRoutes.driverDashboard);
-        } else {
-          Get.offAllNamed(AppRoutes.passengerDashboard);
+    if (_isSplashNavigating) return;
+    _isSplashNavigating = true;
+    Future.delayed(const Duration(seconds: 2), () async {
+      final user = _authService.currentUser;
+
+      // 1. If an authenticated Firebase user is present
+      if (user != null) {
+        try {
+          await user.reload();
+        } catch (_) {}
+
+        final refreshedUser = _authService.currentUser;
+        final isVerified = refreshedUser?.emailVerified ?? false;
+
+        // If email is NOT verified, strictly block access to home screens
+        if (!isVerified) {
+          Preferences.isLogged = false;
+          Get.offAllNamed(AppRoutes.emailVerificationView);
+          AppSnackBar.warning(
+            message: 'Please verify your email address to continue to RideLink.',
+          );
+          return;
         }
-      } else {
-        Get.offNamed(AppRoutes.getStartedView);
+
+        // If email is verified and marked as logged in
+        if (Preferences.isLogged) {
+          NotificationService.instance.syncTokenToFirestore();
+          if (Preferences.userRole == 'driver') {
+            Get.offAllNamed(AppRoutes.driverDashboard);
+          } else {
+            Get.offAllNamed(AppRoutes.passengerDashboard);
+          }
+          return;
+        }
       }
+
+      // 2. Guard against invalid cache: if marked logged in but no verified user session
+      if (Preferences.isLogged && (user == null || !user.emailVerified)) {
+        Preferences.isLogged = false;
+        Get.offAllNamed(AppRoutes.getStartedView);
+        return;
+      }
+
+      // 3. Unauthenticated user: navigate to Get Started screen
+      Get.offNamed(AppRoutes.getStartedView);
     });
   }
 
@@ -222,20 +277,17 @@ class AuthController extends GetxController with ValidationMixin {
         Preferences.userEmail = emailController.text.trim();
       }
       if (phoneNumberController.text.trim().isNotEmpty) {
-        Preferences.userPhone = phoneNumberController.text.trim();
-      }
-
-      if (Get.isRegistered<PassengerDashboardController>()) {
-        Get.find<PassengerDashboardController>().reloadProfile();
-      }
-      if (Get.isRegistered<DriverProfileController>()) {
-        Get.find<DriverProfileController>().reloadProfile();
+        Preferences.userPhone = AustralianPhoneHelper.formatToAustralian(
+          phoneNumberController.text.trim(),
+        );
       }
 
       // Sync FCM token to Firestore
       NotificationService.instance.syncTokenToFirestore();
 
-      AppSnackBar.success(message: 'Email verified successfully!');
+      if (Get.isSnackbarOpen) {
+        Get.closeCurrentSnackbar();
+      }
 
       if (selectedUserType.value == UserType.driver) {
         Preferences.userRole = 'driver';
@@ -244,6 +296,10 @@ class AuthController extends GetxController with ValidationMixin {
         Preferences.userRole = 'passenger';
         Get.offAllNamed(AppRoutes.passengerDashboard);
       }
+
+      Future.delayed(const Duration(milliseconds: 350), () {
+        AppSnackBar.success(message: 'Email verified successfully!');
+      });
     } catch (e) {
       AppSnackBar.error(message: _authService.getFriendlyErrorMessage(e));
     } finally {
@@ -263,6 +319,13 @@ class AuthController extends GetxController with ValidationMixin {
 
     final email = emailController.text.trim();
     final password = passwordController.text;
+
+    if (DisposableEmailChecker.isDisposable(email)) {
+      AppSnackBar.error(
+        message: 'Temporary or disposable email addresses are not allowed.',
+      );
+      return;
+    }
 
     try {
       isLoading.value = true;
@@ -305,17 +368,12 @@ class AuthController extends GetxController with ValidationMixin {
       }
       Preferences.userRole = role;
 
-      if (Get.isRegistered<PassengerDashboardController>()) {
-        Get.find<PassengerDashboardController>().reloadProfile();
-      }
-      if (Get.isRegistered<DriverProfileController>()) {
-        Get.find<DriverProfileController>().reloadProfile();
-      }
-
       // Sync FCM token to Firestore
       NotificationService.instance.syncTokenToFirestore();
 
-      AppSnackBar.success(message: 'Welcome back!');
+      if (Get.isSnackbarOpen) {
+        Get.closeCurrentSnackbar();
+      }
 
       if (role == 'driver') {
         selectedUserType.value = UserType.driver;
@@ -324,6 +382,10 @@ class AuthController extends GetxController with ValidationMixin {
         selectedUserType.value = UserType.passenger;
         Get.offAllNamed(AppRoutes.passengerDashboard);
       }
+
+      Future.delayed(const Duration(milliseconds: 350), () {
+        AppSnackBar.success(message: 'Welcome back!');
+      });
     } catch (e) {
       AppSnackBar.error(message: _authService.getFriendlyErrorMessage(e));
     } finally {
@@ -342,8 +404,17 @@ class AuthController extends GetxController with ValidationMixin {
 
     final email = emailController.text.trim();
     final password = passwordController.text;
+
+    if (DisposableEmailChecker.isDisposable(email)) {
+      AppSnackBar.error(
+        message: 'Temporary or disposable email addresses are not allowed.',
+      );
+      return;
+    }
     final fullName = fullNameController.text.trim();
-    final phone = phoneNumberController.text.trim();
+    final phone = AustralianPhoneHelper.formatToAustralian(
+      phoneNumberController.text.trim(),
+    );
 
     try {
       isLoading.value = true;
@@ -361,16 +432,23 @@ class AuthController extends GetxController with ValidationMixin {
       Preferences.userRole = 'passenger';
       selectedUserType.value = UserType.passenger;
 
-      if (Get.isRegistered<PassengerDashboardController>()) {
-        Get.find<PassengerDashboardController>().reloadProfile();
-      }
+      // Sync FCM token
+      NotificationService.instance.syncTokenToFirestore();
 
       startResendTimer(30);
-      AppSnackBar.success(
-        message:
-            'Account created! A verification link was sent to $email. Please verify your email.',
-      );
+
+      if (Get.isSnackbarOpen) {
+        Get.closeCurrentSnackbar();
+      }
+
       Get.toNamed(AppRoutes.emailVerificationView);
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        AppSnackBar.success(
+          message:
+              'Account created! A verification link was sent to $email. Please verify your email.',
+        );
+      });
     } catch (e) {
       AppSnackBar.error(message: _authService.getFriendlyErrorMessage(e));
     } finally {
@@ -389,8 +467,17 @@ class AuthController extends GetxController with ValidationMixin {
 
     final email = emailController.text.trim();
     final password = passwordController.text;
+
+    if (DisposableEmailChecker.isDisposable(email)) {
+      AppSnackBar.error(
+        message: 'Temporary or disposable email addresses are not allowed.',
+      );
+      return;
+    }
     final fullName = fullNameController.text.trim();
-    final phone = phoneNumberController.text.trim();
+    final phone = AustralianPhoneHelper.formatToAustralian(
+      phoneNumberController.text.trim(),
+    );
 
     try {
       isLoading.value = true;
@@ -408,16 +495,23 @@ class AuthController extends GetxController with ValidationMixin {
       Preferences.userRole = 'driver';
       selectedUserType.value = UserType.driver;
 
-      if (Get.isRegistered<DriverProfileController>()) {
-        Get.find<DriverProfileController>().reloadProfile();
-      }
+      // Sync FCM token
+      NotificationService.instance.syncTokenToFirestore();
 
       startResendTimer(30);
-      AppSnackBar.success(
-        message:
-            'Account created! A verification link was sent to $email. Please verify your email.',
-      );
+
+      if (Get.isSnackbarOpen) {
+        Get.closeCurrentSnackbar();
+      }
+
       Get.toNamed(AppRoutes.emailVerificationView);
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        AppSnackBar.success(
+          message:
+              'Account created! A verification link was sent to $email. Please verify your email.',
+        );
+      });
     } catch (e) {
       AppSnackBar.error(message: _authService.getFriendlyErrorMessage(e));
     } finally {
@@ -437,6 +531,12 @@ class AuthController extends GetxController with ValidationMixin {
     final emailRegex = RegExp(r'^[\w\.\-]+@([\w\-]+\.)+[\w\-]{2,4}$');
     if (!emailRegex.hasMatch(email)) {
       AppSnackBar.warning(message: 'Please enter a valid email address.');
+      return;
+    }
+    if (DisposableEmailChecker.isDisposable(email)) {
+      AppSnackBar.error(
+        message: 'Temporary or disposable email addresses are not allowed.',
+      );
       return;
     }
 
@@ -463,7 +563,12 @@ class AuthController extends GetxController with ValidationMixin {
     }
     Get.bottomSheet(
       Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 22.h),
+        padding: EdgeInsets.only(
+          left: 20.w,
+          right: 20.w,
+          top: 22.h,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 22.h,
+        ),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -545,20 +650,14 @@ class AuthController extends GetxController with ValidationMixin {
         }
         Preferences.userRole = activeRole;
 
-        if (Get.isRegistered<PassengerDashboardController>()) {
-          Get.find<PassengerDashboardController>().reloadProfile();
-        }
-        if (Get.isRegistered<DriverProfileController>()) {
-          Get.find<DriverProfileController>().reloadProfile();
-        }
-
         // Sync FCM token to Firestore
         NotificationService.instance.syncTokenToFirestore();
 
-        AppSnackBar.success(
-          message: 'Welcome, ${user.displayName ?? "RideLink user"}!',
-        );
+        if (Get.isSnackbarOpen) {
+          Get.closeCurrentSnackbar();
+        }
 
+        final welcomeName = user.displayName ?? "RideLink user";
         if (activeRole == 'driver') {
           selectedUserType.value = UserType.driver;
           if (profile?.isVerifiedDriver == true) {
@@ -570,6 +669,12 @@ class AuthController extends GetxController with ValidationMixin {
           selectedUserType.value = UserType.passenger;
           Get.offAllNamed(AppRoutes.passengerDashboard);
         }
+
+        Future.delayed(const Duration(milliseconds: 350), () {
+          AppSnackBar.success(
+            message: 'Welcome, $welcomeName!',
+          );
+        });
       }
     } catch (e) {
       AppSnackBar.error(message: _authService.getFriendlyErrorMessage(e));
@@ -606,7 +711,7 @@ class AuthController extends GetxController with ValidationMixin {
         if (user != null) {
           try {
             uploadingDocIds.add(docId);
-            AppSnackBar.info(message: 'Uploading $title to Firebase Storage...');
+            AppSnackBar.info(message: 'Document is uploading...');
 
             final downloadUrl = await DriverVerificationService.instance
                 .uploadDriverDocument(
@@ -687,6 +792,14 @@ class AuthController extends GetxController with ValidationMixin {
       return;
     }
 
+    final plate = vehiclePlateController.text.trim();
+    if (plate.isEmpty && Preferences.vehicleNumber.isEmpty) {
+      AppSnackBar.warning(
+        message: 'Please enter your vehicle plate number before submitting.',
+      );
+      return;
+    }
+
     if (drivingLicenceFilePath.value.isEmpty ||
         vehicleRegistrationFilePath.value.isEmpty ||
         vehicleInsuranceFilePath.value.isEmpty) {
@@ -736,20 +849,25 @@ class AuthController extends GetxController with ValidationMixin {
       final plate = vehiclePlateController.text.trim();
       final makeModel = vehicleMakeModelController.text.trim();
       final color = vehicleColorController.text.trim();
+      final type = selectedVehicleType.value;
 
       final Map<String, dynamic> vehicleInfo = {};
       if (plate.isNotEmpty) {
         vehicleInfo['licensePlate'] = plate;
+        Preferences.vehicleNumber = plate;
       }
       if (makeModel.isNotEmpty) {
         vehicleInfo['make'] = makeModel;
         vehicleInfo['model'] = makeModel;
+        Preferences.vehicleModel = makeModel;
       }
       if (color.isNotEmpty) {
         vehicleInfo['color'] = color;
+        Preferences.vehicleColor = color;
       }
       if (vehicleInfo.isNotEmpty) {
-        vehicleInfo['type'] = 'Sedan';
+        vehicleInfo['type'] = type;
+        Preferences.vehicleType = type;
       }
 
       await DriverVerificationService.instance.submitAllDriverDocuments(
@@ -764,7 +882,7 @@ class AuthController extends GetxController with ValidationMixin {
         if (plate.isNotEmpty) {
           driverProfileCtrl.updateVehicleInfo(
             number: plate,
-            type: 'Sedan',
+            type: type,
             model: makeModel,
             color: color,
           );
@@ -794,6 +912,19 @@ class AuthController extends GetxController with ValidationMixin {
   }
 
   Future<void> loadExistingDriverDocuments() async {
+    if (vehiclePlateController.text.isEmpty && Preferences.vehicleNumber.isNotEmpty) {
+      vehiclePlateController.text = Preferences.vehicleNumber;
+    }
+    if (vehicleMakeModelController.text.isEmpty && Preferences.vehicleModel.isNotEmpty) {
+      vehicleMakeModelController.text = Preferences.vehicleModel;
+    }
+    if (vehicleColorController.text.isEmpty && Preferences.vehicleColor.isNotEmpty) {
+      vehicleColorController.text = Preferences.vehicleColor;
+    }
+    if (Preferences.vehicleType.isNotEmpty) {
+      selectedVehicleType.value = Preferences.vehicleType;
+    }
+
     final user = _authService.currentUser;
     if (user == null) return;
     try {
@@ -807,6 +938,7 @@ class AuthController extends GetxController with ValidationMixin {
         String fileName = '';
         String url = '';
         String rawStatus = 'pending';
+        String rejectionReason = '';
         if (val is Map) {
           fileName = val['file_name']?.toString() ??
               val['fileName']?.toString() ??
@@ -815,6 +947,7 @@ class AuthController extends GetxController with ValidationMixin {
               val['downloadUrl']?.toString() ??
               '';
           rawStatus = val['status']?.toString() ?? 'pending';
+          rejectionReason = val['rejection_reason']?.toString() ?? '';
         } else if (val is String) {
           url = val;
         }
@@ -830,6 +963,7 @@ class AuthController extends GetxController with ValidationMixin {
           }
           if (url.isNotEmpty) {
             drivingLicenceStatus.value = status;
+            drivingLicenceRejectionReason.value = rejectionReason;
           }
         } else if (key == DriverDocumentId.vehicleRegistration) {
           if (vehicleRegistrationPath.value.isEmpty && fileName.isNotEmpty) {
@@ -840,6 +974,7 @@ class AuthController extends GetxController with ValidationMixin {
           }
           if (url.isNotEmpty) {
             vehicleRegistrationStatus.value = status;
+            vehicleRegistrationRejectionReason.value = rejectionReason;
           }
         } else if (key == DriverDocumentId.vehicleInsurance) {
           if (vehicleInsurancePath.value.isEmpty && fileName.isNotEmpty) {
@@ -850,6 +985,7 @@ class AuthController extends GetxController with ValidationMixin {
           }
           if (url.isNotEmpty) {
             vehicleInsuranceStatus.value = status;
+            vehicleInsuranceRejectionReason.value = rejectionReason;
           }
         } else if (key == DriverDocumentId.policeCheck) {
           if (policeCheckPath.value.isEmpty && fileName.isNotEmpty) {
@@ -860,6 +996,7 @@ class AuthController extends GetxController with ValidationMixin {
           }
           if (url.isNotEmpty) {
             policeCheckStatus.value = status;
+            policeCheckRejectionReason.value = rejectionReason;
           }
         }
       }
@@ -869,11 +1006,16 @@ class AuthController extends GetxController with ValidationMixin {
   Future<void> onSkipDriverVerification() async {
     Preferences.isLogged = true;
     Preferences.userRole = 'driver';
-    AppSnackBar.info(
-      message:
-          'Document upload skipped. You can upload your verification documents anytime from your profile.',
-    );
+    if (Get.isSnackbarOpen) {
+      Get.closeCurrentSnackbar();
+    }
     Get.offAllNamed(AppRoutes.driverDashboard);
+    Future.delayed(const Duration(milliseconds: 350), () {
+      AppSnackBar.info(
+        message:
+            'Document upload skipped. You can upload your verification documents anytime from your profile.',
+      );
+    });
   }
 
   Future<void> onVerificationSubmited() async {

@@ -17,7 +17,8 @@ class PassengerProfileController extends GetxController {
   final RxString passengerName = Preferences.userName.obs;
   final RxString passengerEmail = Preferences.userEmail.obs;
   final RxString passengerPhone = Preferences.userPhone.obs;
-  final RxDouble passengerRating = 0.0.obs;
+  final RxString rideOtp = Preferences.rideOtp.obs;
+  final RxDouble passengerRating = 5.0.obs;
   final RxInt tripsCount = 0.obs;
 
   // Saved Locations
@@ -35,6 +36,7 @@ class PassengerProfileController extends GetxController {
   final RxBool pushSafetyAlerts = Preferences.pushSafetyAlerts.obs;
 
   StreamSubscription? _authSubscription;
+  StreamSubscription? _profileSubscription;
 
   @override
   void onInit() {
@@ -61,7 +63,8 @@ class PassengerProfileController extends GetxController {
     passengerName.value = 'N/A';
     passengerEmail.value = 'N/A';
     passengerPhone.value = 'N/A';
-    passengerRating.value = 0.0;
+    rideOtp.value = '';
+    passengerRating.value = 5.0;
     tripsCount.value = 0;
     savedLocations.clear();
     emergencyContacts.clear();
@@ -111,6 +114,14 @@ class PassengerProfileController extends GetxController {
             passengerPhone.value = profile.phoneNumber;
             Preferences.userPhone = profile.phoneNumber;
           }
+          if (profile.rideOtp.isNotEmpty) {
+            rideOtp.value = profile.rideOtp;
+            Preferences.rideOtp = profile.rideOtp;
+          } else {
+            final fallback = (user.uid.hashCode.abs() % 9000 + 1000).toString();
+            rideOtp.value = fallback;
+            Preferences.rideOtp = fallback;
+          }
 
           if (profile.savedLocations.isNotEmpty) {
             savedLocations.assignAll(
@@ -119,6 +130,8 @@ class PassengerProfileController extends GetxController {
                   id: loc.id,
                   title: loc.label,
                   address: loc.address,
+                  latitude: loc.lat,
+                  longitude: loc.lng,
                   category: loc.label.toLowerCase().contains('home')
                       ? 'home'
                       : loc.label.toLowerCase().contains('work')
@@ -146,6 +159,28 @@ class PassengerProfileController extends GetxController {
           }
         }
       } catch (_) {}
+
+    _profileSubscription?.cancel();
+    _profileSubscription = AuthService.instance
+        .streamUserProfile(user.uid)
+        .listen((profile) {
+      if (profile != null) {
+        passengerRating.value = profile.rating;
+        tripsCount.value = profile.tripsCompleted;
+        if (profile.fullName.isNotEmpty) {
+          passengerName.value = profile.fullName;
+          Preferences.userName = profile.fullName;
+        }
+        if (profile.email.isNotEmpty) {
+          passengerEmail.value = profile.email;
+          Preferences.userEmail = profile.email;
+        }
+        if (profile.phoneNumber.isNotEmpty) {
+          passengerPhone.value = profile.phoneNumber;
+          Preferences.userPhone = profile.phoneNumber;
+        }
+      }
+    });
   }
 
   String get passengerInitials {
@@ -189,12 +224,16 @@ class PassengerProfileController extends GetxController {
     required String title,
     required String address,
     required String category,
+    double latitude = 0.0,
+    double longitude = 0.0,
   }) async {
     final newLoc = SavedLocationModel(
       id: 'loc_${DateTime.now().millisecondsSinceEpoch}',
       title: title.trim(),
       address: address.trim(),
       category: category,
+      latitude: latitude,
+      longitude: longitude,
     );
     savedLocations.add(newLoc);
     _syncSavedLocationsToFirestore();
@@ -217,8 +256,12 @@ class PassengerProfileController extends GetxController {
               'id': l.id,
               'label': l.title,
               'address': l.address,
-              'latitude': 0.0,
-              'longitude': 0.0,
+              'location': {
+                '_lat': l.latitude,
+                '_long': l.longitude,
+              },
+              'latitude': l.latitude,
+              'longitude': l.longitude,
             },
           )
           .toList();
@@ -319,7 +362,9 @@ class PassengerProfileController extends GetxController {
     try {
       await Utils.launchURL('tel:000');
     } catch (_) {
-      AppSnackBar.info(message: 'Calling Emergency Services (000)...');
+      AppSnackBar.warning(
+        message: 'Could not open phone dialer. Please dial 000 immediately.',
+      );
     }
   }
 
@@ -432,7 +477,7 @@ class PassengerProfileController extends GetxController {
                         borderRadius: BorderRadius.circular(14.r),
                       ),
                     ),
-                    onPressed: () => Navigator.of(ctx).pop(),
+                    onPressed: () => Get.back(),
                     child: Text(
                       'Cancel',
                       style: AppTextStyle.text14Medium.copyWith(
@@ -453,11 +498,13 @@ class PassengerProfileController extends GetxController {
                         borderRadius: BorderRadius.circular(14.r),
                       ),
                     ),
-                    onPressed: () async {
-                      Navigator.of(ctx).pop();
+                    onPressed : () async {
+                      Get.back();
                       Preferences.logout();
                       if (Get.isRegistered<PassengerDashboardController>()) {
-                        Get.find<PassengerDashboardController>().cleanupAll();
+                        final pDash = Get.find<PassengerDashboardController>();
+                        pDash.cleanupAll();
+                        pDash.currentTabIndex.value = 0;
                       }
                       await AuthService.instance.signOut();
                       Get.offAllNamed(AppRoutes.getStartedView);
@@ -597,7 +644,7 @@ class PassengerProfileController extends GetxController {
                         borderRadius: BorderRadius.circular(14.r),
                       ),
                     ),
-                    onPressed: () => Navigator.of(ctx).pop(),
+                    onPressed: () => Get.back(),
                     child: Text(
                       'Keep Account',
                       style: AppTextStyle.text14Medium.copyWith(
@@ -619,9 +666,11 @@ class PassengerProfileController extends GetxController {
                       ),
                     ),
                     onPressed: () async {
-                      Navigator.of(ctx).pop();
+                      Get.back();
                       if (Get.isRegistered<PassengerDashboardController>()) {
-                        Get.find<PassengerDashboardController>().cleanupAll();
+                        final pDash = Get.find<PassengerDashboardController>();
+                        pDash.cleanupAll();
+                        pDash.currentTabIndex.value = 0;
                       }
                       try {
                         await AuthService.instance.deleteAccount();
@@ -650,6 +699,7 @@ class PassengerProfileController extends GetxController {
 
   @override
   void onClose() {
+    _profileSubscription?.cancel();
     _authSubscription?.cancel();
     super.onClose();
   }

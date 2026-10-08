@@ -16,6 +16,17 @@ class DriverCommunitiesPage extends StatefulWidget {
 
 class _DriverCommunitiesPageState extends State<DriverCommunitiesPage> {
   final TextEditingController _searchController = TextEditingController();
+  String _selectedCategory = 'All';
+
+  final List<String> _categories = const [
+    'All',
+    'Joined',
+    'Residential',
+    'Stadium & Events',
+    'Campus & Uni',
+    'CBD & Work',
+    'Healthcare',
+  ];
 
   @override
   void dispose() {
@@ -33,11 +44,11 @@ class _DriverCommunitiesPageState extends State<DriverCommunitiesPage> {
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 8.h),
+              SizedBox(height: 4.h),
               Center(
                 child: Text(
                   'Driver Communities',
@@ -58,7 +69,7 @@ class _DriverCommunitiesPageState extends State<DriverCommunitiesPage> {
                   ),
                 ),
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 14.h),
 
               // Search Bar
               Container(
@@ -87,7 +98,7 @@ class _DriverCommunitiesPageState extends State<DriverCommunitiesPage> {
                       color: AppColors.secondaryTextColor,
                     ),
                     hintText:
-                        'Search corridors (e.g. Curtin, Joondalup, CBD)...',
+                        'Search corridors (e.g. Curtin, Stadium, CBD)...',
                     hintStyle: AppTextStyle.text14Regular.copyWith(
                       color: AppColors.hintTextColor,
                     ),
@@ -96,60 +107,170 @@ class _DriverCommunitiesPageState extends State<DriverCommunitiesPage> {
                 ),
               ),
 
-              SizedBox(height: 16.h),
+              SizedBox(height: 12.h),
 
-              Expanded(
-                child: Obx(() {
-                  if (controller.isLoading.value &&
-                      controller.communities.isEmpty) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryColor,
-                      ),
-                    );
-                  }
-
-                  final list = controller.filteredCommunities;
-
-                  if (list.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 40.h),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              CupertinoIcons.search,
-                              size: 40.sp,
-                              color: AppColors.secondaryTextColor,
+              // Category Filter Chips
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: _categories.map((cat) {
+                    final isSelected = _selectedCategory == cat;
+                    return Padding(
+                      padding: EdgeInsets.only(right: 8.w),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = cat;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10.r),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 7.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primaryColor
+                                : AppColors.white,
+                            borderRadius: BorderRadius.circular(10.r),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primaryColor
+                                  : const Color(0xFFCBD5E1),
+                              width: 1.1,
                             ),
-                            SizedBox(height: 10.h),
-                            Text(
-                              'No driver communities found',
-                              style: AppTextStyle.text16Semibold,
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primaryColor
+                                          .withValues(alpha: 0.25),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Text(
+                            cat,
+                            style: AppTextStyle.text11Medium.copyWith(
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppColors.primaryTextColor,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     );
-                  }
+                  }).toList(),
+                ),
+              ),
+
+              SizedBox(height: 14.h),
+
+              Expanded(
+                child: RefreshIndicator(
+                  color: AppColors.primaryColor,
+                  onRefresh: () async {
+                    await controller.reloadCommunities();
+                  },
+                  child: Obx(() {
+                    if (controller.isLoading.value &&
+                        controller.communities.isEmpty) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryColor,
+                        ),
+                      );
+                    }
+
+                    final list = controller.filteredCommunities.where((c) {
+                      if (_selectedCategory == 'Joined') return c.isJoined.value;
+                      if (_selectedCategory == 'Residential') {
+                        return c.iconType == 'home';
+                      }
+                      if (_selectedCategory == 'Stadium & Events') {
+                        return c.iconType == 'stadium';
+                      }
+                      if (_selectedCategory == 'Campus & Uni') {
+                        return c.iconType == 'school';
+                      }
+                      if (_selectedCategory == 'CBD & Work') {
+                        return c.iconType == 'business';
+                      }
+                      if (_selectedCategory == 'Healthcare') {
+                        return c.iconType == 'hospital';
+                      }
+                      return true;
+                    }).toList();
+
+                    if (list.isEmpty) {
+                      return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics()),
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40.h),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.search,
+                                  size: 40.sp,
+                                  color: AppColors.secondaryTextColor,
+                                ),
+                                SizedBox(height: 10.h),
+                                Text(
+                                  'No driver communities found',
+                                  style: AppTextStyle.text16Semibold,
+                                ),
+                                if (_selectedCategory != 'All' ||
+                                    controller.searchQuery.value.isNotEmpty) ...[
+                                  SizedBox(height: 8.h),
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedCategory = 'All';
+                                        controller.searchQuery.value = '';
+                                        _searchController.clear();
+                                      });
+                                    },
+                                    child: const Text('Reset Filters'),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }
 
                     return ListView.separated(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: list.length,
-                    separatorBuilder: (_, _) => SizedBox(height: 14.h),
+                      physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics()),
+                      itemCount: list.length,
+                      separatorBuilder: (_, _) => SizedBox(height: 14.h),
                     itemBuilder: (context, index) {
                       final item = list[index];
                       return _DriverCommunityCard(
                         community: item,
                         onTap: () => controller.openCommunityDetails(item),
                         onJoin: () => controller.joinCommunity(item),
-                        onCreateRide: () => controller.createRideForCommunity(item),
+                        onCreateRide: () =>
+                            controller.createRideForCommunity(item),
+                        onLeave: () =>
+                            controller.confirmLeaveCommunity(context, item),
                       );
                     },
                   );
                 }),
               ),
+            ),
             ],
           ),
         ),
@@ -163,12 +284,14 @@ class _DriverCommunityCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onJoin;
   final VoidCallback onCreateRide;
+  final VoidCallback onLeave;
 
   const _DriverCommunityCard({
     required this.community,
     required this.onTap,
     required this.onJoin,
     required this.onCreateRide,
+    required this.onLeave,
   });
 
   @override
@@ -207,14 +330,14 @@ class _DriverCommunityCard extends StatelessWidget {
                     children: [
                       Container(
                         padding: EdgeInsets.all(10.r),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEFF6FF),
+                        decoration: BoxDecoration(
+                          color: community.iconBgColor,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           community.icon,
-                          color: const Color(0xFF2563EB),
-                          size: 20.sp,
+                          color: community.iconColor,
+                          size: 22.sp,
                         ),
                       ),
                       12.horizontalSpace,
@@ -233,27 +356,45 @@ class _DriverCommunityCard extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                Icon(
-                                  Icons.chevron_right,
-                                  color: const Color(0xFF94A3B8),
-                                  size: 20.sp,
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w,
+                                    vertical: 3.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: community.iconBgColor,
+                                    borderRadius: BorderRadius.circular(8.r),
+                                  ),
+                                  child: Text(
+                                    community.categoryLabel,
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: community.iconColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
                             4.verticalSpace,
-                            Text(
-                              community.routeSummary,
-                              style: AppTextStyle.text12Regular.copyWith(
-                                color: const Color(0xFF64748B),
-                              ),
-                            ),
-                            4.verticalSpace,
-                            Text(
-                              'Peak Hours: ${community.commonTime}',
-                              style: AppTextStyle.text12Regular.copyWith(
-                                color: AppColors.primaryColor,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            Row(
+                              children: [
+                                Icon(
+                                  CupertinoIcons.map_pin_ellipse,
+                                  size: 13.sp,
+                                  color: const Color(0xFF2563EB),
+                                ),
+                                4.horizontalSpace,
+                                Expanded(
+                                  child: Text(
+                                    community.routeSummary,
+                                    style: AppTextStyle.text12Regular.copyWith(
+                                      color: const Color(0xFF64748B),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -272,23 +413,217 @@ class _DriverCommunityCard extends StatelessWidget {
                     ),
                   ],
 
-                  14.verticalSpace,
+                  12.verticalSpace,
 
+                  // Dedicated Commute Timing Container
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 10.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.clock,
+                              size: 14.sp,
+                              color: const Color(0xFF2563EB),
+                            ),
+                            6.horizontalSpace,
+                            Text(
+                              'Peak Commute: ',
+                              style: AppTextStyle.text11Medium.copyWith(
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                community.commonTime,
+                                style: AppTextStyle.text11Medium.copyWith(
+                                  color: const Color(0xFF0F172A),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (community.recurringOption.isNotEmpty) ...[
+                          6.verticalSpace,
+                          Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.repeat,
+                                size: 14.sp,
+                                color: const Color(0xFF7C3AED),
+                              ),
+                              6.horizontalSpace,
+                              Text(
+                                'Cadence: ',
+                                style: AppTextStyle.text11Medium.copyWith(
+                                  color: const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  community.recurringOption,
+                                  style: AppTextStyle.text11Medium.copyWith(
+                                    color: const Color(0xFF6D28D9),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (community.nextRideTime.isNotEmpty) ...[
+                          6.verticalSpace,
+                          Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.calendar,
+                                size: 14.sp,
+                                color: const Color(0xFF059669),
+                              ),
+                              6.horizontalSpace,
+                              Text(
+                                'Next Trip: ',
+                                style: AppTextStyle.text11Medium.copyWith(
+                                  color: const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  '${community.nextRideTime} (${community.nextRideSeatsOpen} seats open)',
+                                  style: AppTextStyle.text11Medium.copyWith(
+                                    color: const Color(0xFF059669),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (community.hasFixedTerminal) ...[
+                          6.verticalSpace,
+                          Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.placemark,
+                                size: 14.sp,
+                                color: const Color(0xFFD97706),
+                              ),
+                              6.horizontalSpace,
+                              Text(
+                                community.isFixedDropOff
+                                    ? 'Fixed Drop-off: '
+                                    : 'Fixed Terminal: ',
+                                style: AppTextStyle.text11Medium.copyWith(
+                                  color: const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  community.fixedTerminalLabel,
+                                  style: AppTextStyle.text11Medium.copyWith(
+                                    color: const Color(0xFF92400E),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  12.verticalSpace,
+
+                  // Metrics Row (NO car icon, using driver badge icon)
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${community.driversCount.value} Drivers • ${community.passengersCount.value} Passengers',
-                        style: AppTextStyle.text12Semibold.copyWith(
-                          color: const Color(0xFF64748B),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 4.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.person_badge_plus,
+                              size: 12.sp,
+                              color: const Color(0xFF0284C7),
+                            ),
+                            4.horizontalSpace,
+                            Text(
+                              '${community.driversCount.value} Verified Drivers',
+                              style: AppTextStyle.text10Medium.copyWith(
+                                color: const Color(0xFF0284C7),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      8.horizontalSpace,
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 4.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.person_fill,
+                              size: 12.sp,
+                              color: const Color(0xFF2563EB),
+                            ),
+                            4.horizontalSpace,
+                            Text(
+                              '${community.passengersCount.value} Commuters',
+                              style: AppTextStyle.text10Medium.copyWith(
+                                color: const Color(0xFF2563EB),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
 
-                  12.verticalSpace,
+                  14.verticalSpace,
 
-                  // Action Buttons Row: View Details & Quick Join / Create Ride
+                  // Action Buttons Row: View Details & Quick Join / Offer Ride
                   Row(
                     children: [
                       Expanded(
@@ -309,37 +644,88 @@ class _DriverCommunityCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      8.horizontalSpace,
+                      10.horizontalSpace,
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: isJoined ? onTap : onJoin,
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: isJoined
-                                  ? const Color(0xFFA7F3D0)
-                                  : const Color(0xFF2563EB),
-                              width: 1.2,
-                            ),
-                            backgroundColor: isJoined
-                                ? const Color(0xFFECFDF5)
-                                : const Color(0xFFEFF6FF),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14.r),
-                            ),
-                            padding: EdgeInsets.symmetric(
-                              vertical: 8.h,
-                            ),
-                          ),
-                          child: Text(
-                            isJoined ? 'Joined ✓' : 'Join Network',
-                            style: AppTextStyle.text12Semibold.copyWith(
-                              color: isJoined
-                                  ? const Color(0xFF059669)
-                                  : const Color(0xFF2563EB),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                        child: isJoined
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: onCreateRide,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF16A34A),
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14.r),
+                                        ),
+                                        padding:
+                                            EdgeInsets.symmetric(vertical: 8.h),
+                                      ),
+                                      icon: const Icon(
+                                        CupertinoIcons.plus_circle,
+                                        size: 15,
+                                        color: Colors.white,
+                                      ),
+                                      label: Text(
+                                        'Offer Ride',
+                                        style:
+                                            AppTextStyle.text12Semibold.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  6.horizontalSpace,
+                                  IconButton(
+                                    tooltip: 'Leave Community',
+                                    onPressed: onLeave,
+                                    icon: const Icon(
+                                      Icons.exit_to_app_rounded,
+                                      size: 18,
+                                      color: Color(0xFFDC2626),
+                                    ),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor:
+                                          const Color(0xFFFEF2F2),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12.r),
+                                        side: const BorderSide(
+                                          color: Color(0xFFFECACA),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : ElevatedButton.icon(
+                                onPressed: onJoin,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2563EB),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14.r),
+                                  ),
+                                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                                ),
+                                icon: const Icon(
+                                  CupertinoIcons.person_badge_plus,
+                                  size: 15,
+                                  color: Colors.white,
+                                ),
+                                label: Text(
+                                  'Join Group',
+                                  style: AppTextStyle.text12Semibold.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
                       ),
                     ],
                   ),

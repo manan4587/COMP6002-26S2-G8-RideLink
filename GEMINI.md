@@ -16,3 +16,12 @@
   - Keyboard inset handling: `isScrollControlled: true` and `padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + ...)`
   - Destructive confirmations must feature a soft red icon (`Color(0xFFFEF2F2)` with `Color(0xFFDC2626)`), informative text, and clear "Cancel" vs destructive action buttons.
 
+## Data & Database Conventions
+
+### 2. Zero Auto-Seeding / Dummy Data Rule (MANDATORY)
+
+- **NEVER** automatically seed, write, mock, or insert dummy or default data (trips, communities, users, coordinates) into Firebase Firestore or local storage without explicit user permission.
+- **ALWAYS** ask the user before creating or seeding any data.
+- The client app must **ONLY fetch and read** genuine data that exists in the database.
+- When collections or query results are empty, **ALWAYS** display the proper empty state UI (e.g. "No communities found", "No rides found"). Never auto-populate with fake entries.
+

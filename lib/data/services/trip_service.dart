@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:ridelink/data/models/firestore/firestore_collections.dart';
 import 'package:ridelink/data/models/firestore/trip_model.dart';
@@ -50,6 +51,51 @@ class TripService {
       'status': status,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// Driver cancels their published trip, updates trip status and cancels all associated bookings
+  Future<void> cancelTripAsDriver({
+    required String tripId,
+    required String driverId,
+    String reason = 'Ride cancelled by driver',
+  }) async {
+    // 1. Update trip status to cancelled
+    await updateTripStatus(tripId, 'cancelled');
+
+    // 2. Cancel all active/pending bookings for this trip and notify passengers
+    try {
+      final snap = await _bookingsRef
+          .where('tripId', isEqualTo: tripId)
+          .where('status', whereIn: ['pending', 'accepted'])
+          .get();
+
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final passengerId = data['passengerId']?.toString() ?? '';
+        final seats = (data['requestedSeats'] as num?)?.toInt() ?? 1;
+
+        await doc.reference.update({
+          'status': 'cancelled',
+          'cancellationReason': reason,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        if (passengerId.isNotEmpty) {
+          await _firestore.collection(FirestoreCollections.notifications).add({
+            'userId': passengerId,
+            'title': 'Trip Cancelled by Driver',
+            'body': 'Your booking ($seats seat${seats > 1 ? 's' : ''}) was cancelled because the driver cancelled the trip.',
+            'type': 'trip_cancelled_by_driver',
+            'tripId': tripId,
+            'bookingId': doc.id,
+            'createdAt': FieldValue.serverTimestamp(),
+            'read': false,
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[TripService] Error cancelling trip bookings: $e');
+    }
   }
 
   // In-memory cache of last reported location & timestamp per trip
@@ -455,6 +501,7 @@ class TripService {
     final bookingRef = _bookingsRef.doc(bookingId);
     batch.update(bookingRef, {
       'status': 'completed',
+      'passengerStatus': 'dropped_off',
       'paymentStatus': 'paid',
       'isPaid': true,
       'paymentMethod': paymentMethod,
@@ -522,22 +569,264 @@ class TripService {
     required String tripId,
     required String driverId,
   }) async {
-    await updateTripStatus(tripId, 'completed');
-    if (driverId.isNotEmpty) {
+    final batch = _firestore.batch();
+    final tripRef = _tripsRef.doc(tripId);
+    batch.update(tripRef, {
+      'status': 'completed',
+      'completedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    String effectiveDriverId = driverId;
+    if (effectiveDriverId.isEmpty) {
       try {
-        await _firestore
-            .collection(FirestoreCollections.users)
-            .doc(driverId)
-            .set({
-          'driverStats': {
-            'tripsCompleted': FieldValue.increment(1),
-            'lastTripCompletedAt': FieldValue.serverTimestamp(),
-          },
-          'tripsCompleted': FieldValue.increment(1),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        final tSnap = await tripRef.get();
+        final tData = tSnap.data();
+        if (tData != null && tData['driverId'] is String) {
+          effectiveDriverId = tData['driverId'] as String;
+        }
       } catch (_) {}
     }
+
+    try {
+      final bookingsSnap =
+          await _bookingsRef.where('tripId', isEqualTo: tripId).get();
+      for (final doc in bookingsSnap.docs) {
+        final bData = doc.data();
+        final bStatus =
+            (bData['status'] as String? ?? '').toLowerCase();
+        if (bStatus != 'completed' &&
+            bStatus != 'cancelled' &&
+            bStatus != 'declined') {
+          batch.update(doc.reference, {
+            'status': 'completed',
+            'passengerStatus': 'dropped_off',
+            'completedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+          final pId = bData['passengerId'] as String? ?? '';
+          if (pId.isNotEmpty) {
+            try {
+              final pRef = _firestore.collection(FirestoreCollections.users).doc(pId);
+              batch.set(
+                pRef,
+                {
+                  'passengerStats': {
+                    'tripsCompleted': FieldValue.increment(1),
+                  },
+                  'tripsCompleted': FieldValue.increment(1),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                },
+                SetOptions(merge: true),
+              );
+            } catch (_) {}
+          }
+        }
+      }
+      await batch.commit();
+    } catch (_) {
+      await updateTripStatus(tripId, 'completed');
+    }
+
+    if (effectiveDriverId.isNotEmpty) {
+      try {
+        final driverDocRef = _firestore
+            .collection(FirestoreCollections.users)
+            .doc(effectiveDriverId);
+        final driverSnap = await driverDocRef.get();
+        if (driverSnap.exists) {
+          await driverDocRef.update({
+            'driverStats.tripsCompleted': FieldValue.increment(1),
+            'driverStats.lastTripCompletedAt': FieldValue.serverTimestamp(),
+            'tripsCompleted': FieldValue.increment(1),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        } else {
+          await driverDocRef.set({
+            'driverStats': {
+              'tripsCompleted': 1,
+              'rating': 5.0,
+              'ratingCount': 0,
+              'lastTripCompletedAt': FieldValue.serverTimestamp(),
+            },
+            'tripsCompleted': 1,
+            'rating': 5.0,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Driver rates passenger experience
+  Future<void> submitDriverRatingToPassenger({
+    required String bookingId,
+    required String passengerId,
+    required double rating,
+    String? comment,
+  }) async {
+    final batch = _firestore.batch();
+    if (bookingId.isNotEmpty) {
+      final bookingRef = _bookingsRef.doc(bookingId);
+      batch.set(
+        bookingRef,
+        {
+          'isDriverRated': true,
+          'driverRatingToPassenger': rating,
+          if (comment != null && comment.isNotEmpty)
+            'driverReviewToPassenger': comment,
+          'driverRatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
+
+    String effectivePassengerId = passengerId;
+    if (effectivePassengerId.isEmpty || effectivePassengerId == bookingId) {
+      if (bookingId.isNotEmpty) {
+        try {
+          final bDoc = await _bookingsRef.doc(bookingId).get();
+          final bData = bDoc.data();
+          if (bData != null &&
+              bData['passengerId'] is String &&
+              (bData['passengerId'] as String).isNotEmpty) {
+            effectivePassengerId = bData['passengerId'] as String;
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (effectivePassengerId.isNotEmpty) {
+      try {
+        final passengerDoc = await _firestore
+            .collection(FirestoreCollections.users)
+            .doc(effectivePassengerId)
+            .get();
+        final pData = passengerDoc.data();
+        double currentRating = 5.0;
+        int currentCount = 0;
+        if (pData != null && pData['passengerStats'] is Map) {
+          final stats = pData['passengerStats'] as Map;
+          currentRating = (stats['rating'] as num?)?.toDouble() ?? 5.0;
+          currentCount = (stats['ratingCount'] as num?)?.toInt() ?? 0;
+        } else if (pData != null) {
+          currentRating = (pData['rating'] as num?)?.toDouble() ?? 5.0;
+          currentCount = (pData['ratingCount'] as num?)?.toInt() ?? 0;
+        }
+
+        final int newCount = currentCount + 1;
+        final double newRating =
+            currentCount == 0 ? rating : ((currentRating * currentCount) + rating) / newCount;
+        final double roundedRating = double.parse(newRating.toStringAsFixed(1));
+
+        final passengerRef = _firestore
+            .collection(FirestoreCollections.users)
+            .doc(effectivePassengerId);
+        batch.set(
+          passengerRef,
+          {
+            'passengerStats': {
+              'rating': roundedRating,
+              'ratingCount': newCount,
+            },
+            'rating': roundedRating,
+            'ratingCount': newCount,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      } catch (e) {
+        debugPrint('[TripService] Error calculating passenger rating: $e');
+      }
+    }
+
+    await batch.commit();
+  }
+
+  /// Passenger rates driver experience
+  Future<void> submitPassengerRatingToDriver({
+    required String tripId,
+    required String driverId,
+    required double rating,
+    String? comment,
+  }) async {
+    final batch = _firestore.batch();
+    if (tripId.isNotEmpty) {
+      final tripRef = _tripsRef.doc(tripId);
+      batch.set(
+        tripRef,
+        {
+          'isPassengerRated': true,
+          'passengerRating': rating,
+          if (comment != null && comment.isNotEmpty)
+            'passengerReview': comment,
+          'ratedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
+
+    String effectiveDriverId = driverId;
+    if (effectiveDriverId.isEmpty && tripId.isNotEmpty) {
+      try {
+        final tDoc = await _tripsRef.doc(tripId).get();
+        final tData = tDoc.data();
+        if (tData != null &&
+            tData['driverId'] is String &&
+            (tData['driverId'] as String).isNotEmpty) {
+          effectiveDriverId = tData['driverId'] as String;
+        }
+      } catch (_) {}
+    }
+
+    if (effectiveDriverId.isNotEmpty) {
+      try {
+        final driverDoc = await _firestore
+            .collection(FirestoreCollections.users)
+            .doc(effectiveDriverId)
+            .get();
+        final dData = driverDoc.data();
+        double currentRating = 5.0;
+        int currentCount = 0;
+        if (dData != null && dData['driverStats'] is Map) {
+          final stats = dData['driverStats'] as Map;
+          currentRating = (stats['rating'] as num?)?.toDouble() ?? 5.0;
+          currentCount = (stats['ratingCount'] as num?)?.toInt() ?? 0;
+        } else if (dData != null) {
+          currentRating = (dData['rating'] as num?)?.toDouble() ?? 5.0;
+          currentCount = (dData['ratingCount'] as num?)?.toInt() ?? 0;
+        }
+
+        final int newCount = currentCount + 1;
+        final double newRating =
+            currentCount == 0 ? rating : ((currentRating * currentCount) + rating) / newCount;
+        final double roundedRating = double.parse(newRating.toStringAsFixed(1));
+
+        final driverRef = _firestore
+            .collection(FirestoreCollections.users)
+            .doc(effectiveDriverId);
+        batch.set(
+          driverRef,
+          {
+            'driverStats': {
+              'rating': roundedRating,
+              'ratingCount': newCount,
+            },
+            'rating': roundedRating,
+            'ratingCount': newCount,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      } catch (e) {
+        debugPrint('[TripService] Error calculating driver rating: $e');
+      }
+    }
+
+    await batch.commit();
   }
 
   // -------------------------------------------------------------

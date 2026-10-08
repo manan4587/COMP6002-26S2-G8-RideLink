@@ -45,6 +45,7 @@ class PassengerSupportController extends GetxController {
     _supportTicketsSubscription =
         SupportService.instance.streamUserSupportTickets(uid).listen((ticketsData) {
       if (ticketsData.isEmpty) {
+        supportTickets.clear();
         return;
       }
 

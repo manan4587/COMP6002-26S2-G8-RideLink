@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
+import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/controllers/driver_profile_controller.dart';
 import 'package:ridelink/widgets/app_border_container.dart';
@@ -166,7 +167,7 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Vehicle Details Verified & Locked',
+                                      'Vehicle Details Verified',
                                       style: AppTextStyle.text14Semibold.copyWith(
                                         color: const Color(0xFF15803D),
                                         fontWeight: FontWeight.bold,
@@ -174,7 +175,7 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                                     ),
                                     4.verticalSpace,
                                     Text(
-                                      'Your vehicle details have been verified by admin. To update vehicle details, please contact RideLink support.',
+                                      'Your vehicle details have been verified by admin. All fields are read-only. To request updates, please open a support ticket below.',
                                       style: AppTextStyle.text12Regular.copyWith(
                                         color: const Color(0xFF166534),
                                         height: 1.35,
@@ -276,17 +277,11 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                                       : AppColors.primaryTextColor,
                                 ),
                                 textCapitalization: TextCapitalization.characters,
-                                decoration: InputDecoration(
-                                  hintText: 'e.g. 1AB-2CD',
+                                decoration: const InputDecoration(
+                                  hintText: '1ABC 123',
                                   border: InputBorder.none,
                                   isDense: true,
-                                  suffixIcon: isVerified
-                                      ? const Icon(
-                                          Icons.lock_rounded,
-                                          size: 16,
-                                          color: AppColors.secondaryTextColor,
-                                        )
-                                      : null,
+                                  suffixIcon: null,
                                 ),
                               ),
                             ),
@@ -375,9 +370,7 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                                 ),
                                 if (isSelected)
                                   Icon(
-                                    isVerified
-                                        ? Icons.lock_rounded
-                                        : Icons.check_circle_rounded,
+                                    Icons.check_circle_rounded,
                                     color: isVerified
                                         ? AppColors.secondaryTextColor
                                         : AppColors.primaryColor,
@@ -429,17 +422,11 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                                       ? AppColors.secondaryTextColor
                                       : AppColors.primaryTextColor,
                                 ),
-                                decoration: InputDecoration(
+                                decoration: const InputDecoration(
                                   hintText: 'e.g. Toyota Camry 2022',
                                   border: InputBorder.none,
                                   isDense: true,
-                                  suffixIcon: isVerified
-                                      ? const Icon(
-                                          Icons.lock_rounded,
-                                          size: 16,
-                                          color: AppColors.secondaryTextColor,
-                                        )
-                                      : null,
+                                  suffixIcon: null,
                                 ),
                               ),
                             ),
@@ -487,17 +474,11 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                                       ? AppColors.secondaryTextColor
                                       : AppColors.primaryTextColor,
                                 ),
-                                decoration: InputDecoration(
+                                decoration: const InputDecoration(
                                   hintText: 'e.g. Silver, Pearl White, Black',
                                   border: InputBorder.none,
                                   isDense: true,
-                                  suffixIcon: isVerified
-                                      ? const Icon(
-                                          Icons.lock_rounded,
-                                          size: 16,
-                                          color: AppColors.secondaryTextColor,
-                                        )
-                                      : null,
+                                  suffixIcon: null,
                                 ),
                               ),
                             ),
@@ -510,13 +491,21 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                       // Save Button or Support Contact
                       if (isVerified)
                         OutlinedButton.icon(
-                          onPressed: () => controller.sendSafetyEmail(),
+                          onPressed: () {
+                            Get.toNamed(
+                              AppRoutes.driverSupport,
+                              arguments: {
+                                'category': 'Verification & Documents',
+                                'subject': 'Update Verified Vehicle Details',
+                              },
+                            );
+                          },
                           icon: const Icon(
                             Icons.support_agent_rounded,
                             color: AppColors.primaryColor,
                           ),
                           label: Text(
-                            'Contact Support to Update Vehicle',
+                            'Open Support Ticket to Update Vehicle',
                             style: AppTextStyle.text14Semibold.copyWith(
                               color: AppColors.primaryColor,
                             ),

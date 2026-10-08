@@ -16,6 +16,7 @@ class Preferences {
   static const String _userName = 'userName';
   static const String _userEmail = 'userEmail';
   static const String _userPhone = 'userPhone';
+  static const String _rideOtp = 'rideOtp';
   static const String _pushBookingConfirmations = 'pushBookingConfirmations';
   static const String _pushDriverArrivalAlerts = 'pushDriverArrivalAlerts';
   static const String _pushTripStatusUpdates = 'pushTripStatusUpdates';
@@ -42,6 +43,9 @@ class Preferences {
 
   static set userPhone(String? value) => GetStorage().write(_userPhone, value);
   static String get userPhone => GetStorage().read(_userPhone) ?? '';
+
+  static set rideOtp(String? value) => GetStorage().write(_rideOtp, value);
+  static String get rideOtp => GetStorage().read(_rideOtp) ?? '';
 
   static set pushBookingConfirmations(bool value) =>
       GetStorage().write(_pushBookingConfirmations, value);
@@ -150,6 +154,7 @@ class Preferences {
     unawaited(storage.write(_userName, null));
     unawaited(storage.write(_userEmail, null));
     unawaited(storage.write(_userPhone, null));
+    unawaited(storage.write(_rideOtp, null));
     unawaited(storage.write(_vehicleNumber, null));
     unawaited(storage.write(_vehicleType, null));
     unawaited(storage.write(_vehicleModel, null));

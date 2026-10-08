@@ -93,10 +93,7 @@ List<GetPage> pages = [
     name: AppRoutes.driverSafetySos,
     page: () => const DriverSafetySosPage(),
   ),
-  getPage(
-    name: AppRoutes.driverSupport,
-    page: () => const DriverSupportPage(),
-  ),
+  getPage(name: AppRoutes.driverSupport, page: () => const DriverSupportPage()),
   getPage(
     name: AppRoutes.driverNotificationPreferences,
     page: () => const DriverNotificationPreferencesPage(),
@@ -129,14 +126,8 @@ List<GetPage> pages = [
     name: AppRoutes.suggestedRides,
     page: () => const SuggestedRidesPage(),
   ),
-  getPage(
-    name: AppRoutes.rideDetails,
-    page: () => const RideDetailsPage(),
-  ),
-  getPage(
-    name: AppRoutes.requestSent,
-    page: () => const RequestSentPage(),
-  ),
+  getPage(name: AppRoutes.rideDetails, page: () => const RideDetailsPage()),
+  getPage(name: AppRoutes.requestSent, page: () => const RequestSentPage()),
   getPage(
     name: AppRoutes.requestApproved,
     page: () => const RequestApprovedPage(),
@@ -145,10 +136,7 @@ List<GetPage> pages = [
     name: AppRoutes.liveTripTracking,
     page: () => const LiveTripTrackingPage(),
   ),
-  getPage(
-    name: AppRoutes.rideChat,
-    page: () => const RideChatPage(),
-  ),
+  getPage(name: AppRoutes.rideChat, page: () => const RideChatPage()),
   getPage(
     name: AppRoutes.passengerCommunityDetails,
     page: () => const PassengerCommunityDetailsPage(),

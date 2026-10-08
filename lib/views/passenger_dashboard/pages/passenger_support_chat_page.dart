@@ -43,8 +43,17 @@ class _PassengerSupportChatPageState extends State<PassengerSupportChatPage> {
       ticket = widget.ticket!;
     } else if (Get.arguments is PassengerSupportTicketModel) {
       ticket = Get.arguments as PassengerSupportTicketModel;
-    } else {
+    } else if (controller.supportTickets.isNotEmpty) {
       ticket = controller.supportTickets.first;
+    } else {
+      ticket = PassengerSupportTicketModel(
+        id: 'ticket_general',
+        subject: 'General Support',
+        category: 'Account & Safety',
+        message: 'Welcome to RideLink Support.',
+        status: 'Open',
+        createdAt: DateTime.now(),
+      );
     }
 
     _ticketStreamSub =

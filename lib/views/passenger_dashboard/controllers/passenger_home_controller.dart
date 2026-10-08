@@ -38,6 +38,13 @@ class PassengerHomeController extends GetxController {
     } catch (_) {}
   }
 
+  void reloadHome() {
+    final currentUser = AuthService.instance.currentUser;
+    if (currentUser != null) {
+      loadUserStats(currentUser.uid);
+    }
+  }
+
   void clearState() {
     trustRating.value = 0.0;
     recentRoutes.clear();

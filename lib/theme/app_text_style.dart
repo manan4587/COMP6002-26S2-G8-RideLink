@@ -38,6 +38,14 @@ class AppTextStyle {
     fontFamily: _fontFamily,
   );
 
+  static TextStyle text13Medium = TextStyle(
+    fontSize: 13.sp,
+    color: AppColors.primaryTextColor,
+    fontWeight: FontWeight.w500,
+    height: 18.h / 13.sp,
+    fontFamily: _fontFamily,
+  );
+
   static TextStyle text12Medium = TextStyle(
     fontSize: 12.sp,
     color: AppColors.primaryTextColor,

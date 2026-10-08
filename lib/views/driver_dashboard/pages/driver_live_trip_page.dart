@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
@@ -42,7 +43,6 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
 
   LatLng? _currentDriverLocation;
   double _driverHeading = 0.0;
-  final int _minutesToArrival = 6;
 
   BitmapDescriptor? _pickupPersonMarker;
   BitmapDescriptor? _driverCarMarker;
@@ -78,6 +78,20 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
       }
     }
 
+    // Immediately request fresh GPS hardware position from phone
+    DeviceLocationService.instance.getCurrentDeviceLocation(forceFresh: true).then((freshLoc) {
+      if (freshLoc != null && mounted) {
+        setState(() {
+          _currentDriverLocation = freshLoc;
+          if (trip != null) {
+            trip.currentDriverLat.value = freshLoc.latitude;
+            trip.currentDriverLng.value = freshLoc.longitude;
+            _updateTargetRoute(trip);
+          }
+        });
+      }
+    });
+
     _loadCustomMarkers();
     _startDeviceLocationTracking(trip);
     _initializeRealRoute(trip);
@@ -106,36 +120,52 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
       LatLng? pickupLatLng;
       LatLng? dropoffLatLng;
 
-      final bool isOriginPerthOrZero = (trip.fromLat == 0.0 && trip.fromLng == 0.0) ||
-          (trip.fromLat == -31.8156 && trip.fromLng == 115.8452);
-      final bool isDestPerthOrZero = (trip.toLat == 0.0 && trip.toLng == 0.0) ||
-          (trip.toLat == -32.0044 && trip.toLng == 115.8947);
+      // Check if coordinates are valid, otherwise geocode from address strings
+      final bool isOriginValid = GooglePlacesService.instance
+          .isValidCoordinate(LatLng(trip.fromLat, trip.fromLng));
+      final bool isDestValid = GooglePlacesService.instance
+          .isValidCoordinate(LatLng(trip.toLat, trip.toLng));
 
-      if (!isOriginPerthOrZero) {
+      if (isOriginValid) {
         pickupLatLng = LatLng(trip.fromLat, trip.fromLng);
       } else if (trip.from.isNotEmpty) {
         final geo = await GooglePlacesService.instance
             .getCoordinatesForAddress(trip.from)
             .timeout(const Duration(seconds: 3), onTimeout: () => null);
-        if (geo != null) {
+        if (geo != null &&
+            GooglePlacesService.instance
+                .isValidCoordinate(LatLng(geo.latitude, geo.longitude))) {
           pickupLatLng = LatLng(geo.latitude, geo.longitude);
         }
       }
 
-      if (!isDestPerthOrZero) {
+      if (isDestValid) {
         dropoffLatLng = LatLng(trip.toLat, trip.toLng);
       } else if (trip.to.isNotEmpty) {
         final geo = await GooglePlacesService.instance
             .getCoordinatesForAddress(trip.to)
             .timeout(const Duration(seconds: 3), onTimeout: () => null);
-        if (geo != null) {
+        if (geo != null &&
+            GooglePlacesService.instance
+                .isValidCoordinate(LatLng(geo.latitude, geo.longitude))) {
           dropoffLatLng = LatLng(geo.latitude, geo.longitude);
         }
       }
 
-      // Safe fallback coordinates so map never fails to initialize
-      pickupLatLng ??= const LatLng(-31.9505, 115.8605);
-      dropoffLatLng ??= const LatLng(-31.9555, 115.8655);
+      // If coordinates cannot be resolved, do not fallback to fake Perth defaults
+      if (pickupLatLng == null || dropoffLatLng == null) {
+        if (mounted) {
+          setState(() {
+            _pickup = null;
+            _dropoff = null;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final LatLng validPickup = pickupLatLng;
+      final LatLng validDropoff = dropoffLatLng;
 
       // Resolve driver live position without blocking
       LatLng? liveVehicleLoc = _currentDriverLocation;
@@ -149,29 +179,47 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
         liveVehicleLoc = LatLng(trip.currentDriverLat.value, trip.currentDriverLng.value);
       }
 
-      final initialVehicleLoc = liveVehicleLoc ?? pickupLatLng;
-      _currentDriverLocation = initialVehicleLoc;
+      if (liveVehicleLoc != null) {
+        _currentDriverLocation = liveVehicleLoc;
+      }
+
+      final vehicleLocForRoute = liveVehicleLoc;
 
       // Render the map and routes immediately (<50ms)
       if (mounted) {
         setState(() {
-          _pickup = pickupLatLng;
-          _dropoff = dropoffLatLng;
-          _fullRoute = [pickupLatLng!, dropoffLatLng!];
-          _driverToPickupRoute = (initialVehicleLoc != pickupLatLng)
-              ? [initialVehicleLoc, pickupLatLng]
+          _pickup = validPickup;
+          _dropoff = validDropoff;
+          _fullRoute = [validPickup, validDropoff];
+          _driverToPickupRoute = (vehicleLocForRoute != null && vehicleLocForRoute != validPickup)
+              ? [vehicleLocForRoute, validPickup]
               : [];
           _isLoading = false;
         });
       }
 
       // Fetch refined road polylines asynchronously in background
-      final double distToPickup = ((initialVehicleLoc.latitude - pickupLatLng.latitude).abs() +
-          (initialVehicleLoc.longitude - pickupLatLng.longitude).abs());
+      if (vehicleLocForRoute != null) {
+        final double distToPickup = ((vehicleLocForRoute.latitude - validPickup.latitude).abs() +
+            (vehicleLocForRoute.longitude - validPickup.longitude).abs());
+        if (distToPickup > 0.0005) {
+          GooglePlacesService.instance
+              .getDirectionsRoute(vehicleLocForRoute, validPickup)
+              .timeout(const Duration(seconds: 3), onTimeout: () => [vehicleLocForRoute, validPickup])
+              .then((points) {
+            if (!mounted) return;
+            if (points.isNotEmpty) {
+              setState(() {
+                _driverToPickupRoute = points;
+              });
+            }
+          }).catchError((_) {});
+        }
+      }
 
       GooglePlacesService.instance
-          .getDirectionsRoute(pickupLatLng, dropoffLatLng)
-          .timeout(const Duration(seconds: 3), onTimeout: () => [pickupLatLng!, dropoffLatLng!])
+          .getDirectionsRoute(validPickup, validDropoff)
+          .timeout(const Duration(seconds: 3), onTimeout: () => [validPickup, validDropoff])
           .then((points) {
         if (!mounted) return;
         if (points.isNotEmpty) {
@@ -180,20 +228,6 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
           });
         }
       });
-
-      if (distToPickup > 0.0005) {
-        GooglePlacesService.instance
-            .getDirectionsRoute(initialVehicleLoc, pickupLatLng)
-            .timeout(const Duration(seconds: 3), onTimeout: () => [initialVehicleLoc, pickupLatLng!])
-            .then((legPoints) {
-          if (!mounted) return;
-          if (legPoints.isNotEmpty) {
-            setState(() {
-              _driverToPickupRoute = legPoints;
-            });
-          }
-        });
-      }
 
       // Sync location to Firestore in background
       if (trip.id.isNotEmpty && liveVehicleLoc != null) {
@@ -295,8 +329,8 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
   }
 
   _ActiveTargetStop _getActiveTargetStop(DriverTripModel trip) {
-    final driverPos = _currentDriverLocation ?? _pickup ?? const LatLng(-31.9505, 115.8605);
-    final fallbackDrop = _dropoff ?? const LatLng(-31.9555, 115.8655);
+    final driverPos = _currentDriverLocation ?? _pickup ?? LatLng(trip.fromLat, trip.fromLng);
+    final fallbackDrop = _dropoff ?? LatLng(trip.toLat, trip.toLng);
 
     // 1. Manual Override Stop if selected by driver
     if (_manualTargetPassengerId != null) {
@@ -306,8 +340,8 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
       if (manualP != null) {
         if (_manualTargetType == 'pickup' && manualP.isWaitingPickup) {
           final pLoc = LatLng(
-            manualP.pickupLat != 0.0 ? manualP.pickupLat : (_pickup?.latitude ?? -31.9505),
-            manualP.pickupLng != 0.0 ? manualP.pickupLng : (_pickup?.longitude ?? 115.8605),
+            manualP.pickupLat != 0.0 ? manualP.pickupLat : (_pickup?.latitude ?? trip.fromLat),
+            manualP.pickupLng != 0.0 ? manualP.pickupLng : (_pickup?.longitude ?? trip.fromLng),
           );
           return _ActiveTargetStop(
             passenger: manualP,
@@ -342,12 +376,12 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
     if (waitingPickups.isNotEmpty) {
       waitingPickups.sort((a, b) {
         final locA = LatLng(
-          a.pickupLat != 0.0 ? a.pickupLat : (_pickup?.latitude ?? -31.9505),
-          a.pickupLng != 0.0 ? a.pickupLng : (_pickup?.longitude ?? 115.8605),
+          a.pickupLat != 0.0 ? a.pickupLat : (_pickup?.latitude ?? trip.fromLat),
+          a.pickupLng != 0.0 ? a.pickupLng : (_pickup?.longitude ?? trip.fromLng),
         );
         final locB = LatLng(
-          b.pickupLat != 0.0 ? b.pickupLat : (_pickup?.latitude ?? -31.9505),
-          b.pickupLng != 0.0 ? b.pickupLng : (_pickup?.longitude ?? 115.8605),
+          b.pickupLat != 0.0 ? b.pickupLat : (_pickup?.latitude ?? trip.fromLat),
+          b.pickupLng != 0.0 ? b.pickupLng : (_pickup?.longitude ?? trip.fromLng),
         );
         final distA = RouteMatchingHelper.distanceKm(driverPos, locA);
         final distB = RouteMatchingHelper.distanceKm(driverPos, locB);
@@ -356,8 +390,8 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
 
       final nextPickup = waitingPickups.first;
       final targetLoc = LatLng(
-        nextPickup.pickupLat != 0.0 ? nextPickup.pickupLat : (_pickup?.latitude ?? -31.9505),
-        nextPickup.pickupLng != 0.0 ? nextPickup.pickupLng : (_pickup?.longitude ?? 115.8605),
+        nextPickup.pickupLat != 0.0 ? nextPickup.pickupLat : (_pickup?.latitude ?? trip.fromLat),
+        nextPickup.pickupLng != 0.0 ? nextPickup.pickupLng : (_pickup?.longitude ?? trip.fromLng),
       );
 
       return _ActiveTargetStop(
@@ -414,6 +448,57 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
       fare: 0.0,
       seats: 0,
     );
+  }
+
+  int _calculateEtaMinutes(_ActiveTargetStop activeTarget) {
+    final driverPos = _currentDriverLocation ?? _pickup;
+    if (driverPos == null) return 5;
+    final distMeters = Geolocator.distanceBetween(
+      driverPos.latitude,
+      driverPos.longitude,
+      activeTarget.location.latitude,
+      activeTarget.location.longitude,
+    );
+    if (distMeters < 80) return 0;
+    final minutes = (distMeters / 580).ceil();
+    return minutes > 0 ? minutes : 1;
+  }
+
+  String _calculateDetourText(DriverTripModel trip, _ActiveTargetStop activeTarget) {
+    if (activeTarget.passenger == null) return '';
+    final p = activeTarget.passenger!;
+    if (p.pickupLat == 0.0 || p.dropLat == 0.0 || trip.fromLat == 0.0 || trip.toLat == 0.0) {
+      return '+2 mins detour';
+    }
+    final directDist = Geolocator.distanceBetween(
+      trip.fromLat,
+      trip.fromLng,
+      trip.toLat,
+      trip.toLng,
+    );
+    final detourDist = Geolocator.distanceBetween(
+          trip.fromLat,
+          trip.fromLng,
+          p.pickupLat,
+          p.pickupLng,
+        ) +
+        Geolocator.distanceBetween(
+          p.pickupLat,
+          p.pickupLng,
+          p.dropLat,
+          p.dropLng,
+        ) +
+        Geolocator.distanceBetween(
+          p.dropLat,
+          p.dropLng,
+          trip.toLat,
+          trip.toLng,
+        );
+    final extraMeters = (detourDist - directDist).clamp(0.0, 50000.0);
+    final extraKm = extraMeters / 1000.0;
+    final extraMins = (extraKm / 35.0 * 60).round();
+    if (extraMins <= 1) return '+1 min detour';
+    return '+$extraMins mins detour (~${extraKm.toStringAsFixed(1)} km)';
   }
 
   void _updateTargetRoute(DriverTripModel trip) {
@@ -490,8 +575,8 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
       final p = trip.acceptedPassengers[i];
       if (p.isWaitingPickup && p != activeTarget.passenger) {
         final pLoc = LatLng(
-          p.pickupLat != 0.0 ? p.pickupLat : (_pickup?.latitude ?? -31.9505),
-          p.pickupLng != 0.0 ? p.pickupLng : (_pickup?.longitude ?? 115.8605),
+          p.pickupLat != 0.0 ? p.pickupLat : (_pickup?.latitude ?? trip.fromLat),
+          p.pickupLng != 0.0 ? p.pickupLng : (_pickup?.longitude ?? trip.fromLng),
         );
         markers.add(
           Marker(
@@ -508,8 +593,8 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
         );
       } else if (p.isOnboard && p != activeTarget.passenger) {
         final dLoc = LatLng(
-          p.dropLat != 0.0 ? p.dropLat : (_dropoff?.latitude ?? -31.9555),
-          p.dropLng != 0.0 ? p.dropLng : (_dropoff?.longitude ?? 115.8655),
+          p.dropLat != 0.0 ? p.dropLat : (_dropoff?.latitude ?? trip.toLat),
+          p.dropLng != 0.0 ? p.dropLng : (_dropoff?.longitude ?? trip.toLng),
         );
         markers.add(
           Marker(
@@ -638,6 +723,13 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
       final tc = Get.find<DriverTripsController>();
       tc.liveTrip.value = null;
       tc.livePassenger.value = null;
+      tc.reloadDriverTrips();
+    }
+    if (Get.isRegistered<DriverHomeController>()) {
+      Get.find<DriverHomeController>().reloadStats();
+    }
+    if (Get.isRegistered<DriverProfileController>()) {
+      Get.find<DriverProfileController>().reloadProfile();
     }
     if (Get.isRegistered<DriverDashboardController>()) {
       Get.find<DriverDashboardController>().switchTab(0);
@@ -645,12 +737,10 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
     Get.offAllNamed(AppRoutes.driverDashboard);
   }
 
-  void _showOtpVerificationSheet(
+  void _showConfirmPassengerBoardingSheet(
     DriverTripModel trip,
     PassengerRequestModel passenger,
   ) {
-    final TextEditingController otpController = TextEditingController();
-    final RxString errorMessage = ''.obs;
     final RxBool isSubmitting = false.obs;
 
     showModalBottomSheet(
@@ -686,7 +776,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
               ),
               16.verticalSpace,
 
-              // Shield Icon
+              // Passenger Icon
               Container(
                 width: 52.w,
                 height: 52.w,
@@ -696,16 +786,16 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                 ),
                 child: const Center(
                   child: Icon(
-                    CupertinoIcons.lock_shield_fill,
+                    CupertinoIcons.person_crop_circle_badge_checkmark,
                     color: Color(0xFF2563EB),
-                    size: 26,
+                    size: 28,
                   ),
                 ),
               ),
               14.verticalSpace,
 
               Text(
-                'Verify Passenger Boarding',
+                'Confirm Passenger Boarding',
                 style: AppTextStyle.text18Bold.copyWith(
                   color: const Color(0xFF0F172A),
                   fontWeight: FontWeight.bold,
@@ -714,88 +804,40 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
               6.verticalSpace,
 
               Text(
-                'Ask ${passenger.passengerName} for their 4-digit Ride PIN to verify and start their trip.',
+                'Has ${passenger.passengerName} met you and boarded your vehicle?',
                 textAlign: TextAlign.center,
-                style: AppTextStyle.text12Regular.copyWith(
+                style: AppTextStyle.text13Regular.copyWith(
                   color: const Color(0xFF64748B),
+                  height: 1.35,
                 ),
               ),
               16.verticalSpace,
 
-              // 4-Digit Input Field
+              // Pickup Details Card
               Container(
-                width: 190.w,
+                width: double.infinity,
+                padding: EdgeInsets.all(12.w),
                 decoration: BoxDecoration(
-                  color: AppColors.containerFillColor,
-                  borderRadius: BorderRadius.circular(16.r),
-                  border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-                child: TextField(
-                  controller: otpController,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  maxLength: 4,
-                  autofocus: true,
-                  style: AppTextStyle.text24Semibold.copyWith(
-                    letterSpacing: 10.0,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1E3A8A),
-                  ),
-                  decoration: const InputDecoration(
-                    counterText: '',
-                    border: InputBorder.none,
-                    hintText: '••••',
-                    hintStyle: TextStyle(
-                      letterSpacing: 10.0,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                  onChanged: (val) {
-                    if (errorMessage.value.isNotEmpty) {
-                      errorMessage.value = '';
-                    }
-                  },
-                ),
-              ),
-
-              // Error message if any
-              Obx(() {
-                if (errorMessage.value.isEmpty) return const SizedBox.shrink();
-                return Padding(
-                  padding: EdgeInsets.only(top: 8.h),
-                  child: Text(
-                    errorMessage.value,
-                    style: AppTextStyle.text11Medium.copyWith(
-                      color: const Color(0xFFDC2626),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                );
-              }),
-
-              12.verticalSpace,
-
-              // Help badge
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8.r),
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
-                      Icons.info_outline_rounded,
-                      size: 13,
-                      color: Color(0xFF64748B),
+                      CupertinoIcons.location_solid,
+                      color: Color(0xFF2563EB),
+                      size: 18,
                     ),
-                    6.horizontalSpace,
-                    Text(
-                      'Default test Ride PIN: 1234',
-                      style: AppTextStyle.text10Medium.copyWith(
-                        color: const Color(0xFF475569),
+                    8.horizontalSpace,
+                    Expanded(
+                      child: Text(
+                        passenger.from,
+                        style: AppTextStyle.text12Medium.copyWith(
+                          color: const Color(0xFF1E293B),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -804,12 +846,12 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
 
               20.verticalSpace,
 
-              // Action buttons: Cancel & Verify
+              // Action buttons: Cancel & Confirm Boarding
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(sheetCtx).pop(),
+                      onPressed: () => Get.back(),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: AppColors.borderColor),
                         padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -832,36 +874,23 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                           onPressed: isSubmitting.value
                               ? null
                               : () async {
-                                  final entered = otpController.text.trim();
-                                  if (entered.length < 4) {
-                                    errorMessage.value =
-                                        'Please enter full 4-digit PIN';
-                                    return;
-                                  }
-
                                   isSubmitting.value = true;
-                                  final success = await tripsController
-                                      .verifyPassengerPickupOtp(
-                                    passenger: passenger,
-                                    enteredOtp: entered,
-                                  );
+                                  await tripsController
+                                      .confirmPassengerBoardingDirectly(passenger);
                                   isSubmitting.value = false;
 
-                                  if (success) {
-                                    Navigator.of(sheetCtx).pop();
-                                    AppSnackBar.success(
-                                      message:
-                                          '${passenger.passengerName} verified & onboard! Proceeding to next stop.',
-                                    );
-                                    setState(() {
-                                      _manualTargetPassengerId = null;
-                                      _manualTargetType = null;
-                                      _updateTargetRoute(trip);
-                                    });
-                                  } else {
-                                    errorMessage.value =
-                                        'Invalid PIN. Please check PIN with passenger.';
+                                  if (sheetCtx.mounted) {
+                                    Get.back();
                                   }
+                                  AppSnackBar.success(
+                                    message:
+                                        '${passenger.passengerName} is onboard! Proceeding to drop-off.',
+                                  );
+                                  setState(() {
+                                    _manualTargetPassengerId = null;
+                                    _manualTargetType = null;
+                                    _updateTargetRoute(trip);
+                                  });
                                 },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2563EB),
@@ -883,7 +912,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                   ),
                                 )
                               : Text(
-                                  'Verify & Board',
+                                  'Confirm Boarding',
                                   style: AppTextStyle.text14Semibold.copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -919,10 +948,15 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
       StatefulBuilder(
         builder: (context, setSheetState) {
           return Container(
-            padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 24.h),
+            padding: EdgeInsets.fromLTRB(
+              20.w,
+              16.h,
+              20.w,
+              24.h + MediaQuery.of(context).viewInsets.bottom,
+            ),
             decoration: BoxDecoration(
               color: AppColors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.12),
@@ -938,10 +972,10 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                 children: [
                   Container(
                     width: 44.w,
-                    height: 5.h,
+                    height: 4.h,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFCBD5E1),
-                      borderRadius: BorderRadius.circular(10.r),
+                      color: AppColors.borderColor,
+                      borderRadius: BorderRadius.circular(2.r),
                     ),
                   ),
                   16.verticalSpace,
@@ -996,7 +1030,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                             ),
                           ),
                           Text(
-                            '${passenger.seats} Seat(s) • \$${passenger.fare.toStringAsFixed(0)} AUD collected',
+                            '${passenger.seats} Seat(s) • ${Utils.formatPrice(passenger.fare)} AUD collected',
                             style: AppTextStyle.text12Regular.copyWith(
                               color: const Color(0xFF16A34A),
                               fontWeight: FontWeight.w600,
@@ -1123,7 +1157,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                             ),
                             const Spacer(),
                             Text(
-                              '\$${passenger.fare.toStringAsFixed(0)} AUD',
+                              '${Utils.formatPrice(passenger.fare)} AUD',
                               style: AppTextStyle.text14Semibold.copyWith(
                                 color: const Color(0xFF15803D),
                                 fontWeight: FontWeight.bold,
@@ -1183,7 +1217,8 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                       onPressed: () async {
                         Get.back(); // close bottom sheet
                         await tripsController.submitPassengerRating(
-                          passengerId: passenger.id,
+                          passengerId:
+                              passenger.passengerId ?? passenger.id,
                           passengerName: passenger.passengerName,
                           rating: selectedRating,
                           comment: commentController.text.trim(),
@@ -1212,7 +1247,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                         ),
                       ),
                       child: Text(
-                        'Confirm Dropoff & Payment (\$${passenger.fare.toStringAsFixed(0)} AUD)',
+                        'Confirm Dropoff & Payment (${Utils.formatPrice(passenger.fare)} AUD)',
                         style: AppTextStyle.text14Semibold.copyWith(
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -1227,6 +1262,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
         },
       ),
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
     );
   }
 
@@ -1246,8 +1282,8 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
           bookedSeats: 0,
           status: 'Active',
         );
-    // Show center circular spinner only while initial coordinates are resolving
-    if (_isLoading && (_pickup == null || _dropoff == null)) {
+    // Show center circular spinner or unavailable state if coordinates are missing
+    if (_isLoading || _pickup == null || _dropoff == null) {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -1270,29 +1306,64 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SizedBox(
-                width: 44.w,
-                height: 44.w,
-                child: const CircularProgressIndicator(
-                  strokeWidth: 3.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+              if (_isLoading) ...[
+                SizedBox(
+                  width: 44.w,
+                  height: 44.w,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 3.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                  ),
                 ),
-              ),
-              20.verticalSpace,
-              Text(
-                'Loading route navigation...',
-                style: AppTextStyle.text16Semibold.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF0F172A),
+                20.verticalSpace,
+                Text(
+                  'Loading route navigation...',
+                  style: AppTextStyle.text16Semibold.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
+                  ),
                 ),
-              ),
-              8.verticalSpace,
-              Text(
-                'Calculating live route & pickup markers',
-                style: AppTextStyle.text12Regular.copyWith(
-                  color: const Color(0xFF64748B),
+                8.verticalSpace,
+                Text(
+                  'Calculating live route & pickup markers',
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: const Color(0xFF64748B),
+                  ),
                 ),
-              ),
+              ] else ...[
+                Container(
+                  padding: EdgeInsets.all(16.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEFF6FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.location_slash,
+                    color: AppColors.primaryColor,
+                    size: 32.sp,
+                  ),
+                ),
+                14.verticalSpace,
+                Text(
+                  'Route Map Unavailable',
+                  style: AppTextStyle.text16Semibold.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                6.verticalSpace,
+                Text(
+                  'GPS coordinates could not be found for this trip.',
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+                18.verticalSpace,
+                ElevatedButton(
+                  onPressed: () => Get.back(),
+                  child: const Text('Go Back'),
+                ),
+              ],
             ],
           ),
         ),
@@ -1663,22 +1734,53 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                           ],
                         ),
                       ),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 3.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                        child: Text(
-                          'ETA $_minutesToArrival min',
-                          style: AppTextStyle.text10Medium.copyWith(
-                            color: const Color(0xFF16A34A),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (activeTarget.passenger != null &&
+                              _calculateDetourText(trip, activeTarget).isNotEmpty) ...[
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8.w,
+                                vertical: 3.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(8.r),
+                              ),
+                              child: Text(
+                                _calculateDetourText(trip, activeTarget),
+                                style: AppTextStyle.text10Medium.copyWith(
+                                  color: const Color(0xFF2563EB),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            6.horizontalSpace,
+                          ],
+                          Builder(builder: (context) {
+                            final eta = _calculateEtaMinutes(activeTarget);
+                            return Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8.w,
+                                vertical: 3.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(8.r),
+                              ),
+                              child: Text(
+                                eta == 0
+                                    ? 'Arriving now'
+                                    : 'ETA $eta min${eta > 1 ? 's' : ''}',
+                                style: AppTextStyle.text10Medium.copyWith(
+                                  color: const Color(0xFF16A34A),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                       ),
                     ],
                   ),
@@ -1832,7 +1934,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                             ],
                           ),
                           Text(
-                            '\$${activeTarget.fare.toStringAsFixed(0)} AUD',
+                            '${Utils.formatPrice(activeTarget.fare)} AUD',
                             style: AppTextStyle.text12Semibold.copyWith(
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF16A34A),
@@ -1901,7 +2003,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                         child: activeTarget.isPickup
                             ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
                                 ? ElevatedButton.icon(
-                                    onPressed: () => _showOtpVerificationSheet(
+                                    onPressed: () => _showConfirmPassengerBoardingSheet(
                                       trip,
                                       activeTarget.passenger!,
                                     ),
@@ -1926,37 +2028,76 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                       ),
                                     ),
                                   )
-                                : ElevatedButton.icon(
-                                    onPressed: () async {
-                                      await tripsController.updatePassengerTripStatus(
-                                        passenger: activeTarget.passenger!,
-                                        newStatus: 'arrived',
-                                      );
-                                      AppSnackBar.success(
-                                        message:
-                                            'Notified ${activeTarget.passenger!.passengerName} that you have arrived!',
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0D9488),
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      padding: EdgeInsets.symmetric(vertical: 11.h),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14.r),
+                                : Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 6,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () async {
+                                            await tripsController.updatePassengerTripStatus(
+                                              passenger: activeTarget.passenger!,
+                                              newStatus: 'arrived',
+                                            );
+                                            AppSnackBar.success(
+                                              message:
+                                                  'Notified ${activeTarget.passenger!.passengerName} that you have arrived!',
+                                            );
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF0D9488),
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            padding: EdgeInsets.symmetric(vertical: 11.h),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(14.r),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            CupertinoIcons.location_fill,
+                                            size: 15,
+                                          ),
+                                          label: Text(
+                                            'Arrived at Pickup',
+                                            style: AppTextStyle.text12Semibold.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    icon: const Icon(
-                                      CupertinoIcons.location_fill,
-                                      size: 16,
-                                    ),
-                                    label: Text(
-                                      'Arrived at Pickup',
-                                      style: AppTextStyle.text12Semibold.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
+                                      8.horizontalSpace,
+                                      Expanded(
+                                        flex: 5,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () => _showConfirmPassengerBoardingSheet(
+                                            trip,
+                                            activeTarget.passenger!,
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(
+                                              color: Color(0xFF2563EB),
+                                              width: 1.5,
+                                            ),
+                                            padding: EdgeInsets.symmetric(vertical: 11.h),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(14.r),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.person_add_alt_1_rounded,
+                                            size: 15,
+                                            color: Color(0xFF2563EB),
+                                          ),
+                                          label: Text(
+                                            'Board',
+                                            style: AppTextStyle.text12Semibold.copyWith(
+                                              color: const Color(0xFF2563EB),
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ))
                             : (activeTarget.isDropoff
                                 ? ElevatedButton.icon(
@@ -1978,7 +2119,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                       size: 16,
                                     ),
                                     label: Text(
-                                      'Drop Off & Paid (\$${activeTarget.fare.toStringAsFixed(0)} AUD)',
+                                      'Drop Off & Paid (${Utils.formatPrice(activeTarget.fare)} AUD)',
                                       style: AppTextStyle.text12Semibold.copyWith(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
@@ -1987,16 +2128,32 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                   )
                                 : ElevatedButton.icon(
                                     onPressed: () async {
+                                      final unratedPassenger =
+                                          trip.acceptedPassengers.firstWhereOrNull(
+                                        (p) => !p.isRated.value,
+                                      );
+                                      if (unratedPassenger != null) {
+                                        _showRatePassengerSheet(
+                                          trip,
+                                          unratedPassenger,
+                                        );
+                                        return;
+                                      }
+
                                       trip.status.value = 'Completed';
+                                      tripsController.myTrips.refresh();
                                       final driverUid =
-                                          AuthService.instance.currentUser?.uid ?? '';
+                                          AuthService.instance.currentUser?.uid ??
+                                              '';
                                       if (trip.id.isNotEmpty) {
-                                        await TripService.instance.completeEntireTrip(
+                                        await TripService.instance
+                                            .completeEntireTrip(
                                           tripId: trip.id,
                                           driverId: driverUid,
                                         );
                                       }
-                                      if (Get.isRegistered<DriverHomeController>()) {
+                                      if (Get.isRegistered<
+                                          DriverHomeController>()) {
                                         Get.find<DriverHomeController>()
                                             .completedTripsCount
                                             .value++;
@@ -2170,25 +2327,56 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  if (isWaiting &&
-                                      (activeTarget.passenger?.id != p.id ||
-                                          !activeTarget.isPickup))
+                                  if (isWaiting) ...[
                                     GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _manualTargetPassengerId = p.id;
-                                          _manualTargetType = 'pickup';
-                                          _updateTargetRoute(trip);
-                                        });
-                                      },
-                                      child: Text(
-                                        'Target Pickup',
-                                        style: AppTextStyle.text10Medium.copyWith(
-                                          color: AppColors.primaryColor,
-                                          fontWeight: FontWeight.bold,
+                                      onTap: () => _showConfirmPassengerBoardingSheet(trip, p),
+                                      child: Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFEFF6FF),
+                                          borderRadius: BorderRadius.circular(6.r),
+                                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.person_add_alt_1_rounded,
+                                              size: 11,
+                                              color: Color(0xFF2563EB),
+                                            ),
+                                            3.horizontalSpace,
+                                            Text(
+                                              'Board',
+                                              style: AppTextStyle.text10Medium.copyWith(
+                                                color: const Color(0xFF2563EB),
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
+                                    if (activeTarget.passenger?.id != p.id || !activeTarget.isPickup) ...[
+                                      6.horizontalSpace,
+                                      GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _manualTargetPassengerId = p.id;
+                                            _manualTargetType = 'pickup';
+                                            _updateTargetRoute(trip);
+                                          });
+                                        },
+                                        child: Text(
+                                          'Target',
+                                          style: AppTextStyle.text10Medium.copyWith(
+                                            color: AppColors.primaryColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ],
                               ),
                               4.verticalSpace,

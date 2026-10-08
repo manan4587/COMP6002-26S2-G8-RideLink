@@ -16,6 +16,7 @@ class DriverDashboardView extends GetView<DriverDashboardController> {
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.homeController.reloadStats();
       controller.profileController.reloadProfile();
       controller.tripsController.reloadDriverTrips();
       controller.startDriverLiveLocationTracking(context: context);
@@ -131,6 +132,8 @@ class _DriverNavBarItem extends StatelessWidget {
               SizedBox(height: 4.h),
               Text(
                 label,
+                maxLines: 1,
+                softWrap: false,
                 style: AppTextStyle.text10Medium.copyWith(
                   color: isSelected
                       ? AppColors.primaryColor

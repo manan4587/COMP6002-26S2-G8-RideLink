@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
 
@@ -49,7 +50,18 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
             // Trip Filter Chips (All Trips or Specific Trip)
             Obx(() {
               final selectedTrip = controller.selectedTripForRequests.value;
-              final tripsWithRequests = controller.myTrips;
+              final tripsWithRequests = controller.myTrips.where((t) {
+                final s = t.status.value.toLowerCase().trim();
+                if (s == 'completed' || s == 'cancelled') return false;
+                return t.requests.any(
+                      (r) => r.status.value.toLowerCase() == 'pending',
+                    ) ||
+                    controller.pendingRequests.any(
+                      (r) =>
+                          r.tripId == t.id &&
+                          r.status.value.toLowerCase() == 'pending',
+                    );
+              }).toList();
               final totalAllRequests = controller.totalTripRequestsCount;
 
               return Container(
@@ -147,7 +159,7 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
                           ),
                           child: Center(
                             child: Text(
-                              '${t.from} → ${t.to} (${t.requests.length})',
+                              '${t.from} → ${t.to} (${t.requests.where((r) => r.status.value.toLowerCase() == 'pending').length})',
                               style: AppTextStyle.text12Semibold.copyWith(
                                 color: isSelected
                                     ? Colors.white
@@ -168,8 +180,13 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
 
             // Requests Body List
             Expanded(
-              child: Obx(() {
-                final currentTrip = controller.selectedTripForRequests.value;
+              child: RefreshIndicator(
+                color: AppColors.primaryColor,
+                onRefresh: () async {
+                  await controller.reloadDriverTrips();
+                },
+                child: Obx(() {
+                  final currentTrip = controller.selectedTripForRequests.value;
 
                 // Collect list of items (trip + request pairs)
                 final List<MapEntry<DriverTripModel, PassengerRequestModel>>
@@ -177,97 +194,126 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
                 final Set<String> addedReqIds = {};
 
                 if (currentTrip != null) {
-                  for (final req in currentTrip.requests) {
-                    if (addedReqIds.add(req.id)) {
-                      items.add(MapEntry(currentTrip, req));
+                  final s = currentTrip.status.value.toLowerCase().trim();
+                  if (s != 'completed' && s != 'cancelled') {
+                    for (final req in currentTrip.requests) {
+                      if (req.status.value.toLowerCase() == 'pending' &&
+                          addedReqIds.add(req.id)) {
+                        items.add(MapEntry(currentTrip, req));
+                      }
                     }
-                  }
-                  for (final req in controller.pendingRequests) {
-                    if (req.tripId == currentTrip.id && addedReqIds.add(req.id)) {
-                      items.add(MapEntry(currentTrip, req));
+                    for (final req in controller.pendingRequests) {
+                      if (req.tripId == currentTrip.id &&
+                          req.status.value.toLowerCase() == 'pending' &&
+                          addedReqIds.add(req.id)) {
+                        items.add(MapEntry(currentTrip, req));
+                      }
                     }
                   }
                 } else {
                   for (final trip in controller.myTrips) {
+                    final s = trip.status.value.toLowerCase().trim();
+                    if (s == 'completed' || s == 'cancelled') continue;
                     for (final req in trip.requests) {
-                      if (addedReqIds.add(req.id)) {
+                      if (req.status.value.toLowerCase() == 'pending' &&
+                          addedReqIds.add(req.id)) {
                         items.add(MapEntry(trip, req));
                       }
                     }
                   }
                   for (final req in controller.pendingRequests) {
-                    if (addedReqIds.add(req.id)) {
+                    if (req.status.value.toLowerCase() == 'pending' &&
+                        addedReqIds.add(req.id)) {
                       final trip = controller.myTrips.firstWhereOrNull(
-                            (t) => t.id == req.tripId,
-                          ) ??
-                          DriverTripModel(
-                            id: req.tripId ?? '',
-                            from: req.from,
-                            to: req.to,
-                            time: req.time,
-                            pricePerSeat: req.fare /
-                                (req.seats > 0 ? req.seats : 1),
-                            totalSeats: 4,
-                            bookedSeats: 0,
-                            status: 'Scheduled',
-                          );
-                      items.add(MapEntry(trip, req));
+                        (t) => t.id == req.tripId,
+                      );
+                      if (trip != null) {
+                        final s = trip.status.value.toLowerCase().trim();
+                        if (s != 'completed' && s != 'cancelled') {
+                          items.add(MapEntry(trip, req));
+                        }
+                      } else {
+                        // Fallback trip model if trip document is still streaming
+                        final fallbackTrip = DriverTripModel(
+                          id: req.tripId ?? '',
+                          from: req.from,
+                          to: req.to,
+                          time: req.time,
+                          pricePerSeat: req.fare,
+                          totalSeats: 4,
+                          bookedSeats: 0,
+                          status: 'scheduled',
+                        );
+                        items.add(MapEntry(fallbackTrip, req));
+                      }
                     }
                   }
                 }
 
                 if (items.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(20.r),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEFF6FF),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            CupertinoIcons.person_2,
-                            size: 40.sp,
-                            color: const Color(0xFF2563EB),
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics()),
+                    children: [
+                      SizedBox(height: 60.h),
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(20.r),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEFF6FF),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  CupertinoIcons.person_2,
+                                  size: 40.sp,
+                                  color: const Color(0xFF2563EB),
+                                ),
+                              ),
+                              16.verticalSpace,
+                              Text(
+                                'No Pending Requests',
+                                style: AppTextStyle.text18Semibold.copyWith(
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                              8.verticalSpace,
+                              Text(
+                                currentTrip != null
+                                    ? 'No requests waiting for ${currentTrip.from} → ${currentTrip.to}.'
+                                    : 'All passenger requests for your published trips have been reviewed.',
+                                textAlign: TextAlign.center,
+                                style: AppTextStyle.text14Regular.copyWith(
+                                  color: AppColors.secondaryTextColor,
+                                ),
+                              ),
+                              20.verticalSpace,
+                              OutlinedButton(
+                                onPressed: () => Get.back(),
+                                style: OutlinedButton.styleFrom(
+                                  side:
+                                      const BorderSide(color: Color(0xFFCBD5E1)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16.r),
+                                  ),
+                                ),
+                                child: const Text('Back to Trips'),
+                              ),
+                            ],
                           ),
                         ),
-                        16.verticalSpace,
-                        Text(
-                          'No Pending Requests',
-                          style: AppTextStyle.text18Semibold.copyWith(
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                        8.verticalSpace,
-                        Text(
-                          currentTrip != null
-                              ? 'No requests waiting for ${currentTrip.from} → ${currentTrip.to}.'
-                              : 'All passenger requests for your published trips have been reviewed.',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyle.text14Regular.copyWith(
-                            color: AppColors.secondaryTextColor,
-                          ),
-                        ),
-                        20.verticalSpace,
-                        OutlinedButton(
-                          onPressed: () => Get.back(),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFCBD5E1)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16.r),
-                            ),
-                          ),
-                          child: const Text('Back to Trips'),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   );
                 }
 
                 return ListView.separated(
-                  physics: const BouncingScrollPhysics(),
+                  physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics()),
                   padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 20.h),
                   itemCount: items.length,
                   separatorBuilder: (_, _) => SizedBox(height: 14.h),
@@ -311,40 +357,49 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 10.w,
-                                      vertical: 4.h,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEFF6FF),
-                                      borderRadius: BorderRadius.circular(10.r),
-                                      border: Border.all(
-                                        color: const Color(0xFFBFDBFE),
+                                  Expanded(
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 10.w,
+                                        vertical: 4.h,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(
+                                          10.r,
+                                        ),
+                                        border: Border.all(
+                                          color: const Color(0xFFBFDBFE),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            CupertinoIcons.car_detailed,
+                                            size: 13.sp,
+                                            color: const Color(0xFF2563EB),
+                                          ),
+                                          5.horizontalSpace,
+                                          Expanded(
+                                            child: Text(
+                                              '${trip.from} → ${trip.to}',
+                                              style: AppTextStyle.text12Semibold
+                                                  .copyWith(
+                                                    color: const Color(
+                                                      0xFF1D4ED8,
+                                                    ),
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          CupertinoIcons.car_detailed,
-                                          size: 13.sp,
-                                          color: const Color(0xFF2563EB),
-                                        ),
-                                        5.horizontalSpace,
-                                        Text(
-                                          '${trip.from} → ${trip.to}',
-                                          style: AppTextStyle.text12Semibold
-                                              .copyWith(
-                                                color: const Color(0xFF1D4ED8),
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
                                   ),
+                                  SizedBox(width: 8),
                                   Text(
-                                    '\$${req.fare.toStringAsFixed(0)} AUD',
+                                    '${Utils.formatPrice(req.fare)} AUD',
                                     style: AppTextStyle.text16Semibold.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: const Color(0xFF16A34A),
@@ -583,6 +638,7 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
                 );
               }),
             ),
+          ),
           ],
         ),
       ),

@@ -27,14 +27,14 @@ class PassengerCommunityController extends GetxController {
     super.onInit();
     final user = AuthService.instance.currentUser;
     if (user != null) {
-      _listenToCommunities();
+      listenToCommunities();
     } else {
       isLoading.value = false;
     }
 
     _authSubscription = AuthService.instance.authStateChanges.listen((u) {
       if (u != null) {
-        _listenToCommunities();
+        listenToCommunities();
       } else {
         clearState();
       }
@@ -49,7 +49,11 @@ class PassengerCommunityController extends GetxController {
     isLoading.value = false;
   }
 
-  void _listenToCommunities() {
+  Future<void> reloadCommunities() async {
+    listenToCommunities();
+  }
+
+  void listenToCommunities() {
     isLoading.value = true;
     _communitiesSubscription?.cancel();
     _communitiesSubscription = CommunityService.instance
@@ -198,7 +202,7 @@ class PassengerCommunityController extends GetxController {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(sheetCtx, false),
+                      onPressed: () => Get.back(result: false),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 12.h),
                         side: const BorderSide(color: AppColors.borderColor),
@@ -217,7 +221,7 @@ class PassengerCommunityController extends GetxController {
                   12.horizontalSpace,
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(sheetCtx, true),
+                      onPressed: () => Get.back(result: true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFDC2626),
                         foregroundColor: Colors.white,
@@ -244,7 +248,7 @@ class PassengerCommunityController extends GetxController {
       );
       shouldLeave = result == true;
     } else {
-      shouldLeave = true;
+      shouldLeave = false;
     }
 
     if (!shouldLeave) return;

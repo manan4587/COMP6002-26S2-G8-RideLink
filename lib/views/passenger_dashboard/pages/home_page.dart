@@ -15,12 +15,22 @@ class HomePage extends GetView<PassengerDashboardController> {
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: RefreshIndicator(
+          color: AppColors.primaryColor,
+          onRefresh: () async {
+            await Future.wait([
+              controller.tripsController.reloadTrips(),
+              controller.profileController.reloadProfile(),
+            ]);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Profile
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -82,7 +92,7 @@ class HomePage extends GetView<PassengerDashboardController> {
                             Obx(() {
                               final rating = controller.trustRating.value;
                               final ratingStr =
-                                  rating > 0 ? rating.toStringAsFixed(1) : '0.0';
+                                  rating > 0 ? rating.toStringAsFixed(1) : '5.0';
                               return Text(
                                 'Passenger • $ratingStr ★',
                                 style: AppTextStyle.text12Regular.copyWith(
@@ -400,10 +410,7 @@ class HomePage extends GetView<PassengerDashboardController> {
                   return const SizedBox.shrink();
                 }
 
-                final curtin = controller.communities.firstWhere(
-                  (c) => c.name.toLowerCase().contains('curtin'),
-                  orElse: () => controller.communities.first,
-                );
+                final curtin = controller.communities.first;
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,13 +448,13 @@ class HomePage extends GetView<PassengerDashboardController> {
                               children: [
                                 Container(
                                   padding: EdgeInsets.all(10.r),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFEFF6FF),
+                                  decoration: BoxDecoration(
+                                    color: curtin.iconBgColor,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
                                     curtin.icon,
-                                    color: AppColors.primaryColor,
+                                    color: curtin.iconColor,
                                     size: 20.sp,
                                   ),
                                 ),
@@ -466,7 +473,7 @@ class HomePage extends GetView<PassengerDashboardController> {
                                       ),
                                       4.verticalSpace,
                                       Text(
-                                        '${curtin.passengersCount.value} passengers • ${curtin.driversCount.value} drivers',
+                                        '${curtin.commonTime} • ${curtin.passengersCount.value} passengers • ${curtin.driversCount.value} drivers',
                                         style:
                                             AppTextStyle.text12Regular.copyWith(
                                           color: AppColors.secondaryTextColor,
@@ -495,6 +502,7 @@ class HomePage extends GetView<PassengerDashboardController> {
           ),
         ),
       ),
+    ),
     );
   }
 }

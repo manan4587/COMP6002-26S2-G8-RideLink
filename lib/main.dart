@@ -10,6 +10,7 @@ import 'package:ridelink/views/auth_flow/auth_controller.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
+import 'core/utils/app_snack_bar.dart';
 import 'core/utils/stretch_scroll_behavior.dart';
 import 'core/utils/utils.dart';
 import 'firebase_options.dart';
@@ -40,6 +41,7 @@ class MyApp extends StatelessWidget {
 
       builder: (context, child) {
         return GetMaterialApp(
+          scaffoldMessengerKey: AppSnackBar.messengerKey,
           debugShowCheckedModeBanner: false,
           title: 'RideLink',
           themeMode: ThemeMode.light,
@@ -68,10 +70,49 @@ class MyApp extends StatelessWidget {
 
 void _appDepencyBiding() {
   Get.put<AuthController>(AuthController(), permanent: true);
-  Get.lazyPut<DriverDashboardController>(() => DriverDashboardController(), fenix: true);
-  Get.lazyPut<PassengerDashboardController>(() => PassengerDashboardController(), fenix: true);
+  Get.lazyPut<DriverDashboardController>(
+    () => DriverDashboardController(),
+    fenix: true,
+  );
+  Get.lazyPut<PassengerDashboardController>(
+    () => PassengerDashboardController(),
+    fenix: true,
+  );
   Get.lazyPut<DriverHomeController>(() => DriverHomeController(), fenix: true);
-  Get.lazyPut<DriverTripsController>(() => DriverTripsController(), fenix: true);
-  Get.lazyPut<DriverSupportController>(() => DriverSupportController(), fenix: true);
-  Get.lazyPut<DriverProfileController>(() => DriverProfileController(), fenix: true);
+  Get.lazyPut<DriverTripsController>(
+    () => DriverTripsController(),
+    fenix: true,
+  );
+  Get.lazyPut<DriverSupportController>(
+    () => DriverSupportController(),
+    fenix: true,
+  );
+  Get.lazyPut<DriverProfileController>(
+    () => DriverProfileController(),
+    fenix: true,
+  );
+  Get.lazyPut<PassengerHomeController>(
+    () => PassengerHomeController(),
+    fenix: true,
+  );
+  Get.lazyPut<PassengerSearchController>(
+    () => PassengerSearchController(),
+    fenix: true,
+  );
+  Get.lazyPut<PassengerTripsController>(
+    () => PassengerTripsController(),
+    fenix: true,
+  );
+  Get.lazyPut<PassengerCommunityController>(
+    () => PassengerCommunityController(),
+    fenix: true,
+  );
+  Get.lazyPut<PassengerSupportController>(
+    () => PassengerSupportController(),
+    fenix: true,
+  );
+  Get.lazyPut<PassengerProfileController>(
+    () => PassengerProfileController(),
+    fenix: true,
+  );
 }

@@ -114,9 +114,9 @@ class PassengerSafetySosPage extends GetView<PassengerDashboardController> {
                             borderRadius: BorderRadius.circular(30.r),
                           ),
                         ),
-                        icon: const Icon(Icons.phone, size: 18),
+                        icon: const Icon(CupertinoIcons.phone_fill, size: 18),
                         label: Text(
-                          'Call Emergency Services Now',
+                          'Call Emergency 000 Now',
                           style: AppTextStyle.text14Semibold.copyWith(
                             color: const Color(0xFFDC2626),
                             fontWeight: FontWeight.bold,
@@ -148,21 +148,6 @@ class PassengerSafetySosPage extends GetView<PassengerDashboardController> {
                   iconBg: const Color(0xFFDCFCE7),
                   buttonLabel: 'Call Hotline',
                   onTap: controller.callSafetyHotline,
-                ),
-
-                12.verticalSpace,
-
-                // Safety Email
-                _ActionCard(
-                  title: 'Emergency Incident Desk',
-                  subtitle:
-                      'Email our safety compliance officer with ride details, driver behaviour reports, or lost property inquiries.',
-                  badge: 'Direct Desk • safety@ridelink.com',
-                  icon: CupertinoIcons.mail_solid,
-                  iconColor: AppColors.primaryColor,
-                  iconBg: const Color(0xFFEFF6FF),
-                  buttonLabel: 'Send Safety Email',
-                  onTap: controller.sendSafetyEmail,
                 ),
 
                 12.verticalSpace,

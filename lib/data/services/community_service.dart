@@ -20,158 +20,14 @@ class CommunityService {
   CollectionReference<Map<String, dynamic>> get _tripsRef =>
       _firestore.collection(FirestoreCollections.rides);
 
-  bool _isSeeding = false;
-
-  /// Seed initial community documents if the collection is empty
-  Future<void> seedDefaultCommunitiesIfEmpty() async {
-    if (_isSeeding || _auth.currentUser == null) return;
-    _isSeeding = true;
-    try {
-      final snapshot = await _communitiesRef.limit(1).get();
-      if (snapshot.docs.isNotEmpty) {
-        _isSeeding = false;
-        return;
-      }
-
-      debugPrint('[CommunityService] Seeding default communities into Firestore...');
-      final batch = _firestore.batch();
-      final defaultCommunities = [
-        {
-          'id': 'comm_curtin',
-          'name': 'Curtin Community',
-          'routeSummary': 'Landsdale → Curtin University',
-          'commonTime': '7:30 AM - 9:00 AM',
-          'description':
-              'Daily shared rides for Curtin University students & staff commuting from northern and western suburbs.',
-          'passengersCount': 12,
-          'driversCount': 4,
-          'nextRideTime': 'Tomorrow 8:00 AM',
-          'nextRideSeatsOpen': 3,
-          'icon': 'school',
-          'memberIds': <String>[],
-          'passengerMemberIds': <String>[],
-          'driverMemberIds': <String>[],
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        {
-          'id': 'comm_monash',
-          'name': 'Monash Clayton Carpool',
-          'routeSummary': 'Clayton ⇄ Eastern Suburbs',
-          'commonTime': '8:00 AM - 9:30 AM',
-          'description':
-              'Daily campus commuters splitting petrol costs along Princes Highway and Wellington Rd.',
-          'passengersCount': 28,
-          'driversCount': 7,
-          'nextRideTime': 'Tomorrow 8:30 AM',
-          'nextRideSeatsOpen': 2,
-          'icon': 'school',
-          'memberIds': <String>[],
-          'passengerMemberIds': <String>[],
-          'driverMemberIds': <String>[],
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        {
-          'id': 'comm_cbd',
-          'name': 'Perth CBD Professionals',
-          'routeSummary': 'North & South Corridors ⇄ St Georges Tce',
-          'commonTime': '7:45 AM - 8:45 AM',
-          'description':
-              'Eco-conscious professionals carpooling to the city center with dedicated transit lane access.',
-          'passengersCount': 45,
-          'driversCount': 11,
-          'nextRideTime': 'Tomorrow 7:45 AM',
-          'nextRideSeatsOpen': 4,
-          'icon': 'business',
-          'memberIds': <String>[],
-          'passengerMemberIds': <String>[],
-          'driverMemberIds': <String>[],
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        {
-          'id': 'comm_hospital',
-          'name': 'Fiona Stanley Shift Workers',
-          'routeSummary': 'Murdoch Hospital Precinct ⇄ South Metro',
-          'commonTime': '6:30 AM & 2:30 PM Shift Change',
-          'description':
-              'Reliable healthcare workers sharing early morning and afternoon shift travel safely.',
-          'passengersCount': 19,
-          'driversCount': 5,
-          'nextRideTime': 'Today 2:15 PM',
-          'nextRideSeatsOpen': 1,
-          'icon': 'hospital',
-          'memberIds': <String>[],
-          'passengerMemberIds': <String>[],
-          'driverMemberIds': <String>[],
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        {
-          'id': 'comm_ecu',
-          'name': 'ECU Joondalup Campus Carpool',
-          'routeSummary': 'Perth Northern Suburbs • Mitchell Fwy • Joondalup',
-          'commonTime': '8:00 AM - 9:30 AM',
-          'description':
-              'Direct commuter rides connecting northern suburbs with Joondalup campus.',
-          'passengersCount': 62,
-          'driversCount': 18,
-          'nextRideTime': 'Tomorrow 8:15 AM',
-          'nextRideSeatsOpen': 3,
-          'icon': 'school',
-          'memberIds': <String>[],
-          'passengerMemberIds': <String>[],
-          'driverMemberIds': <String>[],
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        {
-          'id': 'comm_fremantle',
-          'name': 'Fremantle & Coastal Route',
-          'routeSummary': 'Fremantle • Cottesloe • Subiaco • Perth City',
-          'commonTime': '8:15 AM - 9:00 AM',
-          'description':
-              'Scenic coastal carpools along Stirling Hwy into Perth central business district.',
-          'passengersCount': 45,
-          'driversCount': 14,
-          'nextRideTime': 'Tomorrow 8:00 AM',
-          'nextRideSeatsOpen': 2,
-          'icon': 'car',
-          'memberIds': <String>[],
-          'passengerMemberIds': <String>[],
-          'driverMemberIds': <String>[],
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      ];
-
-      for (final comm in defaultCommunities) {
-        final id = comm['id'] as String;
-        final docRef = _communitiesRef.doc(id);
-        batch.set(docRef, comm, SetOptions(merge: true));
-      }
-
-      await batch.commit();
-      debugPrint('[CommunityService] Default communities seeded successfully.');
-    } catch (e) {
-      debugPrint('[CommunityService] Failed to seed default communities: $e');
-    } finally {
-      _isSeeding = false;
-    }
-  }
-
   /// Stream all communities in real time from Firestore
   Stream<List<CommunityModel>> streamCommunities() {
     if (_auth.currentUser == null) {
       return const Stream.empty();
     }
-    return _communitiesRef.snapshots().asyncMap((snapshot) async {
+    return _communitiesRef.snapshots().map((snapshot) {
       try {
         if (snapshot.docs.isEmpty) {
-          if (_auth.currentUser != null) {
-            await seedDefaultCommunitiesIfEmpty();
-          }
           return <CommunityModel>[];
         }
         final currentUid = _auth.currentUser?.uid;
@@ -323,4 +179,3 @@ class CommunityService {
     });
   }
 }
-

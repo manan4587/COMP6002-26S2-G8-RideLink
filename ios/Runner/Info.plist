@@ -70,5 +70,12 @@
 	<string>RideLink uses your location to track live vehicle navigation and show real-time driver position.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>RideLink uses your location to update trip progress and live vehicle position for passengers.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>https</string>
+		<string>http</string>
+	</array>
 </dict>
 </plist>

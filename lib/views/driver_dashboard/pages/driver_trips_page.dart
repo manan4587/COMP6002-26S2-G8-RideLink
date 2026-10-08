@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
@@ -17,6 +18,7 @@ class DriverTripsPage extends GetView<DriverTripsController> {
       'Active',
       'Scheduled',
       'Completed',
+      'Cancelled',
     ];
 
     return Scaffold(
@@ -174,71 +176,84 @@ class DriverTripsPage extends GetView<DriverTripsController> {
 
               // Trips List
               Expanded(
-                child: Obx(() {
-                  final trips = controller.filteredTrips;
+                child: RefreshIndicator(
+                  color: AppColors.primaryColor,
+                  onRefresh: () async {
+                    await controller.reloadDriverTrips();
+                  },
+                  child: Obx(() {
+                    final trips = controller.filteredTrips;
 
-                  if (trips.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    if (trips.isEmpty) {
+                      return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics()),
                         children: [
-                          Container(
-                            padding: EdgeInsets.all(20.r),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFEFF6FF),
-                              shape: BoxShape.circle,
+                          SizedBox(height: 60.h),
+                          Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(20.r),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFEFF6FF),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    CupertinoIcons.car_detailed,
+                                    size: 44.sp,
+                                    color: AppColors.primaryColor,
+                                  ),
+                                ),
+                                16.verticalSpace,
+                                Text(
+                                  controller.selectedTripFilter.value == 'All'
+                                      ? 'No Trips Published Yet'
+                                      : 'No ${controller.selectedTripFilter.value} Trips',
+                                  style: AppTextStyle.text18Semibold,
+                                ),
+                                8.verticalSpace,
+                                Text(
+                                  'Publish your commute to start receiving passenger ride requests.',
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyle.text14Regular.copyWith(
+                                    color: AppColors.secondaryTextColor,
+                                  ),
+                                ),
+                                20.verticalSpace,
+                                ElevatedButton.icon(
+                                  onPressed: () =>
+                                      Get.toNamed(AppRoutes.driverPublishRide),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 22.w,
+                                      vertical: 12.h,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16.r),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    CupertinoIcons.plus_circle,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Publish a Ride'),
+                                ),
+                              ],
                             ),
-                            child: Icon(
-                              CupertinoIcons.car_detailed,
-                              size: 44.sp,
-                              color: AppColors.primaryColor,
-                            ),
-                          ),
-                          16.verticalSpace,
-                          Text(
-                            controller.selectedTripFilter.value == 'All'
-                                ? 'No Trips Published Yet'
-                                : 'No ${controller.selectedTripFilter.value} Trips',
-                            style: AppTextStyle.text18Semibold,
-                          ),
-                          8.verticalSpace,
-                          Text(
-                            'Publish your commute to start receiving passenger ride requests.',
-                            textAlign: TextAlign.center,
-                            style: AppTextStyle.text14Regular.copyWith(
-                              color: AppColors.secondaryTextColor,
-                            ),
-                          ),
-                          20.verticalSpace,
-                          ElevatedButton.icon(
-                            onPressed: () =>
-                                Get.toNamed(AppRoutes.driverPublishRide),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryColor,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 22.w,
-                                vertical: 12.h,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16.r),
-                              ),
-                            ),
-                            icon: const Icon(
-                              CupertinoIcons.plus_circle,
-                              size: 18,
-                            ),
-                            label: const Text('Publish a Ride'),
                           ),
                         ],
-                      ),
-                    );
-                  }
+                      );
+                    }
 
-                  return ListView.separated(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: trips.length,
-                    separatorBuilder: (_, _) => SizedBox(height: 14.h),
+                    return ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics()),
+                      itemCount: trips.length,
+                      separatorBuilder: (_, _) => SizedBox(height: 14.h),
                     itemBuilder: (context, index) {
                       final trip = trips[index];
                       return Obx(() {
@@ -248,6 +263,8 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                             status.toLowerCase() == 'in progress';
                         final bool isCompleted =
                             status.toLowerCase() == 'completed';
+                        final bool isCancelled =
+                            status.toLowerCase() == 'cancelled';
 
                         return Container(
                           padding: EdgeInsets.all(16.w),
@@ -257,6 +274,8 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                             border: Border.all(
                               color: isActive
                                   ? const Color(0xFF86EFAC)
+                                  : isCancelled
+                                  ? const Color(0xFFFECACA)
                                   : const Color(0xFFE2E8F0),
                               width: isActive ? 1.5 : 1.2,
                             ),
@@ -297,6 +316,8 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                                 ? const Color(0xFFDCFCE7)
                                                 : isCompleted
                                                 ? const Color(0xFFF1F5F9)
+                                                : isCancelled
+                                                ? const Color(0xFFFEF2F2)
                                                 : const Color(0xFFEFF6FF),
                                             borderRadius: BorderRadius.circular(
                                               8.r,
@@ -313,6 +334,8 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                                       ? const Color(0xFF16A34A)
                                                       : isCompleted
                                                       ? const Color(0xFF64748B)
+                                                      : isCancelled
+                                                      ? const Color(0xFFDC2626)
                                                       : const Color(0xFF2563EB),
                                                   shape: BoxShape.circle,
                                                 ),
@@ -330,6 +353,10 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                                           : isCompleted
                                                           ? const Color(
                                                               0xFF475569,
+                                                            )
+                                                          : isCancelled
+                                                          ? const Color(
+                                                              0xFFDC2626,
                                                             )
                                                           : const Color(
                                                               0xFF1D4ED8,
@@ -499,7 +526,7 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                         ),
                                         4.verticalSpace,
                                         Text(
-                                          '${trip.time.value} • \$${trip.pricePerSeat.value.toStringAsFixed(0)}/seat',
+                                          '${trip.time.value} • ${Utils.formatPrice(trip.pricePerSeat.value)}/seat',
                                           style: AppTextStyle.text12Regular
                                               .copyWith(
                                                 color: const Color(0xFF64748B),
@@ -591,6 +618,293 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                   ],
                                 ),
                               ] else if (isCompleted) ...[
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: 8.h,
+                                    horizontal: 12.w,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0FDF4),
+                                    borderRadius: BorderRadius.circular(12.r),
+                                    border: Border.all(
+                                      color: const Color(0xFFBBF7D0),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        CupertinoIcons.checkmark_seal_fill,
+                                        color: Color(0xFF16A34A),
+                                        size: 16,
+                                      ),
+                                      6.horizontalSpace,
+                                      Text(
+                                        'Trip Completed & Settled',
+                                        style: AppTextStyle.text12Semibold
+                                            .copyWith(
+                                              color: const Color(0xFF15803D),
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        '${Utils.formatPrice(trip.acceptedPassengers.isNotEmpty ? trip.acceptedPassengers.fold<double>(0.0, (sum, p) => sum + p.fare) : (trip.bookedSeats.value * trip.pricePerSeat.value))} AUD Earned',
+                                        style: AppTextStyle.text12Semibold
+                                            .copyWith(
+                                              color: const Color(0xFF166534),
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                10.verticalSpace,
+                                Obx(() {
+                                  if (trip.acceptedPassengers.isNotEmpty) {
+                                    return Column(
+                                      children: trip.acceptedPassengers.map((p) {
+                                        return Padding(
+                                          padding: EdgeInsets.only(bottom: 8.h),
+                                          child: Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 12.w,
+                                              vertical: 10.h,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF8FAFC),
+                                              borderRadius:
+                                                  BorderRadius.circular(12.r),
+                                              border: Border.all(
+                                                color: const Color(0xFFE2E8F0),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 34.r,
+                                                  height: 34.r,
+                                                  decoration: const BoxDecoration(
+                                                    color: Color(0xFFEFF6FF),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      p.passengerName.isNotEmpty
+                                                          ? p.passengerName[0]
+                                                              .toUpperCase()
+                                                          : 'P',
+                                                      style: AppTextStyle
+                                                          .text14Semibold
+                                                          .copyWith(
+                                                            color: const Color(
+                                                              0xFF2563EB,
+                                                            ),
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                10.horizontalSpace,
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        p.passengerName,
+                                                        style: AppTextStyle
+                                                            .text12Semibold
+                                                            .copyWith(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                      ),
+                                                      Text(
+                                                        '${p.seats} seat(s) • ${Utils.formatPrice(p.fare)} AUD',
+                                                        style: AppTextStyle
+                                                            .text10Medium
+                                                            .copyWith(
+                                                              color:
+                                                                  AppColors
+                                                                      .secondaryTextColor,
+                                                            ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Obx(() {
+                                                  if (!p.isRated.value) {
+                                                    return ElevatedButton.icon(
+                                                      onPressed: () =>
+                                                          controller
+                                                              .showRatePassengerSheet(
+                                                        context: context,
+                                                        trip: trip,
+                                                        passenger: p,
+                                                      ),
+                                                      icon: const Icon(
+                                                        Icons.star_rounded,
+                                                        size: 15,
+                                                        color:
+                                                            Color(0xFFD97706),
+                                                      ),
+                                                      label: Text(
+                                                        'Rate Passenger ★',
+                                                        style: AppTextStyle
+                                                            .text12Semibold
+                                                            .copyWith(
+                                                              color: const Color(
+                                                                0xFF92400E,
+                                                              ),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
+                                                      ),
+                                                      style: ElevatedButton
+                                                          .styleFrom(
+                                                        backgroundColor:
+                                                            const Color(
+                                                              0xFFFEF3C7,
+                                                            ),
+                                                        foregroundColor:
+                                                            const Color(
+                                                              0xFF92400E,
+                                                            ),
+                                                        elevation: 0,
+                                                        padding:
+                                                            EdgeInsets.symmetric(
+                                                          horizontal: 10.w,
+                                                          vertical: 6.h,
+                                                        ),
+                                                        shape:
+                                                            RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                            10.r,
+                                                          ),
+                                                          side: const BorderSide(
+                                                            color: Color(
+                                                              0xFFFCD34D,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }
+
+                                                  return Container(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                      horizontal: 10.w,
+                                                      vertical: 5.h,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(
+                                                        0xFFFFFBEB,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                        10.r,
+                                                      ),
+                                                      border: Border.all(
+                                                        color: const Color(
+                                                          0xFFFDE68A,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(
+                                                          Icons.star_rounded,
+                                                          size: 15,
+                                                          color:
+                                                              Color(0xFFF59E0B),
+                                                        ),
+                                                        4.horizontalSpace,
+                                                        Text(
+                                                          'Rated ${p.passengerRatingGiven.value.toStringAsFixed(1)} ★',
+                                                          style: AppTextStyle
+                                                              .text12Semibold
+                                                              .copyWith(
+                                                                color: const Color(
+                                                                  0xFFB45309,
+                                                                ),
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                }),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    );
+                                  }
+
+                                  return Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Completed • Rate passenger',
+                                        style:
+                                            AppTextStyle.text12Medium.copyWith(
+                                          color: AppColors.secondaryTextColor,
+                                        ),
+                                      ),
+                                      ElevatedButton.icon(
+                                        onPressed: () =>
+                                            controller.showRatePassengerSheet(
+                                          context: context,
+                                          trip: trip,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.star_rounded,
+                                          size: 15,
+                                          color: Color(0xFFD97706),
+                                        ),
+                                        label: Text(
+                                          'Rate Passenger ★',
+                                          style: AppTextStyle.text12Semibold
+                                              .copyWith(
+                                                color: const Color(0xFF92400E),
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFFFEF3C7),
+                                          foregroundColor:
+                                              const Color(0xFF92400E),
+                                          elevation: 0,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 12.w,
+                                            vertical: 7.h,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10.r),
+                                            side: const BorderSide(
+                                              color: Color(0xFFFCD34D),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }),
+                              ] else if (isCancelled) ...[
                                 Row(
                                   children: [
                                     Expanded(
@@ -599,9 +913,13 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                           vertical: 9.h,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFF1F5F9),
+                                          color: const Color(0xFFFEF2F2),
                                           borderRadius: BorderRadius.circular(
                                             20.r,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFFFECACA),
+                                            width: 1,
                                           ),
                                         ),
                                         child: Center(
@@ -611,18 +929,18 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                             children: [
                                               const Icon(
                                                 CupertinoIcons
-                                                    .checkmark_seal_fill,
-                                                color: Color(0xFF16A34A),
+                                                    .clear_circled_solid,
+                                                color: Color(0xFFDC2626),
                                                 size: 16,
                                               ),
                                               6.horizontalSpace,
                                               Text(
-                                                'Trip Completed & Settled',
+                                                'Trip Cancelled',
                                                 style: AppTextStyle
                                                     .text12Semibold
                                                     .copyWith(
                                                       color: const Color(
-                                                        0xFF475569,
+                                                        0xFFDC2626,
                                                       ),
                                                       fontWeight:
                                                           FontWeight.bold,
@@ -636,6 +954,44 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                                   ],
                                 ),
                               ] else ...[
+                                if (!trip.canStartRide) ...[
+                                  Container(
+                                    margin: EdgeInsets.only(bottom: 10.h),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 10.w,
+                                      vertical: 6.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7),
+                                      borderRadius: BorderRadius.circular(8.r),
+                                      border: Border.all(
+                                        color: const Color(0xFFFDE68A),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          CupertinoIcons.clock,
+                                          size: 13,
+                                          color: Color(0xFFB45309),
+                                        ),
+                                        6.horizontalSpace,
+                                        Expanded(
+                                          child: Text(
+                                            'Ride can be started 15 mins before scheduled departure',
+                                            style: AppTextStyle.text11Medium
+                                                .copyWith(
+                                                  color: const Color(
+                                                    0xFF92400E,
+                                                  ),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 // Scheduled Trip Actions
                                 Row(
                                   children: [
@@ -742,6 +1098,7 @@ class DriverTripsPage extends GetView<DriverTripsController> {
                   );
                 }),
               ),
+            ),
             ],
           ),
         ),

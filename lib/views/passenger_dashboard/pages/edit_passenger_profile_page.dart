@@ -2,11 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:ridelink/core/constants/app_assets.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/app_snack_bar.dart';
+import 'package:ridelink/core/utils/australian_phone_helper.dart';
 import 'package:ridelink/core/utils/preferences.dart';
-import 'package:ridelink/core/utils/validation_mixin.dart';
 import 'package:ridelink/data/services/auth_service.dart';
+import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 import 'package:ridelink/widgets/app_border_container.dart';
@@ -22,8 +23,7 @@ class EditPassengerProfilePage extends StatefulWidget {
       _EditPassengerProfilePageState();
 }
 
-class _EditPassengerProfilePageState extends State<EditPassengerProfilePage>
-    with ValidationMixin {
+class _EditPassengerProfilePageState extends State<EditPassengerProfilePage> {
   final PassengerDashboardController controller =
       Get.find<PassengerDashboardController>();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -55,7 +55,9 @@ class _EditPassengerProfilePageState extends State<EditPassengerProfilePage>
 
     _nameController = TextEditingController(text: initialName);
     _emailController = TextEditingController(text: initialEmail);
-    _phoneController = TextEditingController(text: initialPhone);
+    _phoneController = TextEditingController(
+      text: AustralianPhoneHelper.stripToLocal(initialPhone),
+    );
 
     _nameWorker = ever(controller.passengerName, (val) {
       if (_nameController.text.isEmpty && val.isNotEmpty) {
@@ -69,7 +71,7 @@ class _EditPassengerProfilePageState extends State<EditPassengerProfilePage>
     });
     _phoneWorker = ever(controller.passengerPhone, (val) {
       if (_phoneController.text.isEmpty && val.isNotEmpty) {
-        _phoneController.text = val;
+        _phoneController.text = AustralianPhoneHelper.stripToLocal(val);
       }
     });
   }
@@ -83,18 +85,6 @@ class _EditPassengerProfilePageState extends State<EditPassengerProfilePage>
     _emailController.dispose();
     _phoneController.dispose();
     super.dispose();
-  }
-
-  void _onSaveProfile() {
-    FocusManager.instance.primaryFocus?.unfocus();
-    if (_formKey.currentState?.validate() ?? false) {
-      controller.updatePassengerProfile(
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
-      );
-      Get.back();
-    }
   }
 
   @override
@@ -160,6 +150,53 @@ class _EditPassengerProfilePageState extends State<EditPassengerProfilePage>
                     ],
                   ),
 
+                  // Identity Verification Lock Notice Banner
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(14.w),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(
+                        color: const Color(0xFFBBF7D0),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          CupertinoIcons.checkmark_shield_fill,
+                          color: Color(0xFF16A34A),
+                          size: 22,
+                        ),
+                        10.horizontalSpace,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Identity Details Protected',
+                                style: AppTextStyle.text14Semibold.copyWith(
+                                  color: const Color(0xFF15803D),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              4.verticalSpace,
+                              Text(
+                                'For community trust and safety across RideLink, personal identity details (Full Name, Phone Number, Email) are verified and locked. To update these details, please open a ticket with our support team.',
+                                style: AppTextStyle.text12Regular.copyWith(
+                                  color: const Color(0xFF166534),
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   16.verticalSpace,
 
                   // Profile Photo Header Card
@@ -207,22 +244,11 @@ class _EditPassengerProfilePageState extends State<EditPassengerProfilePage>
                           ),
                         ),
                         3.verticalSpace,
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.verified,
-                              size: 14.sp,
-                              color: AppColors.primaryColor,
-                            ),
-                            4.horizontalSpace,
-                            Text(
-                              'Verified Passenger Account',
-                              style: AppTextStyle.text12Medium.copyWith(
-                                color: AppColors.secondaryTextColor,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'Passenger Account',
+                          style: AppTextStyle.text12Medium.copyWith(
+                            color: AppColors.secondaryTextColor,
+                          ),
                         ),
                       ],
                     ),
@@ -264,72 +290,107 @@ class _EditPassengerProfilePageState extends State<EditPassengerProfilePage>
                       ),
                       18.verticalSpace,
 
-                      // Full Name
-                      AppTextFormField(
-                        controller: _nameController,
-                        label: 'Full Name',
-                        hintText: 'Enter your full name',
-                        keyboardType: TextInputType.name,
-                        prefix: Icon(
-                          CupertinoIcons.person,
-                          size: 18.sp,
-                          color: AppColors.secondaryTextColor,
+                      // Full Name (Read-Only)
+                      GestureDetector(
+                        onTap: () {
+                          AppSnackBar.info(
+                            message: 'Full name is verified and locked. Please contact support to request an update.',
+                          );
+                        },
+                        child: AppTextFormField(
+                          controller: _nameController,
+                          label: 'Full Name',
+                          hintText: 'Enter your full name',
+                          readOnly: true,
+                          prefix: Icon(
+                            CupertinoIcons.person,
+                            size: 18.sp,
+                            color: AppColors.secondaryTextColor,
+                          ),
+                          suffixIcon: Icon(
+                            CupertinoIcons.lock_fill,
+                            size: 16.sp,
+                            color: AppColors.secondaryTextColor,
+                          ),
                         ),
-                        validator: (value) => nameValidator(value),
                       ),
 
                       16.verticalSpace,
 
-                      // Email Address
-                      AppTextFormField(
-                        controller: _emailController,
-                        label: 'Email Address',
-                        hintText: 'name@example.com',
-                        keyboardType: TextInputType.emailAddress,
-                        prefix: Icon(
-                          CupertinoIcons.mail,
-                          size: 18.sp,
-                          color: AppColors.secondaryTextColor,
+                      // Email Address (Read-Only)
+                      GestureDetector(
+                        onTap: () {
+                          AppSnackBar.info(
+                            message: 'Email address is linked to your login credentials and locked.',
+                          );
+                        },
+                        child: AppTextFormField(
+                          controller: _emailController,
+                          label: 'Email Address',
+                          hintText: 'name@example.com',
+                          readOnly: true,
+                          prefix: Icon(
+                            CupertinoIcons.mail,
+                            size: 18.sp,
+                            color: AppColors.secondaryTextColor,
+                          ),
+                          suffixIcon: Icon(
+                            CupertinoIcons.lock_fill,
+                            size: 16.sp,
+                            color: AppColors.secondaryTextColor,
+                          ),
                         ),
-                        validator: (value) => emailValidator(value),
-                        readOnly: true,
                       ),
 
                       16.verticalSpace,
 
-                      // Phone Number
-                      AppTextFormField(
-                        controller: _phoneController,
-                        label: 'Phone Number',
-                        hintText: '04xx xxx xxx',
-                        keyboardType: TextInputType.phone,
-                        prefix: Icon(
-                          CupertinoIcons.phone,
-                          size: 18.sp,
-                          color: AppColors.secondaryTextColor,
+                      // Phone Number (Read-Only)
+                      GestureDetector(
+                        onTap: () {
+                          AppSnackBar.info(
+                            message: 'Phone number is verified and locked. Please contact support to request an update.',
+                          );
+                        },
+                        child: AppTextFormField(
+                          controller: _phoneController,
+                          label: 'Phone Number',
+                          hintText: '469 712 617',
+                          readOnly: true,
+                          prefix: AustralianPhonePrefix(
+                            icon: Icon(
+                              CupertinoIcons.phone,
+                              size: 18.sp,
+                              color: AppColors.secondaryTextColor,
+                            ),
+                          ),
+                          suffixIcon: Icon(
+                            CupertinoIcons.lock_fill,
+                            size: 16.sp,
+                            color: AppColors.secondaryTextColor,
+                          ),
                         ),
-                        validator: (value) => phoneValidator(value, 10),
                       ),
                     ],
                   ),
 
                   24.verticalSpace,
 
-                  // Save Changes CTA Button
+                  // Contact Support CTA Button
                   AppButton(
-                    onPressed: _onSaveProfile,
-                    label: 'Save Changes',
-                    icon: AppAssets.checkIcon,
+                    onPressed: () {
+                      Get.toNamed(AppRoutes.passengerSupport);
+                    },
+                    label: 'Contact Support to Update',
                   ),
 
                   12.verticalSpace,
 
-                  // Cancel Button
+                  // Back Button
                   Center(
                     child: TextButton(
                       onPressed: () => Get.back(),
                       child: Text(
-                        'Cancel',
+                        'Back to Profile',
                         style: AppTextStyle.text14Medium.copyWith(
                           color: AppColors.secondaryTextColor,
                         ),

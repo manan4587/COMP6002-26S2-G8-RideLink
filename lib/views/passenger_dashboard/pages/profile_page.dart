@@ -57,28 +57,16 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Obx(
-                                  () => Text(
-                                    controller.passengerName.value.isNotEmpty
-                                        ? controller.passengerName.value
-                                        : (Preferences.userName.isNotEmpty
-                                              ? Preferences.userName
-                                              : 'N/A'),
-                                    style: AppTextStyle.text18Semibold,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: 4.w),
-                              Icon(
-                                Icons.verified,
-                                size: 16.sp,
-                                color: AppColors.primaryColor,
-                              ),
-                            ],
+                          Obx(
+                            () => Text(
+                              controller.passengerName.value.isNotEmpty
+                                  ? controller.passengerName.value
+                                  : (Preferences.userName.isNotEmpty
+                                        ? Preferences.userName
+                                        : 'N/A'),
+                              style: AppTextStyle.text18Semibold,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           SizedBox(height: 2.h),
                           Obx(
@@ -112,8 +100,8 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                           Obx(() {
                             final rating = controller.passengerRating.value;
                             final ratingStr = rating > 0
-                                ? rating.toStringAsFixed(2)
-                                : '0.0';
+                                ? rating.toStringAsFixed(1)
+                                : '5.0';
                             final trips = controller.tripsCount.value;
                             return Row(
                               children: [
@@ -511,7 +499,7 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                     borderRadius: BorderRadius.circular(12.r),
                   ),
                 ),
-                onPressed: () => Navigator.of(ctx).pop(),
+                onPressed: () => Get.back(),
                 child: const Text('Understood'),
               ),
             ),

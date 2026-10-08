@@ -234,11 +234,28 @@ class GooglePlacesService {
     return null;
   }
 
+  /// Validate that coordinates are non-zero and within valid global lat/lng ranges
+  bool isValidCoordinate(LatLng? loc) {
+    if (loc == null) return false;
+    if (loc.latitude == 0.0 && loc.longitude == 0.0) return false;
+    if (loc.latitude < -90.0 ||
+        loc.latitude > 90.0 ||
+        loc.longitude < -180.0 ||
+        loc.longitude > 180.0) {
+      return false;
+    }
+    return true;
+  }
+
   /// Fetch road route polyline from Google Routes API (v2) or Directions API
   Future<List<LatLng>> getDirectionsRoute(
     LatLng origin,
     LatLng destination,
   ) async {
+    if (!isValidCoordinate(origin) || !isValidCoordinate(destination)) {
+      return [];
+    }
+
     // 1. Try Google Routes API (v2:computeRoutes)
     try {
       final response = await _dio.post(
@@ -320,6 +337,9 @@ class GooglePlacesService {
 
   /// Interpolate smooth road corridor waypoints between origin and destination
   List<LatLng> _generateCorridorWaypoints(LatLng start, LatLng end) {
+    if (!isValidCoordinate(start) || !isValidCoordinate(end)) {
+      return [];
+    }
     const int segments = 8;
     final List<LatLng> points = [start];
     for (int i = 1; i < segments; i++) {

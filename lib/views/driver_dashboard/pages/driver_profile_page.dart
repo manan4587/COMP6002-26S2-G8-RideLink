@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/enums/verification_status.dart';
+import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
@@ -77,9 +78,22 @@ class DriverProfilePage extends GetView<DriverProfileController> {
                             ),
                             8.verticalSpace,
                             GestureDetector(
-                              onTap: () => Get.toNamed(
-                                AppRoutes.driverVerificationDocuments,
-                              ),
+                              onTap: () {
+                                final hasVehicle =
+                                    controller.vehicleNumber.value.isNotEmpty &&
+                                    controller.vehicleNumber.value != 'N/A';
+                                if (!hasVehicle) {
+                                  AppSnackBar.info(
+                                    message:
+                                        'Please add your vehicle details before proceeding to verifications.',
+                                  );
+                                  Get.toNamed(AppRoutes.vehicleRegistration);
+                                  return;
+                                }
+                                Get.toNamed(
+                                  AppRoutes.driverVerificationDocuments,
+                                );
+                              },
                               child: Text(
                                 'Check Verification Status →',
                                 style: AppTextStyle.text12Semibold.copyWith(
@@ -96,16 +110,24 @@ class DriverProfilePage extends GetView<DriverProfileController> {
               }),
 
               // Driver Header Card
-              Container(
-                padding: EdgeInsets.all(14.w),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(20.r),
-                  border: Border.all(color: AppColors.borderColor),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              InkWell(
+                onTap: () {
+                  AppSnackBar.info(
+                    message:
+                        'Driver profile identity details are verified and locked. Contact support to request updates.',
+                  );
+                },
+                borderRadius: BorderRadius.circular(20.r),
+                child: Container(
+                  padding: EdgeInsets.all(14.w),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(color: AppColors.borderColor),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     Obx(
                       () => CircleAvatar(
                         radius: 28.r,
@@ -196,8 +218,8 @@ class DriverProfilePage extends GetView<DriverProfileController> {
                           Obx(() {
                             final rating = controller.driverRating.value;
                             final ratingStr = rating > 0
-                                ? rating.toStringAsFixed(2)
-                                : '0.0';
+                                ? rating.toStringAsFixed(1)
+                                : '5.0';
                             final trips = controller.driverTripsCount.value;
                             return Row(
                               children: [
@@ -225,6 +247,7 @@ class DriverProfilePage extends GetView<DriverProfileController> {
                     ),
                   ],
                 ),
+              ),
               ),
 
               SizedBox(height: 18.h),
@@ -384,8 +407,20 @@ class DriverProfilePage extends GetView<DriverProfileController> {
                   icon: CupertinoIcons.doc_checkmark,
                   title: 'Verification Documents',
                   subtitle: subtitle,
-                  onTap: () =>
-                      Get.toNamed(AppRoutes.driverVerificationDocuments),
+                  onTap: () {
+                    final hasVehicle =
+                        controller.vehicleNumber.value.isNotEmpty &&
+                        controller.vehicleNumber.value != 'N/A';
+                    if (!hasVehicle) {
+                      AppSnackBar.info(
+                        message:
+                            'Please add your vehicle details before proceeding to verifications.',
+                      );
+                      Get.toNamed(AppRoutes.vehicleRegistration);
+                      return;
+                    }
+                    Get.toNamed(AppRoutes.driverVerificationDocuments);
+                  },
                 );
               }),
               _DriverSettingsTile(
@@ -596,7 +631,7 @@ class DriverProfilePage extends GetView<DriverProfileController> {
                     borderRadius: BorderRadius.circular(12.r),
                   ),
                 ),
-                onPressed: () => Navigator.of(ctx).pop(),
+                onPressed: () => Get.back(),
                 child: const Text('Understood'),
               ),
             ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/simmer_utils.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
@@ -78,25 +79,82 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                 ),
               ),
 
-              SizedBox(height: 16.h),
+              SizedBox(height: 14.h),
+
+              // Search Input Field
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(14.r),
+                  border: Border.all(color: AppColors.borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  onChanged: (val) =>
+                      controller.tripsSearchQuery.value = val.trim(),
+                  decoration: InputDecoration(
+                    hintText:
+                        'Search trips by destination, route, or driver...',
+                    hintStyle: AppTextStyle.text12Regular.copyWith(
+                      color: AppColors.secondaryTextColor,
+                    ),
+                    prefixIcon: const Icon(
+                      CupertinoIcons.search,
+                      size: 18,
+                      color: Color(0xFF64748B),
+                    ),
+                    suffixIcon: Obx(() {
+                      if (controller.tripsSearchQuery.value.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return IconButton(
+                        icon: const Icon(Icons.clear,
+                            size: 16, color: Color(0xFF94A3B8)),
+                        onPressed: () =>
+                            controller.tripsSearchQuery.value = '',
+                      );
+                    }),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 14.w,
+                      vertical: 12.h,
+                    ),
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 14.h),
 
               // Active Tab Content View
               Expanded(
-                child: Obx(() {
-                  if (controller.isLoadingBookings.value) {
-                    return _buildShimmerTripList();
-                  }
-                  switch (controller.selectedTripsTab.value) {
-                    case 0:
-                      return _buildPendingRequestsTab(context);
-                    case 1:
-                      return _buildConfirmedTripsTab(context);
-                    case 2:
-                      return _buildCompletedTripsTab(context);
-                    default:
-                      return _buildConfirmedTripsTab(context);
-                  }
-                }),
+                child: RefreshIndicator(
+                  color: AppColors.primaryColor,
+                  backgroundColor: Colors.white,
+                  onRefresh: () async {
+                    await controller.reloadTrips();
+                  },
+                  child: Obx(() {
+                    if (controller.isLoadingBookings.value) {
+                      return _buildShimmerTripList();
+                    }
+                    switch (controller.selectedTripsTab.value) {
+                      case 0:
+                        return _buildPendingRequestsTab(context);
+                      case 1:
+                        return _buildConfirmedTripsTab(context);
+                      case 2:
+                        return _buildCompletedTripsTab(context);
+                      default:
+                        return _buildConfirmedTripsTab(context);
+                    }
+                  }),
+                ),
               ),
             ],
           ),
@@ -165,62 +223,81 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
 
   // TAB 0: Pending Requests View
   Widget _buildPendingRequestsTab(BuildContext context) {
-    if (controller.pendingRequests.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(18.r),
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFFBEB),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.access_time_rounded,
-                size: 40.sp,
-                color: const Color(0xFFF59E0B),
-              ),
-            ),
-            14.verticalSpace,
-            Text(
-              'No Pending Requests',
-              style: AppTextStyle.text16Semibold.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            6.verticalSpace,
-            Text(
-              'When you request a ride, it will appear here\nawaiting driver confirmation.',
-              style: AppTextStyle.text12Regular.copyWith(
-                color: AppColors.secondaryTextColor,
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            18.verticalSpace,
-            ElevatedButton(
-              onPressed: () => controller.switchTab(1), // Switch to Search tab
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryColor,
-                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+    final query = controller.tripsSearchQuery.value.toLowerCase().trim();
+    final items = controller.pendingRequests.where((p) {
+      if (query.isEmpty) return true;
+      return p.ride.origin.toLowerCase().contains(query) ||
+          p.ride.destination.toLowerCase().contains(query) ||
+          p.ride.driverName.toLowerCase().contains(query) ||
+          p.passengerLabel.toLowerCase().contains(query);
+    }).toList();
+
+    if (items.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: 60.h),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(18.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFFBEB),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.access_time_rounded,
+                    size: 40.sp,
+                    color: const Color(0xFFF59E0B),
+                  ),
                 ),
-              ),
-              child: Text('Search Rides', style: AppTextStyle.buttonText),
+                14.verticalSpace,
+                Text(
+                  query.isNotEmpty
+                      ? 'No Matching Requests'
+                      : 'No Pending Requests',
+                  style: AppTextStyle.text16Semibold.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                6.verticalSpace,
+                Text(
+                  query.isNotEmpty
+                      ? 'No pending rides match "$query".'
+                      : 'When you request a ride, it will appear here\nawaiting driver confirmation.',
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: AppColors.secondaryTextColor,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                18.verticalSpace,
+                ElevatedButton(
+                  onPressed: () => controller.switchTab(1), // Switch to Search tab
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryColor,
+                    padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                  ),
+                  child: Text('Search Rides', style: AppTextStyle.buttonText),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
     return ListView.separated(
-      physics: const BouncingScrollPhysics(),
-      itemCount: controller.pendingRequests.length,
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: items.length,
       separatorBuilder: (_, _) => SizedBox(height: 12.h),
       itemBuilder: (context, index) {
-        final pending = controller.pendingRequests[index];
+        final pending = items[index];
         return _PendingRequestCard(
           pending: pending,
           onCancel: () => _confirmCancelPendingRequest(context, pending),
@@ -232,60 +309,82 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
 
   // TAB 1: Confirmed Trips View
   Widget _buildConfirmedTripsTab(BuildContext context) {
-    if (controller.myBookings.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(18.r),
-              decoration: const BoxDecoration(
-                color: Color(0xFFEFF6FF),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                CupertinoIcons.car_detailed,
-                size: 40.sp,
-                color: AppColors.primaryColor,
-              ),
-            ),
-            14.verticalSpace,
-            Text(
-              'No Confirmed Trips',
-              style: AppTextStyle.text16Semibold.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            6.verticalSpace,
-            Text(
-              'You have no active confirmed rides right now.',
-              style: AppTextStyle.text12Regular.copyWith(
-                color: AppColors.secondaryTextColor,
-              ),
-            ),
-            18.verticalSpace,
-            ElevatedButton(
-              onPressed: () => controller.switchTab(1),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryColor,
-                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+    final query = controller.tripsSearchQuery.value.toLowerCase().trim();
+    final items = controller.myBookings.where((b) {
+      if (query.isEmpty) return true;
+      return b.ride.origin.toLowerCase().contains(query) ||
+          b.ride.destination.toLowerCase().contains(query) ||
+          b.ride.driverName.toLowerCase().contains(query) ||
+          b.ride.carPlate.toLowerCase().contains(query);
+    }).toList();
+
+    if (items.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics()),
+        children: [
+          SizedBox(height: 60.h),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(18.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEFF6FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.car_detailed,
+                    size: 40.sp,
+                    color: AppColors.primaryColor,
+                  ),
                 ),
-              ),
-              child: Text('Book a Ride', style: AppTextStyle.buttonText),
+                14.verticalSpace,
+                Text(
+                  query.isNotEmpty
+                      ? 'No Matching Confirmed Trips'
+                      : 'No Confirmed Trips',
+                  style: AppTextStyle.text16Semibold.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                6.verticalSpace,
+                Text(
+                  query.isNotEmpty
+                      ? 'No confirmed trips match "$query".'
+                      : 'You have no active confirmed rides right now.',
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: AppColors.secondaryTextColor,
+                  ),
+                ),
+                18.verticalSpace,
+                ElevatedButton(
+                  onPressed: () => controller.switchTab(1),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryColor,
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                  ),
+                  child: Text('Book a Ride', style: AppTextStyle.buttonText),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
     return ListView.separated(
-      physics: const BouncingScrollPhysics(),
-      itemCount: controller.myBookings.length,
+      physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics()),
+      itemCount: items.length,
       separatorBuilder: (_, _) => SizedBox(height: 12.h),
       itemBuilder: (context, index) {
-        final booking = controller.myBookings[index];
+        final booking = items[index];
         return _ConfirmedTripCard(
           booking: booking,
           onTrack: () {
@@ -293,6 +392,23 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
             Get.toNamed(AppRoutes.liveTripTracking);
           },
           onChat: () {
+            final rideStatus = booking.ride.status.toLowerCase();
+            final bookStatus = booking.status.toLowerCase();
+            final isStarted = rideStatus == 'started' ||
+                rideStatus == 'in_progress' ||
+                rideStatus == 'onboard' ||
+                rideStatus == 'active' ||
+                bookStatus == 'started' ||
+                bookStatus == 'in_progress' ||
+                bookStatus == 'onboard' ||
+                bookStatus == 'active';
+            if (!isStarted) {
+              AppSnackBar.info(
+                message:
+                    'Chat will be available once the driver starts the ride.',
+              );
+              return;
+            }
             Get.toNamed(
               AppRoutes.rideChat,
               arguments: {
@@ -312,48 +428,69 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
 
   // TAB 2: Completed / Past Trips View
   Widget _buildCompletedTripsTab(BuildContext context) {
-    if (controller.completedTrips.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(18.r),
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFFBEB),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.star_border_rounded,
-                size: 40.sp,
-                color: const Color(0xFFF59E0B),
-              ),
+    final query = controller.tripsSearchQuery.value.toLowerCase().trim();
+    final items = controller.completedTrips.where((c) {
+      if (query.isEmpty) return true;
+      return c.route.toLowerCase().contains(query) ||
+          c.driverName.toLowerCase().contains(query) ||
+          c.carModel.toLowerCase().contains(query) ||
+          c.carPlate.toLowerCase().contains(query);
+    }).toList();
+
+    if (items.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics()),
+        children: [
+          SizedBox(height: 60.h),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(18.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFFBEB),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.star_border_rounded,
+                    size: 40.sp,
+                    color: const Color(0xFFF59E0B),
+                  ),
+                ),
+                14.verticalSpace,
+                Text(
+                  query.isNotEmpty
+                      ? 'No Matching Past Trips'
+                      : 'No Past Trips',
+                  style: AppTextStyle.text16Semibold.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                6.verticalSpace,
+                Text(
+                  query.isNotEmpty
+                      ? 'No completed trips match "$query".'
+                      : 'Your completed carpools will be archived here.',
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: AppColors.secondaryTextColor,
+                  ),
+                ),
+              ],
             ),
-            14.verticalSpace,
-            Text(
-              'No Past Trips',
-              style: AppTextStyle.text16Semibold.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            6.verticalSpace,
-            Text(
-              'Your completed carpools will be archived here.',
-              style: AppTextStyle.text12Regular.copyWith(
-                color: AppColors.secondaryTextColor,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
     return ListView.separated(
-      physics: const BouncingScrollPhysics(),
-      itemCount: controller.completedTrips.length,
+      physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics()),
+      itemCount: items.length,
       separatorBuilder: (_, _) => SizedBox(height: 12.h),
       itemBuilder: (context, index) {
-        final trip = controller.completedTrips[index];
+        final trip = items[index];
         return _CompletedTripCard(
           trip: trip,
           onRateDriver: () => _showRateDriverBottomSheet(context, trip),
@@ -499,7 +636,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
+                      onPressed: () => Get.back(),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 13.h),
                         side: const BorderSide(color: AppColors.borderColor),
@@ -519,7 +656,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.of(ctx).pop();
+                        Get.back();
                         controller.cancelPendingRequest(
                           request,
                           reason: selectedReason,
@@ -697,7 +834,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
+                      onPressed: () => Get.back(),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 13.h),
                         side: const BorderSide(color: AppColors.borderColor),
@@ -717,7 +854,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.of(ctx).pop();
+                        Get.back();
                         controller.cancelBooking(
                           booking,
                           reason: selectedReason,
@@ -989,13 +1126,12 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                         reviewController.text.trim(),
                     ].join(' • ');
 
+                    Get.back();
                     controller.rateDriver(
                       tripId: trip.id,
                       rating: ratingValue.value,
                       comment: combinedComment,
                     );
-
-                    Navigator.of(ctx).pop();
                   },
                   child: Text(
                     'Submit Rating',

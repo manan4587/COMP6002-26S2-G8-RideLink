@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_assets.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/preferences.dart';
+import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/auth_flow/auth_controller.dart';
 import 'package:ridelink/widgets/app_border_container.dart';
@@ -30,7 +32,13 @@ class EmailVerificationView extends GetView<AuthController> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    onPressed: () => Get.back(),
+                    onPressed: () {
+                      if (Get.key.currentState?.canPop() == true) {
+                        Get.back();
+                      } else {
+                        Get.offAllNamed(AppRoutes.getStartedView);
+                      }
+                    },
                     icon: Icon(
                       CupertinoIcons.back,
                       size: 22.sp,
@@ -138,7 +146,9 @@ class EmailVerificationView extends GetView<AuthController> {
                         child: Text(
                           controller.emailController.text.isNotEmpty
                               ? controller.emailController.text
-                              : 'your email address',
+                              : (Preferences.userEmail.isNotEmpty
+                                  ? Preferences.userEmail
+                                  : (controller.currentUser?.email ?? 'your email address')),
                           style: AppTextStyle.text14Semibold.copyWith(
                             color: AppColors.primaryColor,
                             fontWeight: FontWeight.w600,
@@ -359,25 +369,28 @@ class EmailVerificationView extends GetView<AuthController> {
 
                 14.verticalSpace,
 
-                // Change Email Link
+                // Change Email / Sign In Different Account Link
                 GestureDetector(
-                  onTap: () => Get.back(),
+                  onTap: () async {
+                    await controller.signOut();
+                    Get.offAllNamed(AppRoutes.getStartedView);
+                  },
                   child: Padding(
                     padding: EdgeInsets.symmetric(vertical: 6.h),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.edit_outlined,
-                          size: 14.sp,
+                          Icons.swap_horiz_rounded,
+                          size: 16.sp,
                           color: AppColors.secondaryTextColor,
                         ),
                         6.horizontalSpace,
                         Text(
-                          'Change email address',
+                          'Use a different account / Change email',
                           style: AppTextStyle.text12Medium.copyWith(
                             color: AppColors.secondaryTextColor,
-
+                            decoration: TextDecoration.underline,
                             decorationColor: AppColors.secondaryTextColor,
                           ),
                         ),

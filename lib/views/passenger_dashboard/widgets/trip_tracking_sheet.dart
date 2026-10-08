@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
@@ -201,6 +202,18 @@ class TripTrackingSheet extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () {
+                    final status = booking.ride.status.toLowerCase();
+                    final isStarted = status == 'started' ||
+                        status == 'in_progress' ||
+                        status == 'onboard' ||
+                        status == 'active';
+                    if (!isStarted) {
+                      AppSnackBar.info(
+                        message:
+                            'Chat will be available once the driver starts the ride.',
+                      );
+                      return;
+                    }
                     Get.back();
                     Get.toNamed(
                       AppRoutes.rideChat,

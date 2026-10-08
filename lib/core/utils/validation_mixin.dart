@@ -1,35 +1,58 @@
-mixin ValidationMixin {
-  String? phoneValidator(String? value, int phoneLength) {
-    RegExp regExp = RegExp(r'^[+]*[(]?[0-9]{1,4}[)]?[-\s./0-9]*$');
-    bool isMatched = value != null ? regExp.hasMatch(value) : false;
+import 'package:ridelink/core/utils/australian_phone_helper.dart';
+import 'package:ridelink/core/utils/disposable_email_checker.dart';
 
-    if (value == null || value.isEmpty) {
+mixin ValidationMixin {
+  String? phoneValidator(String? value, [int phoneLength = 9]) {
+    if (value == null || value.trim().isEmpty) {
       return 'Please enter your mobile number';
-    } else if (value.length < phoneLength) {
-      return 'Please enter a valid mobile number';
-    } else if (isMatched) {
-      return null;
-    } else {
-      return 'Please enter a valid mobile number';
     }
+
+    if (AustralianPhoneHelper.containsPlus(value)) {
+      return "'+' is not allowed. +61 is applied by default.";
+    }
+
+    if (AustralianPhoneHelper.isIndianNumber(value)) {
+      return "Numbers starting with 91 are not allowed. Australia (+61) only.";
+    }
+
+    String digits = AustralianPhoneHelper.cleanDigits(value);
+    if (digits.startsWith('0')) {
+      digits = digits.replaceFirst(RegExp(r'^0+'), '');
+    }
+
+    if (digits.length < 9) {
+      return 'Mobile number must be 9 digits (e.g. 469 712 617)';
+    }
+    if (digits.length > 9) {
+      return 'Mobile number cannot exceed 9 digits (excluding +61)';
+    }
+
+    if (!digits.startsWith('4')) {
+      return 'Australian mobile number must start with 4';
+    }
+
+    return null;
   }
 
   bool _isEmailValid(String? email) {
-    Pattern pattern = r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$';
+    Pattern pattern =
+        r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$';
     RegExp regex = RegExp(pattern.toString());
     return email != null ? regex.hasMatch(email) : false;
   }
 
   String? emailValidator(String? email) {
-    if (email?.isNotEmpty ?? false) {
-      if (_isEmailValid(email)) {
-        return null;
-      } else {
-        return 'Please enter a valid email address';
-      }
-    } else {
+    if (email == null || email.trim().isEmpty) {
       return 'Please enter your email address';
     }
+    final cleanEmail = email.trim();
+    if (!_isEmailValid(cleanEmail)) {
+      return 'Please enter a valid email address';
+    }
+    if (DisposableEmailChecker.isDisposable(cleanEmail)) {
+      return 'Temporary or disposable email addresses are not allowed.';
+    }
+    return null;
   }
 
   String? passwordValidator(String? password) {
@@ -137,7 +160,10 @@ mixin ValidationMixin {
     }
   }
 
-  String? confirmPasswordValidatorForForgotPassword(String? value, String password) {
+  String? confirmPasswordValidatorForForgotPassword(
+    String? value,
+    String password,
+  ) {
     if (value?.isNotEmpty ?? false) {
       if (password == value) {
         return null;

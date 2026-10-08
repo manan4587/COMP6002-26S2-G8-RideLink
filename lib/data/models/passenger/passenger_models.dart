@@ -40,6 +40,7 @@ class RideModel {
   final String searchedPickupAddress;
   final String searchedDropAddress;
   final String status;
+  final DateTime? departureDateTime;
 
   RideModel({
     required this.id,
@@ -68,8 +69,8 @@ class RideModel {
     this.stops = const [],
     this.matchPercentage = 95,
     this.detourMinutes = 4,
-    this.pickupSuggestion = 'Shell Station, Landsdale',
-    this.dropOffPlan = 'Landsdale → Curtin University',
+    this.pickupSuggestion = '',
+    this.dropOffPlan = '',
     this.isEnRouteMatch = false,
     this.enRouteDetourKm = 0.0,
     this.enRouteSubFare,
@@ -80,6 +81,7 @@ class RideModel {
     this.searchedPickupAddress = '',
     this.searchedDropAddress = '',
     this.status = 'scheduled',
+    this.departureDateTime,
   });
 
   RideModel copyWith({
@@ -121,6 +123,7 @@ class RideModel {
     String? searchedPickupAddress,
     String? searchedDropAddress,
     String? status,
+    DateTime? departureDateTime,
   }) {
     return RideModel(
       id: id ?? this.id,
@@ -161,6 +164,7 @@ class RideModel {
       searchedPickupAddress: searchedPickupAddress ?? this.searchedPickupAddress,
       searchedDropAddress: searchedDropAddress ?? this.searchedDropAddress,
       status: status ?? this.status,
+      departureDateTime: departureDateTime ?? this.departureDateTime,
     );
   }
 }
@@ -195,6 +199,7 @@ class BookingModel {
   final double totalPrice;
   final String status; // 'Confirmed', 'Upcoming', 'Completed', 'Cancelled'
   final String bookingDate;
+  final String pickupOtp;
 
   BookingModel({
     required this.id,
@@ -204,6 +209,7 @@ class BookingModel {
     required this.totalPrice,
     required this.status,
     required this.bookingDate,
+    this.pickupOtp = '1234',
   });
 }
 
@@ -240,12 +246,16 @@ class SavedLocationModel {
   final String title;
   final String address;
   final String category; // 'home', 'work', 'university', 'gym', 'custom'
+  final double latitude;
+  final double longitude;
 
   SavedLocationModel({
     required this.id,
     required this.title,
     required this.address,
     required this.category,
+    this.latitude = 0.0,
+    this.longitude = 0.0,
   });
 }
 
@@ -346,35 +356,93 @@ class CommunityModel {
   final String id;
   final String name;
   final String routeSummary; // e.g. 'Landsdale → Curtin University'
+  final String pickupLocation;
+  final String dropOffLocation;
+  final String fixedLocationType; // 'dropoff' | 'pickup' | 'both' | 'none'
+  final bool isFixedPickup;
+  final bool isFixedDropOff;
+  final String fixedLocation;
   final String commonTime; // e.g. '7:30 AM - 9:00 AM'
+  final String nextRideTime; // e.g. '22/10/2026 08:00 AM'
+  final String recurringOption; // e.g. 'Weekdays (Mon-Fri)'
+  final List<String> recurringDays; // e.g. ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
   final String description;
   final RxInt passengersCount;
   final RxInt driversCount;
-  final String nextRideTime; // e.g. 'Tomorrow 8:00 AM'
   final int nextRideSeatsOpen; // e.g. 3
   final RxBool isJoined;
   final IconData icon;
+  final String iconType;
+  final String category;
+  final String coverImageUrl;
+  final bool isActive;
+  final List<String> memberIds;
+  final List<String> passengerMemberIds;
+  final List<String> driverMemberIds;
 
   CommunityModel({
     required this.id,
     required this.name,
     required this.routeSummary,
+    this.pickupLocation = '',
+    this.dropOffLocation = '',
+    this.fixedLocationType = 'none',
+    this.isFixedPickup = false,
+    this.isFixedDropOff = false,
+    this.fixedLocation = '',
     required this.commonTime,
     required this.description,
     required int passengersCount,
     required int driversCount,
     required this.nextRideTime,
     required this.nextRideSeatsOpen,
+    this.recurringOption = 'Weekdays (Mon-Fri)',
+    this.recurringDays = const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
     bool isJoined = false,
-    this.icon = Icons.school_outlined,
+    this.icon = Icons.home_outlined,
+    this.iconType = 'home',
+    this.category = 'corridor',
+    this.coverImageUrl = '',
+    this.isActive = true,
+    this.memberIds = const [],
+    this.passengerMemberIds = const [],
+    this.driverMemberIds = const [],
   })  : passengersCount = passengersCount.obs,
         driversCount = driversCount.obs,
         isJoined = isJoined.obs;
+
+  bool get hasFixedTerminal =>
+      isFixedDropOff || isFixedPickup || fixedLocationType != 'none';
+
+  String get fixedTerminalLabel {
+    if (fixedLocation.isNotEmpty) return fixedLocation;
+    if (isFixedDropOff || fixedLocationType == 'dropoff') {
+      return dropOffLocation.isNotEmpty ? dropOffLocation : routeSummary;
+    }
+    if (isFixedPickup || fixedLocationType == 'pickup') {
+      return pickupLocation.isNotEmpty ? pickupLocation : routeSummary;
+    }
+    return '';
+  }
 
   static IconData parseIcon(dynamic iconData) {
     if (iconData is IconData) return iconData;
     if (iconData is String) {
       switch (iconData.toLowerCase().trim()) {
+        case 'home':
+        case 'residential':
+        case 'suburb':
+        case 'neighbourhood':
+        case 'house':
+        case 'residence':
+          return Icons.home_outlined;
+        case 'stadium':
+        case 'arena':
+        case 'sports':
+        case 'events':
+        case 'optus':
+        case 'match':
+          return Icons.stadium_outlined;
         case 'school':
         case 'university':
         case 'campus':
@@ -393,12 +461,77 @@ class CommunityModel {
         case 'commute':
         case 'drive':
         case 'route':
-          return Icons.directions_car_outlined;
+          // Replaced car icon with home per requirement
+          return Icons.home_outlined;
         default:
-          return Icons.groups_outlined;
+          return Icons.home_outlined;
       }
     }
-    return Icons.groups_outlined;
+    return Icons.home_outlined;
+  }
+
+  static String parseIconType(dynamic iconData) {
+    if (iconData is String) {
+      final val = iconData.toLowerCase().trim();
+      if (val == 'home' || val == 'residential' || val == 'suburb' || val == 'house' || val == 'residence') return 'home';
+      if (val == 'stadium' || val == 'arena' || val == 'sports' || val == 'events' || val == 'optus' || val == 'match') return 'stadium';
+      if (val == 'school' || val == 'university' || val == 'campus' || val == 'education') return 'school';
+      if (val == 'business' || val == 'work' || val == 'office' || val == 'cbd') return 'business';
+      if (val == 'hospital' || val == 'medical' || val == 'health') return 'hospital';
+      if (val == 'car') return 'home'; // car replaced by home
+    }
+    return 'home';
+  }
+
+  Color get iconColor {
+    switch (iconType) {
+      case 'home':
+        return const Color(0xFFD97706); // Amber
+      case 'stadium':
+        return const Color(0xFF059669); // Emerald
+      case 'school':
+        return const Color(0xFF4F46E5); // Indigo
+      case 'business':
+        return const Color(0xFF2563EB); // Blue
+      case 'hospital':
+        return const Color(0xFFDC2626); // Red
+      default:
+        return const Color(0xFFD97706);
+    }
+  }
+
+  Color get iconBgColor {
+    switch (iconType) {
+      case 'home':
+        return const Color(0xFFFEF3C7); // Amber 100
+      case 'stadium':
+        return const Color(0xFFD1FAE5); // Emerald 100
+      case 'school':
+        return const Color(0xFFEEF2FF); // Indigo 50
+      case 'business':
+        return const Color(0xFFEFF6FF); // Blue 50
+      case 'hospital':
+        return const Color(0xFFFEE2E2); // Red 100
+      default:
+        return const Color(0xFFFEF3C7);
+    }
+  }
+
+  String get categoryLabel {
+    switch (iconType) {
+      case 'home':
+        return 'Residential';
+      case 'stadium':
+        return 'Stadium & Events';
+      case 'school':
+        return 'Campus & Uni';
+      case 'business':
+        return 'CBD & Work';
+      case 'hospital':
+        return 'Healthcare';
+      default:
+        return 'Community';
+    }
   }
 
   factory CommunityModel.fromMap(
@@ -429,32 +562,76 @@ class CommunityModel {
     final rawDrivers = (data['driversCount'] as num?)?.toInt() ??
         driverMemberIds.length;
 
+    final rawIcon = data['icon'];
+    final rawFixedType = data['fixedLocationType']?.toString().toLowerCase().trim() ?? 'none';
+    final isFixedDrop = data['isFixedDropOff'] == true ||
+        rawFixedType == 'dropoff' ||
+        rawFixedType == 'both';
+    final isFixedPick = data['isFixedPickup'] == true ||
+        rawFixedType == 'pickup' ||
+        rawFixedType == 'both';
+
+    final recurringDaysList = (data['recurringDays'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
     return CommunityModel(
       id: id,
       name: data['name']?.toString() ?? '',
       routeSummary: data['routeSummary']?.toString() ?? '',
-      commonTime: data['commonTime']?.toString() ?? '8:00 AM - 9:30 AM',
+      pickupLocation: data['pickupLocation']?.toString() ?? '',
+      dropOffLocation: data['dropOffLocation']?.toString() ?? '',
+      fixedLocationType: rawFixedType,
+      isFixedPickup: isFixedPick,
+      isFixedDropOff: isFixedDrop,
+      fixedLocation: data['fixedLocation']?.toString() ?? '',
+      commonTime: data['commonTime']?.toString() ?? '7:30 AM - 9:00 AM',
+      nextRideTime: data['nextRideTime']?.toString() ?? 'Tomorrow 8:00 AM',
+      recurringOption: data['recurringOption']?.toString() ?? 'Weekdays (Mon-Fri)',
+      recurringDays: recurringDaysList,
       description: data['description']?.toString() ?? '',
       passengersCount: rawPassengers < 0 ? 0 : rawPassengers,
       driversCount: rawDrivers < 0 ? 0 : rawDrivers,
-      nextRideTime: data['nextRideTime']?.toString() ?? 'Tomorrow 8:00 AM',
       nextRideSeatsOpen: (data['nextRideSeatsOpen'] as num?)?.toInt() ?? 3,
       isJoined: isUserJoined,
-      icon: parseIcon(data['icon']),
+      icon: parseIcon(rawIcon),
+      iconType: parseIconType(rawIcon),
+      category: data['category']?.toString() ?? 'corridor',
+      coverImageUrl: data['coverImageUrl']?.toString() ?? '',
+      isActive: data['isActive'] != false,
+      memberIds: memberIds,
+      passengerMemberIds: passengerMemberIds,
+      driverMemberIds: driverMemberIds,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'name': name,
       'routeSummary': routeSummary,
+      'pickupLocation': pickupLocation,
+      'dropOffLocation': dropOffLocation,
+      'fixedLocationType': fixedLocationType,
+      'isFixedPickup': isFixedPickup,
+      'isFixedDropOff': isFixedDropOff,
+      'fixedLocation': fixedLocation,
       'commonTime': commonTime,
+      'nextRideTime': nextRideTime,
+      'recurringOption': recurringOption,
+      'recurringDays': recurringDays,
       'description': description,
       'passengersCount': passengersCount.value,
       'driversCount': driversCount.value,
-      'nextRideTime': nextRideTime,
       'nextRideSeatsOpen': nextRideSeatsOpen,
-      'icon': 'school',
+      'icon': iconType,
+      'category': category,
+      'coverImageUrl': coverImageUrl,
+      'isActive': isActive,
+      'memberIds': memberIds,
+      'passengerMemberIds': passengerMemberIds,
+      'driverMemberIds': driverMemberIds,
     };
   }
 }

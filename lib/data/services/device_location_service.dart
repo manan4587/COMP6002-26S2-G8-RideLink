@@ -5,8 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/services/notification_service.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 
 enum LocationCheckResult { granted, serviceDisabled, denied, deniedForever }
@@ -55,7 +57,8 @@ class DeviceLocationService {
         activityType: ActivityType.automotiveNavigation,
         distanceFilter: distanceFilter,
         pauseLocationUpdatesAutomatically: false,
-        showBackgroundLocationIndicator: false,
+        showBackgroundLocationIndicator: true,
+        allowBackgroundLocationUpdates: true,
         timeLimit: timeLimit,
       );
     } else {
@@ -82,6 +85,9 @@ class DeviceLocationService {
 
   Future<LocationCheckResult> _performPermissionCheck() async {
     try {
+      // Actively request notification permissions alongside location
+      NotificationService.instance.init().catchError((_) {});
+
       // 1. Check current permission status first
       LocationPermission permission = await Geolocator.checkPermission();
 
@@ -284,7 +290,7 @@ class DeviceLocationService {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(sheetCtx).pop(),
+                    onPressed: () => Get.back(),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 13.h),
                       side: const BorderSide(color: AppColors.borderColor),
@@ -304,7 +310,7 @@ class DeviceLocationService {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
-                      Navigator.of(sheetCtx).pop();
+                      Get.back();
                       await Geolocator.openAppSettings();
                     },
                     style: ElevatedButton.styleFrom(
@@ -407,7 +413,7 @@ class DeviceLocationService {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(sheetCtx).pop(),
+                    onPressed: () => Get.back(),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 13.h),
                       side: const BorderSide(color: AppColors.borderColor),
@@ -427,7 +433,7 @@ class DeviceLocationService {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
-                      Navigator.of(sheetCtx).pop();
+                      Get.back();
                       await Geolocator.openLocationSettings();
                     },
                     style: ElevatedButton.styleFrom(

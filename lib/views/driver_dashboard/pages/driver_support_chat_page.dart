@@ -45,8 +45,17 @@ class _DriverSupportChatPageState extends State<DriverSupportChatPage> {
       ticket = widget.ticket!;
     } else if (Get.arguments is SupportTicketModel) {
       ticket = Get.arguments as SupportTicketModel;
-    } else {
+    } else if (controller.supportTickets.isNotEmpty) {
       ticket = controller.supportTickets.first;
+    } else {
+      ticket = SupportTicketModel(
+        id: 'ticket_general',
+        subject: 'General Support',
+        category: 'Driver Account & Safety',
+        message: 'Welcome to RideLink Driver Support.',
+        status: 'Open',
+        createdAt: DateTime.now(),
+      );
     }
 
     _ticketStreamSub =

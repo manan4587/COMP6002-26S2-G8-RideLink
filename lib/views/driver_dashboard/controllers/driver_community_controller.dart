@@ -41,6 +41,10 @@ class DriverCommunityController extends GetxController {
     });
   }
 
+  Future<void> reloadCommunities() async {
+    _listenToCommunities();
+  }
+
   void clearState() {
     _communitiesSubscription?.cancel();
     _communitiesSubscription = null;
@@ -190,7 +194,7 @@ class DriverCommunityController extends GetxController {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(sheetCtx, false),
+                      onPressed: () => Get.back(result: false),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 12.h),
                         side: const BorderSide(color: AppColors.borderColor),
@@ -209,7 +213,7 @@ class DriverCommunityController extends GetxController {
                   12.horizontalSpace,
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(sheetCtx, true),
+                      onPressed: () => Get.back(result: true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFDC2626),
                         foregroundColor: Colors.white,
@@ -236,7 +240,7 @@ class DriverCommunityController extends GetxController {
       );
       shouldLeave = result == true;
     } else {
-      shouldLeave = true;
+      shouldLeave = false;
     }
 
     if (!shouldLeave) return;

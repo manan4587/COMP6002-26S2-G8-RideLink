@@ -1,8 +1,14 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:ridelink/core/services/notification_service.dart';
+import 'package:ridelink/core/utils/australian_phone_helper.dart';
+import 'package:ridelink/core/utils/disposable_email_checker.dart';
+import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/data/models/firestore/firestore_collections.dart';
 import 'package:ridelink/data/models/firestore/user_profile_model.dart';
 
@@ -30,6 +36,8 @@ class AuthService {
   String getFriendlyErrorMessage(dynamic error) {
     if (error is FirebaseAuthException) {
       switch (error.code) {
+        case 'disposable-email-not-allowed':
+          return 'Temporary or disposable email addresses are not allowed. Please use a permanent email address.';
         case 'user-not-found':
           return 'No account found with this email. Please sign up first.';
         case 'wrong-password':
@@ -64,8 +72,17 @@ class AuthService {
     required String phoneNumber,
     required String role, // 'passenger' | 'driver'
   }) async {
+    final cleanEmail = email.trim();
+    if (DisposableEmailChecker.isDisposable(cleanEmail)) {
+      throw FirebaseAuthException(
+        code: 'disposable-email-not-allowed',
+        message:
+            'Temporary or disposable email addresses are not allowed. Please use a permanent email address.',
+      );
+    }
+
     final credential = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
+      email: cleanEmail,
       password: password,
     );
 
@@ -75,24 +92,34 @@ class AuthService {
       // Send Firebase Email Verification
       await sendVerificationEmail(user);
 
+      // Generate static 4-digit Ride OTP for passenger boarding verification
+      final staticRideOtp = (1000 + Random().nextInt(9000)).toString();
+
       // Create initial Firestore user document
       final userProfile = UserProfileModel(
         id: user.uid,
         fullName: fullName.trim(),
         email: email.trim(),
-        phoneNumber: phoneNumber.trim(),
+        phoneNumber: AustralianPhoneHelper.formatToAustralian(phoneNumber.trim()),
         activeRole: role,
         roles: [role],
         isEmailVerified: false,
         isVerifiedDriver: false,
+        rideOtp: staticRideOtp,
+        fcmToken: NotificationService.instance.cachedFcmToken,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
+
+      Preferences.rideOtp = staticRideOtp;
 
       await _firestore
           .collection(FirestoreCollections.users)
           .doc(user.uid)
           .set(userProfile.toMap(), SetOptions(merge: true));
+
+      // Proactively ensure token is synced in Firestore
+      await NotificationService.instance.syncTokenToFirestore();
     }
 
     return credential;
@@ -104,8 +131,16 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    final cleanEmail = email.trim();
+    if (DisposableEmailChecker.isDisposable(cleanEmail)) {
+      throw FirebaseAuthException(
+        code: 'disposable-email-not-allowed',
+        message: 'Temporary or disposable email addresses are not allowed.',
+      );
+    }
+
     final credential = await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
+      email: cleanEmail,
       password: password,
     );
 
@@ -189,6 +224,7 @@ class AuthService {
 
       if (!doc.exists) {
         // First-time Google user
+        final staticRideOtp = (1000 + Random().nextInt(9000)).toString();
         final userProfile = UserProfileModel(
           id: user.uid,
           fullName: user.displayName ?? googleUser.displayName ?? '',
@@ -198,10 +234,12 @@ class AuthService {
           activeRole: defaultRole,
           roles: [defaultRole],
           isEmailVerified: true, // Google accounts come pre-verified
+          rideOtp: staticRideOtp,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
         await docRef.set(userProfile.toMap());
+        Preferences.rideOtp = staticRideOtp;
       } else {
         // Existing user: preserve existing role & update profile details if changed
         await docRef.set({
@@ -221,7 +259,13 @@ class AuthService {
         .doc(uid)
         .get();
     if (doc.exists && doc.data() != null) {
-      return UserProfileModel.fromMap(doc.data()!, uid);
+      final profile = UserProfileModel.fromMap(doc.data()!, uid);
+      // Backfill rideOtp in Firestore if missing so it becomes permanent
+      if (doc.data()?['rideOtp'] == null) {
+        doc.reference.set({'rideOtp': profile.rideOtp}, SetOptions(merge: true)).catchError((_) {});
+      }
+      Preferences.rideOtp = profile.rideOtp;
+      return profile;
     }
     return null;
   }
@@ -245,7 +289,7 @@ class AuthService {
     }
 
     if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
-      updates['phoneNumber'] = phoneNumber.trim();
+      updates['phoneNumber'] = AustralianPhoneHelper.formatToAustralian(phoneNumber.trim());
     }
 
     if (email != null && email.trim().isNotEmpty && email.trim() != user.email) {
@@ -462,16 +506,7 @@ class AuthService {
   Future<void> signOut() async {
     try {
       // Clear current device FCM token from the user document before signing out
-      final uid = _auth.currentUser?.uid;
-      if (uid != null) {
-        await _firestore
-            .collection(FirestoreCollections.users)
-            .doc(uid)
-            .update({
-          'fcmToken': FieldValue.delete(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }).catchError((_) {});
-      }
+      await NotificationService.instance.removeTokenFromFirestore();
     } catch (_) {}
 
     try {

@@ -70,6 +70,9 @@ class TripBookingModel {
   final String pickupOtp;
   final DateTime createdAt;
   final DateTime? completedAt;
+  final double? driverRatingToPassenger;
+  final String? driverReviewToPassenger;
+  final bool isDriverRated;
 
   TripBookingModel({
     required this.id,
@@ -94,6 +97,9 @@ class TripBookingModel {
     this.pickupOtp = '1234',
     required this.createdAt,
     this.completedAt,
+    this.driverRatingToPassenger,
+    this.driverReviewToPassenger,
+    this.isDriverRated = false,
   });
 
   factory TripBookingModel.fromMap(Map<String, dynamic> map, String id) {
@@ -114,6 +120,10 @@ class TripBookingModel {
     final payStatus = map['paymentStatus']?.toString() ??
         (map['isPaid'] == true ? 'paid' : 'unpaid');
     final paid = map['isPaid'] == true || payStatus == 'paid';
+
+    final driverRating = (map['driverRatingToPassenger'] as num?)?.toDouble();
+    final driverReview = map['driverReviewToPassenger']?.toString();
+    final driverRated = map['isDriverRated'] == true || driverRating != null;
 
     return TripBookingModel(
       id: id,
@@ -138,6 +148,9 @@ class TripBookingModel {
       pickupOtp: map['pickupOtp']?.toString() ?? '1234',
       createdAt: created,
       completedAt: completed,
+      driverRatingToPassenger: driverRating,
+      driverReviewToPassenger: driverReview,
+      isDriverRated: driverRated,
     );
   }
 
@@ -165,6 +178,11 @@ class TripBookingModel {
       'pickupOtp': pickupOtp,
       'createdAt': FieldValue.serverTimestamp(),
       if (completedAt != null) 'completedAt': Timestamp.fromDate(completedAt!),
+      if (driverRatingToPassenger != null)
+        'driverRatingToPassenger': driverRatingToPassenger,
+      if (driverReviewToPassenger != null)
+        'driverReviewToPassenger': driverReviewToPassenger,
+      'isDriverRated': isDriverRated,
     };
   }
 }

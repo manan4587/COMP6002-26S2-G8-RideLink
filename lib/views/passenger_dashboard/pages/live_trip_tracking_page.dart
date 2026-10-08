@@ -37,6 +37,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
   List<LatLng> _driverToPickupRoute = [];
 
   LatLng? _currentDriverLocation;
+  TripModel? _currentLiveTrip;
   final int _minutesToArrival = 7;
 
   BitmapDescriptor? _pickupPersonMarker;
@@ -83,40 +84,51 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
     LatLng? pickupLatLng;
     LatLng? dropoffLatLng;
 
-    // Check if ride already has valid coordinates (not 0,0 and not Perth defaults)
-    final bool isOriginPerthOrZero =
-        (ride.originLat == 0.0 && ride.originLng == 0.0) ||
-        (ride.originLat == -31.8156 && ride.originLng == 115.8452);
     try {
-      final bool isDestPerthOrZero =
-          (ride.destinationLat == 0.0 && ride.destinationLng == 0.0) ||
-          (ride.destinationLat == -32.0044 && ride.destinationLng == 115.8947);
+      // Check if coordinates are valid, otherwise geocode from address strings
+      final bool isOriginValid = GooglePlacesService.instance
+          .isValidCoordinate(LatLng(ride.originLat, ride.originLng));
+      final bool isDestValid = GooglePlacesService.instance
+          .isValidCoordinate(LatLng(ride.destinationLat, ride.destinationLng));
 
-      if (!isOriginPerthOrZero) {
+      if (isOriginValid) {
         pickupLatLng = LatLng(ride.originLat, ride.originLng);
       } else if (ride.origin.isNotEmpty) {
         final geo = await GooglePlacesService.instance
             .getCoordinatesForAddress(ride.origin)
             .timeout(const Duration(seconds: 3), onTimeout: () => null);
-        if (geo != null) {
+        if (geo != null &&
+            GooglePlacesService.instance
+                .isValidCoordinate(LatLng(geo.latitude, geo.longitude))) {
           pickupLatLng = LatLng(geo.latitude, geo.longitude);
         }
       }
 
-      if (!isDestPerthOrZero) {
+      if (isDestValid) {
         dropoffLatLng = LatLng(ride.destinationLat, ride.destinationLng);
+  
       } else if (ride.destination.isNotEmpty) {
         final geo = await GooglePlacesService.instance
             .getCoordinatesForAddress(ride.destination)
             .timeout(const Duration(seconds: 3), onTimeout: () => null);
-        if (geo != null) {
+        if (geo != null &&
+            GooglePlacesService.instance
+                .isValidCoordinate(LatLng(geo.latitude, geo.longitude))) {
           dropoffLatLng = LatLng(geo.latitude, geo.longitude);
         }
       }
 
-      // Safe fallback coordinates so map always initializes
-      pickupLatLng ??= const LatLng(-31.9505, 115.8605);
-      dropoffLatLng ??= const LatLng(-31.9555, 115.8655);
+      // If coordinates cannot be resolved, do not fallback to fake Perth defaults
+      if (pickupLatLng == null || dropoffLatLng == null) {
+        if (mounted) {
+          setState(() {
+            _pickup = null;
+            _dropoff = null;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
 
       // Determine vehicle location based on real driver broadcast from Firestore or trip model
       LatLng? initialVehicleLoc;
@@ -205,6 +217,12 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
       (liveTrip) {
         if (liveTrip == null) return;
 
+        if (mounted) {
+          setState(() {
+            _currentLiveTrip = liveTrip;
+          });
+        }
+
         // Check if driver has completed the trip / dropped off the passenger
         if (liveTrip.status.toLowerCase() == 'completed' && mounted) {
           _tripLocationSubscription?.cancel();
@@ -240,7 +258,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
     );
   }
 
-  void _showTripCompletedArrivalDialog(RideModel ride, TripModel trip) {
+  void _showTripCompletedArrivalDialog(RideModel ride, TripModel trip) async {
     double passengerRating = 5.0;
     final List<String> availableBadges = [
       'Punctual',
@@ -252,7 +270,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
     final Set<String> selectedBadges = {'Smooth Driver', 'Felt Very Safe'};
     final TextEditingController commentController = TextEditingController();
 
-    showModalBottomSheet(
+    final bool? didSubmit = await showModalBottomSheet<bool>(
       context: context,
       isDismissible: false,
       enableDrag: false,
@@ -316,7 +334,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                   ),
                   6.verticalSpace,
                   Text(
-                    'Your driver ${ride.driverName} has dropped you off at ${ride.destination}.\nPayment of \$${ride.pricePerSeat.toStringAsFixed(0)} AUD has been settled.',
+                    'Your driver ${ride.driverName} has dropped you off at ${ride.destination}.\nPayment of ${Utils.formatPrice(ride.pricePerSeat)} AUD has been settled.',
                     textAlign: TextAlign.center,
                     style: AppTextStyle.text12Regular.copyWith(
                       color: AppColors.secondaryTextColor,
@@ -434,12 +452,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.of(ctx).pop(); // dismiss sheet
-                        Get.back(); // exit tracking page back to dashboard
-                        AppSnackBar.success(
-                          message:
-                              'Thank you for riding with RideLink! Review for ${ride.driverName} submitted.',
-                        );
+                        Get.back(result: true); // dismiss sheet
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryColor,
@@ -464,6 +477,21 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
         ),
       ),
     );
+
+    if (didSubmit == true && mounted) {
+      Get.back(); // safely exit tracking page back to dashboard first
+      final combinedComment = [
+        if (selectedBadges.isNotEmpty) selectedBadges.join(', '),
+        if (commentController.text.trim().isNotEmpty)
+          commentController.text.trim(),
+      ].join(' • ');
+
+      controller.rateDriver(
+        tripId: ride.id,
+        rating: passengerRating,
+        comment: combinedComment,
+      );
+    }
   }
 
   void _fitBounds() {
@@ -542,7 +570,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
     });
   }
 
-  void _showCancelBookingConfirmation(RideModel ride) {
+  void _showCancelBookingConfirmation(RideModel ride) async {
     String selectedReason = 'Change of plans';
     final List<String> reasons = [
       'Change of plans',
@@ -551,7 +579,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
       'Driver delayed',
     ];
 
-    showModalBottomSheet(
+    final bool? shouldCancel = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -694,7 +722,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
+                      onPressed: () => Get.back(result: false),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 13.h),
                         side: const BorderSide(color: AppColors.borderColor),
@@ -714,41 +742,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.of(ctx).pop();
-                        // Find active booking for this ride
-                        final booking = controller.myBookings.firstWhereOrNull(
-                          (b) => b.ride.id == ride.id,
-                        );
-                        if (booking != null) {
-                          controller.cancelBooking(
-                            booking,
-                            reason: selectedReason,
-                          );
-                        } else {
-                          // Try pending request
-                          final pending = controller.pendingRequests
-                              .firstWhereOrNull((p) => p.ride.id == ride.id);
-                          if (pending != null) {
-                            controller.cancelPendingRequest(
-                              pending,
-                              reason: selectedReason,
-                            );
-                          } else {
-                            TripService.instance.cancelTripBooking(
-                              bookingId: 'trip_${ride.id}',
-                              tripId: ride.id,
-                              driverId: ride.driverId,
-                              seats: controller.requestedSeats.value,
-                              wasAccepted: true,
-                              reason: selectedReason,
-                            );
-                            AppSnackBar.info(
-                              message:
-                                  'Ride cancelled. The driver has been notified.',
-                            );
-                          }
-                        }
-                        Get.back();
+                        Get.back(result: true);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.red,
@@ -774,6 +768,43 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
         ),
       ),
     );
+
+    if (shouldCancel == true && mounted) {
+      Get.back(); // safely pop live tracking page back to dashboard first
+
+      // Find active booking for this ride and cancel it
+      final booking = controller.myBookings.firstWhereOrNull(
+        (b) => b.ride.id == ride.id,
+      );
+      if (booking != null) {
+        controller.cancelBooking(
+          booking,
+          reason: selectedReason,
+        );
+      } else {
+        // Try pending request
+        final pending = controller.pendingRequests
+            .firstWhereOrNull((p) => p.ride.id == ride.id);
+        if (pending != null) {
+          controller.cancelPendingRequest(
+            pending,
+            reason: selectedReason,
+          );
+        } else {
+          TripService.instance.cancelTripBooking(
+            bookingId: 'trip_${ride.id}',
+            tripId: ride.id,
+            driverId: ride.driverId,
+            seats: controller.requestedSeats.value,
+            wasAccepted: true,
+            reason: selectedReason,
+          );
+          AppSnackBar.info(
+            message: 'Ride cancelled. The driver has been notified.',
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -794,7 +825,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                   ? (Get.arguments as Map)['ride'] as RideModel
                   : controller.availableRides.firstOrNull));
 
-    // Show center circular spinner only while essential data is resolving
+    // Show loading or unavailable screen if essential data is resolving or missing
     if (_isLoading || _pickup == null || _dropoff == null || ride == null) {
       return Scaffold(
         backgroundColor: Colors.white,
@@ -821,29 +852,64 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SizedBox(
-                width: 44.w,
-                height: 44.w,
-                child: const CircularProgressIndicator(
-                  strokeWidth: 3.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+              if (_isLoading) ...[
+                SizedBox(
+                  width: 44.w,
+                  height: 44.w,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 3.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                  ),
                 ),
-              ),
-              20.verticalSpace,
-              Text(
-                'Loading live route & tracking...',
-                style: AppTextStyle.text16Semibold.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF0F172A),
+                20.verticalSpace,
+                Text(
+                  'Loading live route & tracking...',
+                  style: AppTextStyle.text16Semibold.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
+                  ),
                 ),
-              ),
-              8.verticalSpace,
-              Text(
-                'Connecting to real-time driver coordinates and route',
-                style: AppTextStyle.text12Regular.copyWith(
-                  color: const Color(0xFF64748B),
+                8.verticalSpace,
+                Text(
+                  'Connecting to real-time driver coordinates and route',
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: const Color(0xFF64748B),
+                  ),
                 ),
-              ),
+              ] else ...[
+                Container(
+                  padding: EdgeInsets.all(16.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEFF6FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.location_slash,
+                    color: AppColors.primaryColor,
+                    size: 32.sp,
+                  ),
+                ),
+                14.verticalSpace,
+                Text(
+                  'Route Map Unavailable',
+                  style: AppTextStyle.text16Semibold.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                6.verticalSpace,
+                Text(
+                  'Trip coordinates could not be loaded for this ride.',
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+                18.verticalSpace,
+                ElevatedButton(
+                  onPressed: () => Get.back(),
+                  child: const Text('Go Back'),
+                ),
+              ],
             ],
           ),
         ),
@@ -1260,55 +1326,6 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                     ],
                   ),
 
-                  8.verticalSpace,
-                  // Quick PIN banner for boarding
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(10.r),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              CupertinoIcons.lock_shield_fill,
-                              color: Color(0xFF2563EB),
-                              size: 14,
-                            ),
-                            6.horizontalSpace,
-                            Text(
-                              'Pickup PIN (Share with driver):',
-                              style: AppTextStyle.text10Medium.copyWith(
-                                color: const Color(0xFF1E40AF),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6.r),
-                            border: Border.all(color: const Color(0xFF93C5FD)),
-                          ),
-                          child: Text(
-                            '1234',
-                            style: AppTextStyle.text12Semibold.copyWith(
-                              color: const Color(0xFF1E3A8A),
-                              letterSpacing: 2.0,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
                   // Expanded Details: Fare & Contact Actions
                   if (_isCardExpanded) ...[
                     10.verticalSpace,
@@ -1344,12 +1361,20 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                               ),
                             ],
                           ),
-                          Text(
-                            '\$${(ride.pricePerSeat * controller.requestedSeats.value).toStringAsFixed(0)} AUD',
-                            style: AppTextStyle.text12Semibold.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryTextColor,
-                            ),
+                          Builder(
+                            builder: (context) {
+                              final fare = ride.pricePerSeat * controller.requestedSeats.value;
+                              final fareStr = fare % 1 == 0
+                                  ? '\$${fare.toInt()}'
+                                  : '\$${fare.toStringAsFixed(2)}';
+                              return Text(
+                                '$fareStr AUD',
+                                style: AppTextStyle.text12Semibold.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryTextColor,
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -1363,6 +1388,18 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
+                              final status = (_currentLiveTrip?.status ?? ride.status).toLowerCase();
+                              final isStarted = status == 'started' ||
+                                  status == 'in_progress' ||
+                                  status == 'onboard' ||
+                                  status == 'active';
+                              if (!isStarted) {
+                                AppSnackBar.info(
+                                  message:
+                                      'Chat will be available once the driver starts the ride.',
+                                );
+                                return;
+                              }
                               Get.toNamed(
                                 AppRoutes.rideChat,
                                 arguments: {

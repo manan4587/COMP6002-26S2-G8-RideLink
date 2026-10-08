@@ -98,7 +98,7 @@ class DriverDashboardController extends GetxController {
     if (permResult != LocationCheckResult.granted) {
       if (showPermissionSheet) {
         final sheetContext = context ?? Get.context;
-        if (sheetContext != null) {
+        if (sheetContext != null && sheetContext.mounted) {
           if (permResult == LocationCheckResult.deniedForever) {
             DeviceLocationService.instance.showLocationBlockedSheet(sheetContext);
           } else if (permResult == LocationCheckResult.serviceDisabled) {

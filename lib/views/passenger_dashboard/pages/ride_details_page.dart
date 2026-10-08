@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/map_marker_helper.dart';
+import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/data/services/google_places_service.dart';
 import 'package:ridelink/routes/routes_name.dart';
@@ -16,7 +18,34 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
 
   @override
   Widget build(BuildContext context) {
-    final ride = controller.currentSelectedRide.value ?? controller.availableRides.first;
+    final ride = controller.currentSelectedRide.value ??
+        (controller.availableRides.isNotEmpty
+            ? controller.availableRides.first
+            : null);
+
+    if (ride == null) {
+      return Scaffold(
+        backgroundColor: AppColors.secondaryBgColor,
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(CupertinoIcons.car, size: 48, color: AppColors.secondaryTextColor),
+                12.verticalSpace,
+                Text('Ride details unavailable', style: AppTextStyle.text16Semibold),
+                16.verticalSpace,
+                ElevatedButton(
+                  onPressed: () => Get.back(),
+                  child: const Text('Go Back'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final int seatsNeeded = controller.requestedSeats.value;
     final double totalPrice = ride.pricePerSeat * seatsNeeded;
 
@@ -171,6 +200,19 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
 
               12.verticalSpace,
 
+              // Scheduled Departure / Ride Start Time Card
+              _DetailCard(
+                icon: CupertinoIcons.clock,
+                iconColor: AppColors.primaryColor,
+                iconBg: const Color(0xFFEFF6FF),
+                title: 'Ride Start / Departure Time',
+                subtitle: ride.departureTime.isNotEmpty
+                    ? '${ride.departureTime}${ride.departureDateTime != null ? ' • ${DateFormat('EEE, d MMM').format(ride.departureDateTime!)}' : ''}'
+                    : 'Scheduled for upcoming trip',
+              ),
+
+              12.verticalSpace,
+
               // Your Request Card
               _DetailCard(
                 icon: CupertinoIcons.car_detailed,
@@ -178,7 +220,7 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
                 iconBg: const Color(0xFFEFF6FF),
                 title: 'Your Request',
                 subtitle:
-                    '${controller.seatsNote.value}\nSeats Needed: $seatsNeeded • Total: \$${totalPrice.toStringAsFixed(0)}',
+                    '${controller.seatsNote.value}\nSeats Needed: $seatsNeeded • Total: ${Utils.formatPrice(totalPrice)}',
               ),
 
               12.verticalSpace,
@@ -241,7 +283,7 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
                               ),
                               2.verticalSpace,
                               Text(
-                                '\$${ride.pricePerSeat.toStringAsFixed(0)}',
+                                Utils.formatPrice(ride.pricePerSeat),
                                 style: AppTextStyle.text16Semibold.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -413,7 +455,7 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
                 }
 
                 return GestureDetector(
-                  onTap: () => controller.requestToJoinRide(ride),
+                  onTap: () => controller.requestToJoinRide(ride, seats: seatsNeeded),
                   child: Container(
                     width: double.infinity,
                     padding: EdgeInsets.symmetric(vertical: 14.h),
@@ -553,19 +595,28 @@ class _RideRouteMapCard extends StatefulWidget {
 class _RideRouteMapCardState extends State<_RideRouteMapCard> {
   GoogleMapController? _mapController;
   List<LatLng> _routePoints = [];
-  late LatLng _pickup;
-  late LatLng _dropoff;
+  LatLng? _pickup;
+  LatLng? _dropoff;
   bool _isLoadingRoute = true;
+  bool _hasValidCoordinates = false;
   BitmapDescriptor? _pickupPersonMarker;
   BitmapDescriptor? _dropPinMarker;
 
   @override
   void initState() {
     super.initState();
-    _pickup = LatLng(widget.ride.originLat, widget.ride.originLng);
-    _dropoff = LatLng(widget.ride.destinationLat, widget.ride.destinationLng);
     _loadCustomMarkers();
     _loadRealRoute();
+  }
+
+  bool _isValidCoordinate(double? lat, double? lng) {
+    if (lat == null || lng == null) return false;
+    if (lat == 0.0 && lng == 0.0) return false;
+    // World bounds
+    if (lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) {
+      return false;
+    }
+    return true;
   }
 
   Future<void> _loadCustomMarkers() async {
@@ -580,35 +631,68 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
   }
 
   Future<void> _loadRealRoute() async {
-    // If coordinates are default (Perth) or 0,0, geocode real address
-    if ((_pickup.latitude == 0.0 && _pickup.longitude == 0.0) ||
-        (_pickup.latitude == -31.8156 && _pickup.longitude == 115.8452)) {
+    double pLat = widget.ride.searchedPickupLat != 0.0
+        ? widget.ride.searchedPickupLat
+        : widget.ride.originLat;
+    double pLng = widget.ride.searchedPickupLng != 0.0
+        ? widget.ride.searchedPickupLng
+        : widget.ride.originLng;
+    double dLat = widget.ride.searchedDropLat != 0.0
+        ? widget.ride.searchedDropLat
+        : widget.ride.destinationLat;
+    double dLng = widget.ride.searchedDropLng != 0.0
+        ? widget.ride.searchedDropLng
+        : widget.ride.destinationLng;
+
+    // If coordinates are missing or invalid, attempt real-time geocoding
+    if (!_isValidCoordinate(pLat, pLng) && widget.ride.origin.trim().isNotEmpty) {
       final pGeo = await GooglePlacesService.instance.getCoordinatesForAddress(
         widget.ride.origin,
       );
-      if (pGeo != null) {
-        _pickup = LatLng(pGeo.latitude, pGeo.longitude);
-      }
-    }
-    if ((_dropoff.latitude == 0.0 && _dropoff.longitude == 0.0) ||
-        (_dropoff.latitude == -32.0044 && _dropoff.longitude == 115.8947)) {
-      final dGeo = await GooglePlacesService.instance.getCoordinatesForAddress(
-        widget.ride.destination,
-      );
-      if (dGeo != null) {
-        _dropoff = LatLng(dGeo.latitude, dGeo.longitude);
+      if (pGeo != null && _isValidCoordinate(pGeo.latitude, pGeo.longitude)) {
+        pLat = pGeo.latitude;
+        pLng = pGeo.longitude;
       }
     }
 
+    if (!_isValidCoordinate(dLat, dLng) && widget.ride.destination.trim().isNotEmpty) {
+      final dGeo = await GooglePlacesService.instance.getCoordinatesForAddress(
+        widget.ride.destination,
+      );
+      if (dGeo != null && _isValidCoordinate(dGeo.latitude, dGeo.longitude)) {
+        dLat = dGeo.latitude;
+        dLng = dGeo.longitude;
+      }
+    }
+
+    // If either pickup or dropoff does not have valid coordinates, do NOT use default fake coordinates
+    if (!_isValidCoordinate(pLat, pLng) || !_isValidCoordinate(dLat, dLng)) {
+      if (!mounted) return;
+      setState(() {
+        _pickup = null;
+        _dropoff = null;
+        _hasValidCoordinates = false;
+        _isLoadingRoute = false;
+        _routePoints = [];
+      });
+      return;
+    }
+
+    final pickup = LatLng(pLat, pLng);
+    final dropoff = LatLng(dLat, dLng);
+
     // Fetch driving directions
     final points = await GooglePlacesService.instance.getDirectionsRoute(
-      _pickup,
-      _dropoff,
+      pickup,
+      dropoff,
     );
     if (!mounted) return;
 
     setState(() {
-      _routePoints = points;
+      _pickup = pickup;
+      _dropoff = dropoff;
+      _hasValidCoordinates = true;
+      _routePoints = points.isNotEmpty ? points : [pickup, dropoff];
       _isLoadingRoute = false;
     });
 
@@ -616,41 +700,43 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
   }
 
   void _fitBounds() {
-    if (_mapController == null) return;
-    final allPoints =
-        _routePoints.isNotEmpty ? _routePoints : [_pickup, _dropoff];
-    double minLat = allPoints.first.latitude;
-    double maxLat = allPoints.first.latitude;
-    double minLng = allPoints.first.longitude;
-    double maxLng = allPoints.first.longitude;
+    if (_mapController == null || _pickup == null || _dropoff == null) return;
+    try {
+      final allPoints =
+          _routePoints.isNotEmpty ? _routePoints : [_pickup!, _dropoff!];
+      double minLat = allPoints.first.latitude;
+      double maxLat = allPoints.first.latitude;
+      double minLng = allPoints.first.longitude;
+      double maxLng = allPoints.first.longitude;
 
-    for (final p in allPoints) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLng) minLng = p.longitude;
-      if (p.longitude > maxLng) maxLng = p.longitude;
-    }
+      for (final p in allPoints) {
+        if (p.latitude < minLat) minLat = p.latitude;
+        if (p.latitude > maxLat) maxLat = p.latitude;
+        if (p.longitude < minLng) minLng = p.longitude;
+        if (p.longitude > maxLng) maxLng = p.longitude;
+      }
 
-    if (minLat == maxLat && minLng == maxLng) {
-      minLat -= 0.01;
-      maxLat += 0.01;
-      minLng -= 0.01;
-      maxLng += 0.01;
-    }
+      if (minLat == maxLat && minLng == maxLng) {
+        minLat -= 0.01;
+        maxLat += 0.01;
+        minLng -= 0.01;
+        maxLng += 0.01;
+      }
 
-    final bounds = LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
+      final bounds = LatLngBounds(
+        southwest: LatLng(minLat, minLng),
+        northeast: LatLng(maxLat, maxLng),
+      );
 
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 36),
-    );
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngBounds(bounds, 36),
+      );
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoadingRoute || _routePoints.isEmpty) {
+    if (_isLoadingRoute) {
       return Container(
         height: 195.h,
         width: double.infinity,
@@ -688,14 +774,136 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
       );
     }
 
+    // Clean container when coordinates or route data are unavailable
+    if (!_hasValidCoordinates || _pickup == null || _dropoff == null) {
+      return Container(
+        height: 195.h,
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(24.r),
+          border: Border.all(
+            color: const Color(0xFFE2E8F0),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(12.r),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEFF6FF),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                CupertinoIcons.location_slash,
+                color: AppColors.primaryColor,
+                size: 24.sp,
+              ),
+            ),
+            10.verticalSpace,
+            Text(
+              'Route Map Unavailable',
+              style: AppTextStyle.text14Semibold.copyWith(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            4.verticalSpace,
+            Text(
+              'GPS coordinates are not available for this route.',
+              textAlign: TextAlign.center,
+              style: AppTextStyle.text12Regular.copyWith(
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            12.verticalSpace,
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10.r),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7.w,
+                    height: 7.w,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF16A34A),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  6.horizontalSpace,
+                  Flexible(
+                    child: Text(
+                      widget.ride.origin.isNotEmpty
+                          ? widget.ride.origin
+                          : 'Origin',
+                      style: AppTextStyle.text10Medium.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryTextColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  8.horizontalSpace,
+                  Icon(
+                    CupertinoIcons.arrow_right,
+                    size: 11.sp,
+                    color: const Color(0xFF94A3B8),
+                  ),
+                  8.horizontalSpace,
+                  Container(
+                    width: 7.w,
+                    height: 7.w,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFDC2626),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  6.horizontalSpace,
+                  Flexible(
+                    child: Text(
+                      widget.ride.destination.isNotEmpty
+                          ? widget.ride.destination
+                          : 'Destination',
+                      style: AppTextStyle.text10Medium.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryTextColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final LatLng midPoint = LatLng(
-      (_pickup.latitude + _dropoff.latitude) / 2,
-      (_pickup.longitude + _dropoff.longitude) / 2,
+      (_pickup!.latitude + _dropoff!.latitude) / 2,
+      (_pickup!.longitude + _dropoff!.longitude) / 2,
     );
 
     final List<LatLng> activePoints = _routePoints.isNotEmpty
         ? _routePoints
-        : [_pickup, midPoint, _dropoff];
+        : [_pickup!, midPoint, _dropoff!];
 
     return Container(
       height: 195.h,
@@ -725,12 +933,14 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
               ),
               onMapCreated: (map) {
                 _mapController = map;
-                _fitBounds();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _fitBounds();
+                });
               },
               markers: {
                 Marker(
                   markerId: const MarkerId('pickup'),
-                  position: _pickup,
+                  position: _pickup!,
                   infoWindow: InfoWindow(title: 'Pickup: ${widget.ride.origin}'),
                   icon: _pickupPersonMarker ??
                       BitmapDescriptor.defaultMarkerWithHue(
@@ -739,7 +949,7 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
                 ),
                 Marker(
                   markerId: const MarkerId('dropoff'),
-                  position: _dropoff,
+                  position: _dropoff!,
                   infoWindow: InfoWindow(
                     title: 'Drop-off: ${widget.ride.destination}',
                   ),

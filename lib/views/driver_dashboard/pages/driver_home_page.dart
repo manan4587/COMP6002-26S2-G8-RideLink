@@ -32,12 +32,23 @@ class DriverHomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: RefreshIndicator(
+          color: AppColors.primaryColor,
+          onRefresh: () async {
+            await Future.wait([
+              tripsController.reloadDriverTrips(),
+              homeController.reloadStats(),
+              profileController.reloadProfile(),
+            ]);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Driver Top Bar
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -110,7 +121,7 @@ class DriverHomePage extends StatelessWidget {
                                   profileController.isVerifiedByAdmin.value;
                               final rating = profileController.driverRating.value;
                               final ratingStr =
-                                  rating > 0 ? rating.toStringAsFixed(1) : '0.0';
+                                  rating > 0 ? rating.toStringAsFixed(1) : '5.0';
                               final title =
                                   isVerified ? 'Verified Driver' : 'Driver';
                               return Text(
@@ -291,40 +302,90 @@ class DriverHomePage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Today's Earnings",
+                      "Earnings",
                       style: AppTextStyle.text14Medium.copyWith(
                         color: Colors.white70,
                       ),
                     ),
                     SizedBox(height: 6.h),
                     Obx(
-                      () => Text(
-                        '\$${homeController.todayEarnings.value.toStringAsFixed(2)}',
-                        style: AppTextStyle.text30Semibold.copyWith(
-                          color: Colors.white,
-                          fontSize: 32.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      () {
+                        final completedTrips = tripsController.myTrips.where((t) =>
+                          t.status.value.toLowerCase().trim() == 'completed'
+                        ).toList();
+
+                        double dynamicEarnings = 0.0;
+                        for (final t in completedTrips) {
+                          double tripEarn = 0.0;
+                          for (final p in t.acceptedPassengers) {
+                            tripEarn += p.fare;
+                          }
+                          if (tripEarn == 0.0) {
+                            tripEarn = (t.bookedSeats.value > 0 ? t.bookedSeats.value : 1) * t.pricePerSeat.value;
+                          }
+                          dynamicEarnings += tripEarn;
+                        }
+
+                        final displayAmount = dynamicEarnings > 0
+                            ? dynamicEarnings
+                            : (homeController.todayEarnings.value > 0
+                                ? homeController.todayEarnings.value
+                                : homeController.weeklyEarnings.value);
+
+                        return Text(
+                          '\$${displayAmount.toStringAsFixed(2)}',
+                          style: AppTextStyle.text30Semibold.copyWith(
+                            color: Colors.white,
+                            fontSize: 32.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      },
                     ),
                     SizedBox(height: 14.h),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Obx(
-                          () => _StatItem(
-                            label: 'Completed Trips',
-                            value: '${homeController.completedTripsCount.value}',
-                          ),
+                          () {
+                            final completedTrips = tripsController.myTrips.where((t) =>
+                              t.status.value.toLowerCase().trim() == 'completed'
+                            ).toList();
+                            return _StatItem(
+                              label: 'Completed Trips',
+                              value: '${completedTrips.length}',
+                            );
+                          },
                         ),
                         Obx(
-                          () => _StatItem(
-                            label: 'Weekly Total',
-                            value:
-                                '\$${homeController.weeklyEarnings.value.toStringAsFixed(0)}',
-                          ),
+                          () {
+                            final completedTrips = tripsController.myTrips.where((t) =>
+                              t.status.value.toLowerCase().trim() == 'completed'
+                            ).toList();
+
+                            double dynamicEarnings = 0.0;
+                            for (final t in completedTrips) {
+                              double tripEarn = 0.0;
+                              for (final p in t.acceptedPassengers) {
+                                tripEarn += p.fare;
+                              }
+                              if (tripEarn == 0.0) {
+                                tripEarn = (t.bookedSeats.value > 0 ? t.bookedSeats.value : 1) * t.pricePerSeat.value;
+                              }
+                              dynamicEarnings += tripEarn;
+                            }
+
+                            final totalEarned = dynamicEarnings > 0
+                                ? dynamicEarnings
+                                : homeController.weeklyEarnings.value;
+
+                            return _StatItem(
+                              label: 'Total Earned',
+                              value: Utils.formatPrice(totalEarned),
+                            );
+                          },
                         ),
-                        _StatItem(label: 'Acceptance', value: '98%'),
+                        _StatItem(label: 'Acceptance', value: '100%'),
                       ],
                     ),
                   ],
@@ -463,9 +524,12 @@ class DriverHomePage extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final trip = activeOrScheduledTrips[index];
                     return Obx(() {
+                      final s = trip.status.value.toLowerCase().trim();
+                      if (s == 'completed' || s == 'cancelled') {
+                        return const SizedBox.shrink();
+                      }
                       final bool isActive =
-                          trip.status.value.toLowerCase() == 'active' ||
-                          trip.status.value.toLowerCase() == 'in progress';
+                          s == 'active' || s == 'in progress';
                       return Container(
                         padding: EdgeInsets.all(14.w),
                         decoration: BoxDecoration(
@@ -536,7 +600,7 @@ class DriverHomePage extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  '\$${trip.pricePerSeat.value.toStringAsFixed(0)} / seat',
+                                  '${Utils.formatPrice(trip.pricePerSeat.value)} / seat',
                                   style: AppTextStyle.text14Semibold.copyWith(
                                     color: AppColors.primaryColor,
                                     fontWeight: FontWeight.bold,
@@ -641,7 +705,9 @@ class DriverHomePage extends StatelessWidget {
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: isActive
                                               ? const Color(0xFF16A34A)
-                                              : AppColors.primaryColor,
+                                              : (trip.canStartRide
+                                                  ? AppColors.primaryColor
+                                                  : const Color(0xFF94A3B8)),
                                           foregroundColor: Colors.white,
                                           padding: EdgeInsets.symmetric(
                                             horizontal: 14.w,
@@ -665,6 +731,46 @@ class DriverHomePage extends StatelessWidget {
                                 ),
                               ],
                             ),
+
+                            // Notice when ride cannot yet be started (before 15 mins of start time)
+                            if (!isActive &&
+                                trip.status.value.toLowerCase() == 'scheduled' &&
+                                !trip.canStartRide) ...[
+                              8.verticalSpace,
+                              Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 10.w,
+                                  vertical: 6.h,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  border: Border.all(
+                                    color: const Color(0xFFFDE68A),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      CupertinoIcons.clock,
+                                      size: 13,
+                                      color: Color(0xFFB45309),
+                                    ),
+                                    6.horizontalSpace,
+                                    Expanded(
+                                      child: Text(
+                                        'Ride can be started 15 mins before scheduled departure (${trip.time.value})',
+                                        style: AppTextStyle.text11Medium.copyWith(
+                                          color: const Color(0xFF92400E),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
 
                             // Passenger & Emergency Contact Details
                             if (trip.acceptedPassengers.isNotEmpty) ...[
@@ -886,6 +992,7 @@ class DriverHomePage extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

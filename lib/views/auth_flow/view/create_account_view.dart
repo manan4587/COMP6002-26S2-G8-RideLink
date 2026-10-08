@@ -1,11 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_assets.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/enums/user_type.dart';
+import 'package:ridelink/core/utils/australian_phone_helper.dart';
 import 'package:ridelink/core/utils/validation_mixin.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
@@ -129,18 +131,24 @@ class _CreateAccountViewState extends State<CreateAccountView>
                       AppTextFormField(
                         controller: controller.phoneNumberController,
                         label: 'Phone Number',
-                        hintText: '04xx xxx xxx',
+                        hintText: '469 712 617',
                         keyboardType: TextInputType.phone,
-                        prefix: SvgPicture.asset(
-                          AppAssets.phone,
-                          width: 18.w,
-                          height: 18.h,
-                          colorFilter: const ColorFilter.mode(
-                            AppColors.secondaryTextColor,
-                            BlendMode.srcIn,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'\+')),
+                          AustralianPhoneInputFormatter(),
+                        ],
+                        prefix: AustralianPhonePrefix(
+                          icon: SvgPicture.asset(
+                            AppAssets.phone,
+                            width: 18.w,
+                            height: 18.h,
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.secondaryTextColor,
+                              BlendMode.srcIn,
+                            ),
                           ),
                         ),
-                        validator: (value) => phoneValidator(value, 10),
+                        validator: (value) => phoneValidator(value),
                       ),
                       12.verticalSpace,
 

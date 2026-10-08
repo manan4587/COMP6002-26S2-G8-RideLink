@@ -113,13 +113,13 @@ class DriverCommunityDetailsPage extends StatelessWidget {
                           children: [
                             Container(
                               padding: EdgeInsets.all(14.r),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFEFF6FF),
+                              decoration: BoxDecoration(
+                                color: community.iconBgColor,
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 community.icon,
-                                color: const Color(0xFF2563EB),
+                                color: community.iconColor,
                                 size: 28.sp,
                               ),
                             ),
@@ -132,6 +132,24 @@ class DriverCommunityDetailsPage extends StatelessWidget {
                                 color: const Color(0xFF0F172A),
                               ),
                               textAlign: TextAlign.center,
+                            ),
+                            8.verticalSpace,
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10.w,
+                                vertical: 4.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: community.iconBgColor,
+                                borderRadius: BorderRadius.circular(10.r),
+                              ),
+                              child: Text(
+                                community.categoryLabel,
+                                style: AppTextStyle.text11Medium.copyWith(
+                                  color: community.iconColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                             8.verticalSpace,
                             Container(
@@ -166,24 +184,145 @@ class DriverCommunityDetailsPage extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            10.verticalSpace,
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  CupertinoIcons.clock,
-                                  size: 13.sp,
-                                  color: const Color(0xFF64748B),
+                            14.verticalSpace,
+                            // Dedicated Timing Banner
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 14.w,
+                                vertical: 12.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(16.r),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
                                 ),
-                                5.horizontalSpace,
-                                Text(
-                                  'Peak Hours: ${community.commonTime}',
-                                  style: AppTextStyle.text12Regular.copyWith(
-                                    color: const Color(0xFF64748B),
-                                    fontWeight: FontWeight.w500,
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        CupertinoIcons.clock,
+                                        size: 16.sp,
+                                        color: const Color(0xFF2563EB),
+                                      ),
+                                      8.horizontalSpace,
+                                      Flexible(
+                                        child: Text(
+                                          'Peak Commute: ${community.commonTime}',
+                                          style: AppTextStyle.text12Semibold
+                                              .copyWith(
+                                                color: const Color(0xFF0F172A),
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
+                                  if (community.recurringOption.isNotEmpty) ...[
+                                    8.verticalSpace,
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          CupertinoIcons.repeat,
+                                          size: 14.sp,
+                                          color: const Color(0xFF7C3AED),
+                                        ),
+                                        6.horizontalSpace,
+                                        Flexible(
+                                          child: Text(
+                                            'Cadence: ${community.recurringOption}',
+                                            style: AppTextStyle.text11Medium
+                                                .copyWith(
+                                                  color:
+                                                      const Color(0xFF6D28D9),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  if (community.recurringDays.isNotEmpty) ...[
+                                    8.verticalSpace,
+                                    Wrap(
+                                      spacing: 6.w,
+                                      runSpacing: 4.h,
+                                      alignment: WrapAlignment.center,
+                                      children:
+                                          community.recurringDays.map((day) {
+                                        return Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 8.w,
+                                            vertical: 2.h,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFEDE9FE),
+                                            borderRadius:
+                                                BorderRadius.circular(6.r),
+                                          ),
+                                          child: Text(
+                                            day,
+                                            style: AppTextStyle.text10Medium
+                                                .copyWith(
+                                                  color:
+                                                      const Color(0xFF5B21B6),
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                  if (community.hasFixedTerminal) ...[
+                                    10.verticalSpace,
+                                    Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 10.w,
+                                        vertical: 6.h,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF3C7),
+                                        borderRadius:
+                                            BorderRadius.circular(10.r),
+                                        border: Border.all(
+                                          color: const Color(0xFFFDE68A),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            CupertinoIcons.placemark,
+                                            size: 14.sp,
+                                            color: const Color(0xFFD97706),
+                                          ),
+                                          6.horizontalSpace,
+                                          Flexible(
+                                            child: Text(
+                                              'Fixed Terminal: ${community.fixedTerminalLabel}',
+                                              style: AppTextStyle.text11Medium
+                                                  .copyWith(
+                                                    color:
+                                                        const Color(0xFF92400E),
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                             if (community.description.isNotEmpty) ...[
                               12.verticalSpace,
@@ -207,7 +346,7 @@ class DriverCommunityDetailsPage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _StatCard(
-                              icon: CupertinoIcons.car_detailed,
+                              icon: CupertinoIcons.person_badge_plus,
                               label: 'Verified Drivers',
                               countObs: community.driversCount,
                               iconColor: const Color(0xFF2563EB),
@@ -266,7 +405,7 @@ class DriverCommunityDetailsPage extends StatelessWidget {
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    CupertinoIcons.car_detailed,
+                                    CupertinoIcons.arrow_up_right_circle_fill,
                                     color: Colors.white,
                                     size: 20.sp,
                                   ),
@@ -436,7 +575,7 @@ class DriverCommunityDetailsPage extends StatelessWidget {
                               child: Column(
                                 children: [
                                   Icon(
-                                    CupertinoIcons.car_detailed,
+                                    community.icon,
                                     size: 32.sp,
                                     color: const Color(0xFF94A3B8),
                                   ),
@@ -487,7 +626,7 @@ class DriverCommunityDetailsPage extends StatelessWidget {
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(
-                                        CupertinoIcons.car,
+                                        community.icon,
                                         size: 16.sp,
                                         color: AppColors.primaryColor,
                                       ),

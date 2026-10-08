@@ -78,6 +78,20 @@ class PassengerDashboardController extends GetxController {
   RxBool get pushDriverChatMessages => profileController.pushDriverChatMessages;
   RxBool get pushSafetyAlerts => profileController.pushSafetyAlerts;
 
+  @override
+  void onReady() {
+    super.onReady();
+    reloadDashboard();
+  }
+
+  void reloadDashboard() {
+    currentTabIndex.value = currentTabIndex.value.clamp(0, 4);
+    homeController.reloadHome();
+    tripsController.reloadTrips();
+    communityController.reloadCommunities();
+    profileController.reloadProfile();
+  }
+
   Future<void> reloadProfile() => profileController.reloadProfile();
   Future<void> updatePassengerProfile({
     required String name,
@@ -90,8 +104,16 @@ class PassengerDashboardController extends GetxController {
     required String title,
     required String address,
     required String category,
+    double latitude = 0.0,
+    double longitude = 0.0,
   }) =>
-      profileController.addSavedLocation(title: title, address: address, category: category);
+      profileController.addSavedLocation(
+        title: title,
+        address: address,
+        category: category,
+        latitude: latitude,
+        longitude: longitude,
+      );
 
 
   Future<void> deleteSavedLocation(String id) =>
@@ -163,8 +185,24 @@ class PassengerDashboardController extends GetxController {
   RxDouble get fromLng => searchController.fromLng;
   RxDouble get toLat => searchController.toLat;
   RxDouble get toLng => searchController.toLng;
+  RxString get activeDatePreset => searchController.activeDatePreset;
+  RxString get activeTimePreset => searchController.activeTimePreset;
+  void selectToday() => searchController.selectToday();
+  void selectTomorrow() => searchController.selectTomorrow();
+  void selectWeekend() => searchController.selectWeekend();
+  void selectMorning() => searchController.selectMorning();
+  void selectNoon() => searchController.selectNoon();
+  void selectEvening() => searchController.selectEvening();
   RxString get selectedDate => searchController.selectedDate;
   RxString get preferredTime => searchController.preferredTime;
+  Rx<DateTime> get selectedSearchDate => searchController.selectedSearchDate;
+  Rx<TimeOfDay> get selectedSearchTime => searchController.selectedSearchTime;
+  String get formattedSearchDate => searchController.formattedSearchDate;
+  String get formattedSearchTime => searchController.formattedSearchTime;
+  Future<void> pickSearchDate(BuildContext context) =>
+      searchController.pickSearchDate(context);
+  Future<void> pickSearchTime(BuildContext context) =>
+      searchController.pickSearchTime(context);
   RxString get timeFlexibility => searchController.timeFlexibility;
   RxInt get requestedSeats => searchController.requestedSeats;
   RxString get seatsNote => searchController.seatsNote;
@@ -187,6 +225,7 @@ class PassengerDashboardController extends GetxController {
   Rx<RideModel?> get selectedRide => tripsController.selectedRide;
   Rx<RideModel?> get currentSelectedRide => tripsController.currentSelectedRide;
   RxInt get selectedTripsTab => tripsController.selectedTripsTab;
+  RxString get tripsSearchQuery => tripsController.searchQuery;
 
   void switchTripsTab(int index) => tripsController.switchTripsTab(index);
   void openRideDetails(RideModel ride) => tripsController.openRideDetails(ride);
@@ -212,6 +251,7 @@ class PassengerDashboardController extends GetxController {
         rating: rating,
         comment: comment,
       );
+  Future<void> reloadTrips() => tripsController.reloadTrips();
 
   // -------------------------------------------------------------
   // COMMUNITY DELEGATES
