@@ -43,7 +43,7 @@ class DriverHomePage extends StatelessWidget {
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
+              parent: ClampingScrollPhysics(),
             ),
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             child: Column(
@@ -802,7 +802,7 @@ class DriverHomePage extends StatelessWidget {
                                         8.horizontalSpace,
                                         Expanded(
                                           child: Text(
-                                            '${p.passengerName} (★ ${p.rating})',
+                                            '${p.passengerName} (★ ${(p.rating.value > 0 ? p.rating.value : 5.0).toStringAsFixed(1)})',
                                             style: AppTextStyle.text12Semibold,
                                           ),
                                         ),

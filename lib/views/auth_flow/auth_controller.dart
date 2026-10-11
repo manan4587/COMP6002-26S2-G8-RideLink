@@ -897,10 +897,12 @@ class AuthController extends GetxController with ValidationMixin {
         policeCheckStatus.value = DocumentVerificationStatus.pending;
       }
 
-      AppSnackBar.success(
-        message: 'Verification documents submitted to our admin team!',
-      );
-      Get.toNamed(AppRoutes.verificationSubmittedView);
+      Get.offNamed(AppRoutes.verificationSubmittedView);
+      Future.delayed(const Duration(milliseconds: 300), () {
+        AppSnackBar.success(
+          message: 'Verification documents submitted to our admin team!',
+        );
+      });
     } catch (e) {
       AppSnackBar.error(
         message:

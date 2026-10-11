@@ -176,7 +176,9 @@ class TripTrackingSheet extends StatelessWidget {
                   radius: 24.r,
                   backgroundColor: const Color(0xFFDBEAFE),
                   child: Text(
-                    booking.ride.driverName[0],
+                    booking.ride.driverName.trim().isNotEmpty
+                        ? booking.ride.driverName.trim()[0].toUpperCase()
+                        : 'D',
                     style: AppTextStyle.text16Semibold.copyWith(
                       color: AppColors.primaryColor,
                     ),
@@ -223,6 +225,7 @@ class TripTrackingSheet extends StatelessWidget {
                         'carModel': booking.ride.carModel,
                         'route':
                             '${booking.ride.origin} → ${booking.ride.destination}',
+                        'driverPhone': booking.ride.driverPhone,
                       },
                     );
                   },

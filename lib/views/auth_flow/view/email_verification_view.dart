@@ -147,8 +147,9 @@ class EmailVerificationView extends GetView<AuthController> {
                           controller.emailController.text.isNotEmpty
                               ? controller.emailController.text
                               : (Preferences.userEmail.isNotEmpty
-                                  ? Preferences.userEmail
-                                  : (controller.currentUser?.email ?? 'your email address')),
+                                    ? Preferences.userEmail
+                                    : (controller.currentUser?.email ??
+                                          'your email address')),
                           style: AppTextStyle.text14Semibold.copyWith(
                             color: AppColors.primaryColor,
                             fontWeight: FontWeight.w600,

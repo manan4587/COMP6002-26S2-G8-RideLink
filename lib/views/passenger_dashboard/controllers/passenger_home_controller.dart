@@ -6,12 +6,13 @@ import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controlle
 
 class PassengerHomeController extends GetxController {
   // Passenger Trust Rating
-  final RxDouble trustRating = 0.0.obs;
+  final RxDouble trustRating = 5.0.obs;
 
   // Recent Routes
   final RxList<RecentRouteModel> recentRoutes = <RecentRouteModel>[].obs;
 
   StreamSubscription? _authSubscription;
+  StreamSubscription? _profileSubscription;
 
   @override
   void onInit() {
@@ -29,13 +30,20 @@ class PassengerHomeController extends GetxController {
     }
   }
 
-  Future<void> loadUserStats(String uid) async {
-    try {
-      final profile = await AuthService.instance.getUserProfile(uid);
+  void loadUserStats(String uid) {
+    _profileSubscription?.cancel();
+    AuthService.instance.getUserProfile(uid).then((profile) {
       if (profile != null) {
-        trustRating.value = profile.rating;
+        trustRating.value = profile.rating > 0 ? profile.rating : 5.0;
       }
-    } catch (_) {}
+    }).catchError((_) {});
+
+    _profileSubscription =
+        AuthService.instance.streamUserProfile(uid).listen((profile) {
+      if (profile != null) {
+        trustRating.value = profile.rating > 0 ? profile.rating : 5.0;
+      }
+    });
   }
 
   void reloadHome() {
@@ -46,7 +54,9 @@ class PassengerHomeController extends GetxController {
   }
 
   void clearState() {
-    trustRating.value = 0.0;
+    _profileSubscription?.cancel();
+    _profileSubscription = null;
+    trustRating.value = 5.0;
     recentRoutes.clear();
   }
 
@@ -62,6 +72,7 @@ class PassengerHomeController extends GetxController {
   @override
   void onClose() {
     _authSubscription?.cancel();
+    _profileSubscription?.cancel();
     super.onClose();
   }
 }

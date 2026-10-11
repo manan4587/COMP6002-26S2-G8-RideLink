@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/data/services/auth_service.dart';
@@ -23,6 +24,7 @@ class RideChatPage extends StatefulWidget {
   final String? driverName;
   final String? carModel;
   final String? route;
+  final String? driverPhone;
 
   const RideChatPage({
     super.key,
@@ -30,6 +32,7 @@ class RideChatPage extends StatefulWidget {
     this.driverName,
     this.carModel,
     this.route,
+    this.driverPhone,
   });
 
   @override
@@ -44,6 +47,7 @@ class _RideChatPageState extends State<RideChatPage> {
   late String _driverName;
   late String _carModel;
   late String _route;
+  late String _driverPhone;
 
   StreamSubscription? _chatSubscription;
 
@@ -65,6 +69,7 @@ class _RideChatPageState extends State<RideChatPage> {
     _driverName = widget.driverName ?? args?['driverName'] ?? 'James Miller';
     _carModel = widget.carModel ?? args?['carModel'] ?? 'Toyota Camry (White)';
     _route = widget.route ?? args?['route'] ?? 'Trip Route';
+    _driverPhone = widget.driverPhone ?? args?['driverPhone'] ?? '';
 
     _subscribeToTripChat();
   }
@@ -161,7 +166,19 @@ class _RideChatPageState extends State<RideChatPage> {
   }
 
   Future<void> _callDriver() async {
-    await Utils.launchURL('tel:+61400123456');
+    if (_driverPhone.trim().isEmpty) {
+      AppSnackBar.info(
+        message: 'Driver phone number is not available.',
+      );
+      return;
+    }
+    try {
+      await Utils.launchURL('tel:$_driverPhone');
+    } catch (_) {
+      AppSnackBar.info(
+        message: 'Calling driver $_driverName at $_driverPhone...',
+      );
+    }
   }
 
   @override

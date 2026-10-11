@@ -188,7 +188,9 @@ class _RideChatSheetState extends State<RideChatSheet> {
                   radius: 20.r,
                   backgroundColor: const Color(0xFFEFF6FF),
                   child: Text(
-                    widget.driverName[0],
+                    widget.driverName.trim().isNotEmpty
+                        ? widget.driverName.trim()[0].toUpperCase()
+                        : 'D',
                     style: AppTextStyle.text14Semibold.copyWith(
                       color: AppColors.primaryColor,
                     ),

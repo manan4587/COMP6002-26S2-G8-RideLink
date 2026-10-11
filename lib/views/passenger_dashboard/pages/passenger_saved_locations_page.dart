@@ -354,13 +354,15 @@ class _AddSavedLocationSheetState extends State<_AddSavedLocationSheet> {
 
     if (!mounted) return;
     Get.back();
-    widget.controller.addSavedLocation(
-      title: title,
-      address: address,
-      category: _selectedCategory,
-      latitude: lat,
-      longitude: lng,
-    );
+    Future.delayed(const Duration(milliseconds: 250), () {
+      widget.controller.addSavedLocation(
+        title: title,
+        address: address,
+        category: _selectedCategory,
+        latitude: lat,
+        longitude: lng,
+      );
+    });
   }
 
   @override

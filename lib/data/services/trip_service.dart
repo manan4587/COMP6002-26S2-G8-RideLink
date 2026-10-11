@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:ridelink/data/models/firestore/firestore_collections.dart';
@@ -53,6 +54,45 @@ class TripService {
     });
   }
 
+  /// Update full trip details (origin, destination, departure time, price, seats, etc.)
+  Future<void> updateTripDetails({
+    required String tripId,
+    required String origin,
+    required double originLat,
+    required double originLng,
+    required String destination,
+    required double destinationLat,
+    required double destinationLng,
+    required DateTime? departureTime,
+    required String departureTimeString,
+    required double pricePerSeat,
+    required int totalSeats,
+    required int availableSeats,
+  }) async {
+    final updateData = <String, dynamic>{
+      'origin': origin,
+      'originName': origin,
+      'originAddress': origin,
+      'originLat': originLat,
+      'originLng': originLng,
+      'destination': destination,
+      'destinationName': destination,
+      'destinationAddress': destination,
+      'destinationLat': destinationLat,
+      'destinationLng': destinationLng,
+      'departureTimeString': departureTimeString,
+      'time': departureTimeString,
+      'pricePerSeat': pricePerSeat,
+      'totalSeats': totalSeats,
+      'availableSeats': availableSeats,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (departureTime != null) {
+      updateData['departureTime'] = Timestamp.fromDate(departureTime);
+    }
+    await _tripsRef.doc(tripId).update(updateData);
+  }
+
   /// Driver cancels their published trip, updates trip status and cancels all associated bookings
   Future<void> cancelTripAsDriver({
     required String tripId,
@@ -81,11 +121,24 @@ class TripService {
         });
 
         if (passengerId.isNotEmpty) {
+          String? passengerToken;
+          try {
+            final pSnap = await _firestore
+                .collection(FirestoreCollections.users)
+                .doc(passengerId)
+                .get();
+            passengerToken = pSnap.data()?['fcmToken']?.toString();
+          } catch (_) {}
+
           await _firestore.collection(FirestoreCollections.notifications).add({
             'userId': passengerId,
+            if (passengerToken != null && passengerToken.isNotEmpty)
+              'fcmToken': passengerToken,
             'title': 'Trip Cancelled by Driver',
-            'body': 'Your booking ($seats seat${seats > 1 ? 's' : ''}) was cancelled because the driver cancelled the trip.',
+            'body':
+                'Your booking ($seats seat${seats > 1 ? 's' : ''}) was cancelled because the driver cancelled the trip.',
             'type': 'trip_cancelled_by_driver',
+            'status': 'pending',
             'tripId': tripId,
             'bookingId': doc.id,
             'createdAt': FieldValue.serverTimestamp(),
@@ -111,6 +164,8 @@ class TripService {
     String tripId,
     double lat,
     double lng, {
+    double? heading,
+    double? speed,
     bool force = false,
   }) async {
     if (tripId.isEmpty) return;
@@ -121,8 +176,8 @@ class TripService {
     if (!force && cached != null) {
       final elapsedMs = now.difference(cached.lastSentAt).inMilliseconds;
 
-      // Throttle: don't write to Firestore more frequently than once every 2.5 seconds
-      if (elapsedMs < 2500) {
+      // Throttle: don't write to Firestore more frequently than once every 1.5 seconds
+      if (elapsedMs < 1500) {
         return;
       }
 
@@ -133,8 +188,8 @@ class TripService {
         lng,
       );
 
-      // If driver is stationary or GPS jitter (< 8 meters) AND under 45-sec heartbeat, skip DB write
-      if (distanceMeters < 8.0 && elapsedMs < 45000) {
+      // If driver is stationary or GPS jitter (< 2 meters) AND under 5-sec heartbeat, skip DB write
+      if (distanceMeters < 2.0 && elapsedMs < 5000) {
         return;
       }
     }
@@ -153,12 +208,21 @@ class TripService {
     }
 
     try {
-      await _tripsRef.doc(tripId).update({
+      final Map<String, dynamic> updateData = {
         'currentDriverLat': lat,
         'currentDriverLng': lng,
         'lastLocationUpdate': FieldValue.serverTimestamp(),
-      });
-    } catch (_) {}
+      };
+      if (heading != null && heading >= 0.0) {
+        updateData['currentDriverHeading'] = heading;
+      }
+      if (speed != null && speed >= 0.0 && !speed.isNaN && !speed.isInfinite) {
+        updateData['currentDriverSpeed'] = speed;
+      }
+      await _tripsRef.doc(tripId).set(updateData, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[TripService] updateDriverLocation error: $e');
+    }
   }
 
   /// Stream trips published by a specific driver in real-time
@@ -181,10 +245,22 @@ class TripService {
         .where('status', whereIn: ['scheduled', 'active'])
         .snapshots()
         .map((snapshot) {
-      final trips = snapshot.docs
-          .map((doc) => TripModel.fromMap(doc.data(), doc.id))
-          .where((t) => t.availableSeats > 0)
-          .toList();
+      final Set<String> seenTripIds = {};
+      final Set<String> seenFingerprints = {};
+      final List<TripModel> trips = [];
+
+      for (final doc in snapshot.docs) {
+        if (!seenTripIds.add(doc.id)) continue;
+        final t = TripModel.fromMap(doc.data(), doc.id);
+        if (t.availableSeats <= 0) continue;
+
+        // Deduplicate accidental duplicate entries (same driver, route, and departure minute)
+        final fingerprint =
+            '${t.driverId}_${t.originName.trim().toLowerCase()}_${t.destinationName.trim().toLowerCase()}_${t.departureTime.millisecondsSinceEpoch ~/ 60000}';
+        if (!seenFingerprints.add(fingerprint)) continue;
+
+        trips.add(t);
+      }
       trips.sort((a, b) => a.departureTime.compareTo(b.departureTime));
       return trips;
     });
@@ -237,11 +313,22 @@ class TripService {
     // Send push notification entry to notifications collection for the driver
     if (targetDriverId.isNotEmpty) {
       try {
+        String? targetToken;
+        try {
+          final dSnap = await _firestore
+              .collection(FirestoreCollections.users)
+              .doc(targetDriverId)
+              .get();
+          targetToken = dSnap.data()?['fcmToken']?.toString();
+        } catch (_) {}
+
         await _firestore.collection(FirestoreCollections.notifications).add({
           'title': 'New Ride Request! 🚗',
           'body':
               '${booking.passengerName} requested ${booking.requestedSeats} seat${booking.requestedSeats > 1 ? 's' : ''} for your trip (${booking.pickupAddress} → ${booking.dropAddress}).',
           'userId': targetDriverId,
+          if (targetToken != null && targetToken.isNotEmpty)
+            'fcmToken': targetToken,
           'status': 'pending',
           'data': {
             'type': 'ride_request',
@@ -250,6 +337,36 @@ class TripService {
             'passengerId': booking.passengerId,
             'passengerName': booking.passengerName,
             'seats': booking.requestedSeats.toString(),
+          },
+          'sound': 'default',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {}
+    }
+
+    // Send confirmation notification to the passenger
+    if (booking.passengerId.isNotEmpty) {
+      try {
+        String? pToken;
+        try {
+          final pSnap = await _firestore
+              .collection(FirestoreCollections.users)
+              .doc(booking.passengerId)
+              .get();
+          pToken = pSnap.data()?['fcmToken']?.toString();
+        } catch (_) {}
+
+        await _firestore.collection(FirestoreCollections.notifications).add({
+          'title': 'Ride Request Sent! 🚗',
+          'body':
+              'Your request for ${booking.requestedSeats} seat${booking.requestedSeats > 1 ? 's' : ''} has been sent to the driver. We will notify you once accepted.',
+          'userId': booking.passengerId,
+          if (pToken != null && pToken.isNotEmpty) 'fcmToken': pToken,
+          'status': 'pending',
+          'data': {
+            'type': 'ride_request_sent',
+            'tripId': booking.tripId,
+            'bookingId': bookingId,
           },
           'sound': 'default',
           'createdAt': FieldValue.serverTimestamp(),
@@ -290,11 +407,22 @@ class TripService {
         final bData = bookingDoc.data();
         final passengerId = bData?['passengerId']?.toString();
         if (passengerId != null && passengerId.isNotEmpty) {
+          String? passengerToken;
+          try {
+            final pSnap = await _firestore
+                .collection(FirestoreCollections.users)
+                .doc(passengerId)
+                .get();
+            passengerToken = pSnap.data()?['fcmToken']?.toString();
+          } catch (_) {}
+
           await _firestore.collection(FirestoreCollections.notifications).add({
             'title': 'Ride Request Approved! 🎉',
             'body':
                 'Your ride request has been approved by the driver! Pack your bags and get ready.',
             'userId': passengerId,
+            if (passengerToken != null && passengerToken.isNotEmpty)
+              'fcmToken': passengerToken,
             'status': 'pending',
             'data': {
               'type': 'booking_accepted',
@@ -320,6 +448,43 @@ class TripService {
         'passengerStatus': passengerStatus,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      if (passengerStatus == 'onboard') {
+        final bSnap = await _bookingsRef.doc(bookingId).get();
+        if (bSnap.exists) {
+          final data = bSnap.data();
+          final passengerId = data?['passengerId']?.toString() ?? '';
+          final dropAddress = data?['dropAddress']?.toString() ?? '';
+          if (passengerId.isNotEmpty) {
+            String? pToken;
+            try {
+              final pDoc = await _firestore
+                  .collection(FirestoreCollections.users)
+                  .doc(passengerId)
+                  .get();
+              pToken = pDoc.data()?['fcmToken']?.toString();
+            } catch (_) {}
+
+            await _firestore
+                .collection(FirestoreCollections.notifications)
+                .add({
+              'title': 'Onboard Confirmed! 🚗',
+              'body': dropAddress.isNotEmpty
+                  ? "You're now onboard! Heading towards $dropAddress."
+                  : "You're now onboard! Heading towards your destination.",
+              'userId': passengerId,
+              if (pToken != null && pToken.isNotEmpty) 'fcmToken': pToken,
+              'status': 'pending',
+              'data': {
+                'type': 'passenger_onboarded',
+                'bookingId': bookingId,
+              },
+              'sound': 'default',
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+          }
+        }
+      }
     } catch (_) {}
   }
 
@@ -338,11 +503,22 @@ class TripService {
         final passengerId = bData?['passengerId']?.toString();
         final tripId = bData?['tripId']?.toString() ?? '';
         if (passengerId != null && passengerId.isNotEmpty) {
+          String? passengerToken;
+          try {
+            final pSnap = await _firestore
+                .collection(FirestoreCollections.users)
+                .doc(passengerId)
+                .get();
+            passengerToken = pSnap.data()?['fcmToken']?.toString();
+          } catch (_) {}
+
           await _firestore.collection(FirestoreCollections.notifications).add({
             'title': 'Ride Request Declined',
             'body':
                 'Unfortunately, the driver was unable to accept your ride request.',
             'userId': passengerId,
+            if (passengerToken != null && passengerToken.isNotEmpty)
+              'fcmToken': passengerToken,
             'status': 'pending',
             'data': {
               'type': 'booking_declined',
@@ -737,6 +913,14 @@ class TripService {
           },
           SetOptions(merge: true),
         );
+
+        if (bookingId.isNotEmpty) {
+          batch.set(
+            _bookingsRef.doc(bookingId),
+            {'passengerRating': roundedRating},
+            SetOptions(merge: true),
+          );
+        }
       } catch (e) {
         debugPrint('[TripService] Error calculating passenger rating: $e');
       }
@@ -751,8 +935,41 @@ class TripService {
     required String driverId,
     required double rating,
     String? comment,
+    String? bookingId,
   }) async {
     final batch = _firestore.batch();
+    String effectiveBookingId = bookingId ?? '';
+    String effectiveDriverId = driverId;
+
+    if (effectiveDriverId.isEmpty && tripId.isNotEmpty) {
+      try {
+        final tDoc = await _tripsRef.doc(tripId).get();
+        final tData = tDoc.data();
+        if (tData != null &&
+            tData['driverId'] is String &&
+            (tData['driverId'] as String).isNotEmpty) {
+          effectiveDriverId = tData['driverId'] as String;
+        }
+      } catch (_) {}
+    }
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (effectiveBookingId.isEmpty && tripId.isNotEmpty && currentUserId.isNotEmpty) {
+      try {
+        final bQuery = await _bookingsRef
+            .where('tripId', isEqualTo: tripId)
+            .where('passengerId', isEqualTo: currentUserId)
+            .limit(1)
+            .get();
+        if (bQuery.docs.isNotEmpty) {
+          effectiveBookingId = bQuery.docs.first.id;
+          if (effectiveDriverId.isEmpty) {
+            effectiveDriverId = bQuery.docs.first.data()['driverId']?.toString() ?? '';
+          }
+        }
+      } catch (_) {}
+    }
+
     if (tripId.isNotEmpty) {
       final tripRef = _tripsRef.doc(tripId);
       batch.set(
@@ -769,17 +986,18 @@ class TripService {
       );
     }
 
-    String effectiveDriverId = driverId;
-    if (effectiveDriverId.isEmpty && tripId.isNotEmpty) {
-      try {
-        final tDoc = await _tripsRef.doc(tripId).get();
-        final tData = tDoc.data();
-        if (tData != null &&
-            tData['driverId'] is String &&
-            (tData['driverId'] as String).isNotEmpty) {
-          effectiveDriverId = tData['driverId'] as String;
-        }
-      } catch (_) {}
+    if (effectiveBookingId.isNotEmpty) {
+      batch.set(
+        _bookingsRef.doc(effectiveBookingId),
+        {
+          'isPassengerRated': true,
+          'passengerRatingToDriver': rating,
+          if (comment != null && comment.isNotEmpty)
+            'passengerReviewToDriver': comment,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     }
 
     if (effectiveDriverId.isNotEmpty) {
@@ -821,6 +1039,17 @@ class TripService {
           },
           SetOptions(merge: true),
         );
+
+        if (tripId.isNotEmpty) {
+          batch.set(
+            _tripsRef.doc(tripId),
+            {
+              'driverRating': roundedRating,
+              'rating': roundedRating,
+            },
+            SetOptions(merge: true),
+          );
+        }
       } catch (e) {
         debugPrint('[TripService] Error calculating driver rating: $e');
       }

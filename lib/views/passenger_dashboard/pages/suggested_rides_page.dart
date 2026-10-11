@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/utils.dart';
+import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
@@ -15,9 +16,16 @@ class SuggestedRidesPage extends GetView<PassengerDashboardController> {
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        child: RefreshIndicator(
+          color: AppColors.primaryColor,
+          onRefresh: () async {
+            await controller.tripsController.reloadTrips();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -309,8 +317,9 @@ class SuggestedRidesPage extends GetView<PassengerDashboardController> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _SuggestedRideCard extends StatelessWidget {
@@ -326,6 +335,8 @@ class _SuggestedRideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUid = AuthService.instance.currentUser?.uid ?? '';
+    final bool isMyOwnRide = currentUid.isNotEmpty && ride.driverId == currentUid;
     final double totalPrice = ride.pricePerSeat * requestedSeats;
 
     return Container(
@@ -367,15 +378,42 @@ class _SuggestedRideCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      ride.driverName,
-                      style: AppTextStyle.text16Semibold.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          ride.driverName,
+                          style: AppTextStyle.text16Semibold.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (isMyOwnRide) ...[
+                          6.horizontalSpace,
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6.w,
+                              vertical: 2.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6.r),
+                              border: Border.all(
+                                color: const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: Text(
+                              'Your Ride',
+                              style: AppTextStyle.text10Medium.copyWith(
+                                color: const Color(0xFF475569),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     2.verticalSpace,
                     Text(
-                      'Trust Rating: ${ride.rating.toStringAsFixed(2)} ★',
+                      'Trust Rating: ${(ride.rating > 0 ? ride.rating : 5.0).toStringAsFixed(1)} ★',
                       style: AppTextStyle.text12Regular.copyWith(
                         color: AppColors.secondaryTextColor,
                       ),

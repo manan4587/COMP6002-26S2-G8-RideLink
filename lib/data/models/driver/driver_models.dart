@@ -2,12 +2,12 @@ import 'package:get/get.dart';
 
 class DriverTripModel {
   final String id;
-  final String from;
-  final String to;
-  final double fromLat;
-  final double fromLng;
-  final double toLat;
-  final double toLng;
+  String from;
+  String to;
+  double fromLat;
+  double fromLng;
+  double toLat;
+  double toLng;
   final RxDouble currentDriverLat;
   final RxDouble currentDriverLng;
   final RxString time;
@@ -18,9 +18,11 @@ class DriverTripModel {
   final bool isRecurring;
   final List<String> recurringDays;
   final String communityName;
-  final DateTime? departureDateTime;
+  DateTime? departureDateTime;
   final RxList<PassengerRequestModel> requests;
   final RxList<PassengerRequestModel> acceptedPassengers;
+  final RxBool isDriverRated;
+  final RxDouble driverRatingGiven;
 
   DriverTripModel({
     required this.id,
@@ -43,6 +45,8 @@ class DriverTripModel {
     this.departureDateTime,
     List<PassengerRequestModel> requests = const [],
     List<PassengerRequestModel> acceptedPassengers = const [],
+    bool isDriverRated = false,
+    double driverRatingGiven = 5.0,
   })  : currentDriverLat = currentDriverLat.obs,
         currentDriverLng = currentDriverLng.obs,
         time = time.obs,
@@ -52,7 +56,9 @@ class DriverTripModel {
         status = status.obs,
         requests = RxList<PassengerRequestModel>.from(requests),
         acceptedPassengers =
-            RxList<PassengerRequestModel>.from(acceptedPassengers);
+            RxList<PassengerRequestModel>.from(acceptedPassengers),
+        isDriverRated = isDriverRated.obs,
+        driverRatingGiven = driverRatingGiven.obs;
 
   /// Driver can only start a ride 15 minutes before the scheduled start time or later
   bool get canStartRide {
@@ -84,7 +90,7 @@ class PassengerRequestModel {
   final String? tripId;
   final String? passengerId;
   final String passengerName;
-  final double rating;
+  final RxDouble rating;
   final String from;
   final String to;
   final double pickupLat;
@@ -96,7 +102,7 @@ class PassengerRequestModel {
   final String time;
   final String travellingWith;
   final String detour;
-  final int pastTrips;
+  final RxInt pastTrips;
   final RxString status; // 'Pending', 'Accepted', 'Declined'
   final RxString passengerStatus; // 'to_pickup', 'arrived', 'onboard', 'dropped_off'
   final String emergencyContactName;
@@ -111,7 +117,7 @@ class PassengerRequestModel {
     this.tripId,
     this.passengerId,
     required this.passengerName,
-    required this.rating,
+    double rating = 5.0,
     required this.from,
     required this.to,
     this.pickupLat = 0.0,
@@ -123,7 +129,7 @@ class PassengerRequestModel {
     required this.time,
     this.travellingWith = '+1 passenger',
     this.detour = '+4 minutes only',
-    this.pastTrips = 12,
+    int pastTrips = 0,
     String status = 'Pending',
     String passengerStatus = 'to_pickup',
     this.emergencyContactName = 'Sarah Jenkins',
@@ -132,10 +138,15 @@ class PassengerRequestModel {
     this.pickupOtp = '1234',
     bool isRated = false,
     double passengerRatingGiven = 5.0,
-  })  : status = status.obs,
+  })  : rating = (rating > 0 ? rating : 5.0).obs,
+        pastTrips = pastTrips.obs,
+        status = status.obs,
         passengerStatus = passengerStatus.obs,
         isRated = isRated.obs,
         passengerRatingGiven = passengerRatingGiven.obs;
+
+  double get ratingValue => rating.value;
+  int get pastTripsValue => pastTrips.value;
 
   bool get isWaitingPickup =>
       passengerStatus.value == 'to_pickup' || passengerStatus.value == 'arrived';

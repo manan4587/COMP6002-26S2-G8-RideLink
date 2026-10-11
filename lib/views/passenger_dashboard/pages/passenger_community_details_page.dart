@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
+import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
@@ -32,7 +33,13 @@ class PassengerCommunityDetailsPage
                   ),
                   16.verticalSpace,
                   TextButton(
-                    onPressed: () => Get.back(),
+                    onPressed: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else {
+                        Get.back();
+                      }
+                    },
                     child: const Text('Back'),
                   ),
                 ],
@@ -51,7 +58,13 @@ class PassengerCommunityDetailsPage
                     Align(
                       alignment: Alignment.centerLeft,
                       child: IconButton(
-                        onPressed: () => Get.back(),
+                        onPressed: () {
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          } else {
+                            Get.back();
+                          }
+                        },
                         icon: Icon(
                           CupertinoIcons.back,
                           size: 22.sp,
@@ -391,16 +404,14 @@ class PassengerCommunityDetailsPage
                                     ],
                                   ),
                                   SizedBox(height: 10.h),
-                                  Obx(
-                                    () => Text(
-                                      '${community.passengersCount.value}',
-                                      style: AppTextStyle.text20Semibold
-                                          .copyWith(
-                                            fontSize: 22.sp,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF0F172A),
-                                          ),
-                                    ),
+                                  Text(
+                                    '${community.passengersCount.value}',
+                                    style: AppTextStyle.text20Semibold
+                                        .copyWith(
+                                          fontSize: 22.sp,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF0F172A),
+                                        ),
                                   ),
                                 ],
                               ),
@@ -460,16 +471,14 @@ class PassengerCommunityDetailsPage
                                     ],
                                   ),
                                   SizedBox(height: 10.h),
-                                  Obx(
-                                    () => Text(
-                                      '${community.driversCount.value}',
-                                      style: AppTextStyle.text20Semibold
-                                          .copyWith(
-                                            fontSize: 22.sp,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF0F172A),
-                                          ),
-                                    ),
+                                  Text(
+                                    '${community.driversCount.value}',
+                                    style: AppTextStyle.text20Semibold
+                                        .copyWith(
+                                          fontSize: 22.sp,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF0F172A),
+                                        ),
                                   ),
                                 ],
                               ),
@@ -601,9 +610,17 @@ class PassengerCommunityDetailsPage
                             child: InkWell(
                               borderRadius: BorderRadius.circular(20.r),
                               onTap: () {
-                                if (controller.availableRides.isNotEmpty) {
-                                  final matchRide =
-                                      controller.availableRides.first;
+                                final currentUid =
+                                    AuthService.instance.currentUser?.uid ?? '';
+                                final otherRides = controller.availableRides
+                                    .where((r) => r.driverId != currentUid)
+                                    .toList();
+
+                                if (otherRides.isNotEmpty) {
+                                  controller.selectRideForDetails(otherRides.first);
+                                } else if (controller.availableRides.isNotEmpty) {
+                                  // The only upcoming ride is the user's own published trip
+                                  final matchRide = controller.availableRides.first;
                                   controller.selectRideForDetails(matchRide);
                                 } else {
                                   Get.back();

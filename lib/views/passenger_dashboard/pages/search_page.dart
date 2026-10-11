@@ -6,6 +6,7 @@ import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/simmer_utils.dart';
 import 'package:ridelink/core/utils/utils.dart';
+import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
@@ -20,9 +21,16 @@ class SearchPage extends GetView<PassengerDashboardController> {
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        child: RefreshIndicator(
+          color: AppColors.primaryColor,
+          onRefresh: () async {
+            await controller.tripsController.reloadTrips();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -607,8 +615,9 @@ class SearchPage extends GetView<PassengerDashboardController> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildShimmerSearchResults() {
     return ListView.separated(
@@ -1217,6 +1226,9 @@ class _RideResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUid = AuthService.instance.currentUser?.uid ?? '';
+    final bool isMyOwnRide = currentUid.isNotEmpty && ride.driverId == currentUid;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1310,6 +1322,29 @@ class _RideResultCard extends StatelessWidget {
                                   size: 15,
                                   color: AppColors.primaryColor,
                                 ),
+                              if (isMyOwnRide) ...[
+                                6.horizontalSpace,
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 6.w,
+                                    vertical: 2.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    border: Border.all(
+                                      color: const Color(0xFFCBD5E1),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Your Ride',
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: const Color(0xFF475569),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                           Text(

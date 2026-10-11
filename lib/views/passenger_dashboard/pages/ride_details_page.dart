@@ -18,7 +18,14 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
 
   @override
   Widget build(BuildContext context) {
+    final RideModel? argRide = Get.arguments is RideModel
+        ? Get.arguments as RideModel
+        : (Get.arguments is Map<String, dynamic>
+            ? (Get.arguments['ride'] as RideModel?)
+            : null);
+
     final ride = controller.currentSelectedRide.value ??
+        argRide ??
         (controller.availableRides.isNotEmpty
             ? controller.availableRides.first
             : null);
@@ -46,8 +53,44 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
       );
     }
 
-    final int seatsNeeded = controller.requestedSeats.value;
-    final double totalPrice = ride.pricePerSeat * seatsNeeded;
+    final int seatsNeeded = controller.requestedSeats.value > 0
+        ? controller.requestedSeats.value
+        : 1;
+    final double seatPrice = (ride.isEnRouteMatch &&
+            (ride.enRouteSubFare ?? 0) > 0)
+        ? ride.enRouteSubFare!
+        : ride.pricePerSeat;
+    final double totalPrice = seatPrice * seatsNeeded;
+
+    final String passengerPickup = ride.searchedPickupAddress.isNotEmpty
+        ? ride.searchedPickupAddress
+        : (controller.fromLocationController.text.trim().isNotEmpty
+            ? controller.fromLocationController.text.trim()
+            : (ride.pickupSuggestion.isNotEmpty
+                ? ride.pickupSuggestion
+                : (ride.origin.isNotEmpty ? ride.origin : 'Pickup Location')));
+
+    final String passengerDrop = ride.searchedDropAddress.isNotEmpty
+        ? ride.searchedDropAddress
+        : (controller.toLocationController.text.trim().isNotEmpty
+            ? controller.toLocationController.text.trim()
+            : (ride.dropOffPlan.isNotEmpty
+                ? ride.dropOffPlan
+                : (ride.destination.isNotEmpty ? ride.destination : 'Drop-off Destination')));
+
+    String formattedDeparture = 'Scheduled for upcoming trip';
+    if (ride.departureTime.isNotEmpty) {
+      formattedDeparture = ride.departureTime;
+      if (ride.departureDateTime != null) {
+        try {
+          formattedDeparture += ' • ${DateFormat('EEE, d MMM').format(ride.departureDateTime!)}';
+        } catch (_) {}
+      }
+    }
+
+    final driverDisplayName = ride.driverName.isNotEmpty ? ride.driverName : 'Driver';
+    final vehicleModel = ride.carModel.isNotEmpty ? ride.carModel : 'Vehicle';
+    final vehiclePlate = ride.carPlate.isNotEmpty ? ride.carPlate : 'Standard';
 
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
@@ -110,9 +153,9 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
                         iconBg: isDriverOnline
                             ? const Color(0xFFEFF6FF)
                             : const Color(0xFFFEF3C7),
-                        title: '${ride.driverName} • Verified Driver',
+                        title: '$driverDisplayName • Verified Driver',
                         subtitle:
-                            '${ride.carModel} • ${ride.carPlate}\nTrust Rating ${ride.rating.toStringAsFixed(2)} ★',
+                            '$vehicleModel • $vehiclePlate\nTrust Rating ${(ride.rating > 0 ? ride.rating : 5.0).toStringAsFixed(1)} ★',
                         trailingBadge: Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: 8.w,
@@ -182,7 +225,7 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
                               10.horizontalSpace,
                               Expanded(
                                 child: Text(
-                                  'Driver is currently offline. You can still send a request, but it might take some extra time for ${ride.driverName} to accept.',
+                                  'Driver is currently offline. You can still send a request, but it might take some extra time for $driverDisplayName to accept.',
                                   style: AppTextStyle.text12Regular.copyWith(
                                     color: const Color(0xFF92400E),
                                     height: 1.35,
@@ -206,9 +249,7 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
                 iconColor: AppColors.primaryColor,
                 iconBg: const Color(0xFFEFF6FF),
                 title: 'Ride Start / Departure Time',
-                subtitle: ride.departureTime.isNotEmpty
-                    ? '${ride.departureTime}${ride.departureDateTime != null ? ' • ${DateFormat('EEE, d MMM').format(ride.departureDateTime!)}' : ''}'
-                    : 'Scheduled for upcoming trip',
+                subtitle: formattedDeparture,
               ),
 
               12.verticalSpace,
@@ -219,30 +260,31 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
                 iconColor: AppColors.primaryColor,
                 iconBg: const Color(0xFFEFF6FF),
                 title: 'Your Request',
-                subtitle:
-                    '${controller.seatsNote.value}\nSeats Needed: $seatsNeeded • Total: ${Utils.formatPrice(totalPrice)}',
+                subtitle: controller.seatsNote.value.trim().isNotEmpty
+                    ? '${controller.seatsNote.value.trim()}\nSeats Needed: $seatsNeeded • Total: ${Utils.formatPrice(totalPrice)}'
+                    : 'Seats Needed: $seatsNeeded • Total: ${Utils.formatPrice(totalPrice)}',
               ),
 
               12.verticalSpace,
 
-              // Pickup Suggestion Card
+              // Pickup Location Card
               _DetailCard(
                 icon: CupertinoIcons.location,
                 iconColor: AppColors.primaryColor,
                 iconBg: const Color(0xFFEFF6FF),
-                title: 'Pickup Suggestion',
-                subtitle: ride.pickupSuggestion,
+                title: 'Pickup Location',
+                subtitle: passengerPickup,
               ),
 
               12.verticalSpace,
 
-              // Drop-off Plan Card
+              // Drop-off Destination Card
               _DetailCard(
                 icon: CupertinoIcons.arrow_branch,
                 iconColor: AppColors.primaryColor,
                 iconBg: const Color(0xFFEFF6FF),
-                title: 'Drop-off Plan',
-                subtitle: ride.dropOffPlan,
+                title: 'Drop-off Destination',
+                subtitle: passengerDrop,
               ),
 
               16.verticalSpace,
@@ -348,10 +390,61 @@ class RideDetailsPage extends GetView<PassengerDashboardController> {
 
               // Dynamic Request Button State: Disabled if already requested/pending
               Obx(() {
+                final currentUid = AuthService.instance.currentUser?.uid ?? '';
+                final bool isMyOwnRide = currentUid.isNotEmpty &&
+                    ride.driverId.isNotEmpty &&
+                    ride.driverId == currentUid;
+
+                // Always observe reactive lists first so GetX tracks dependencies
                 final bool isPending = controller.pendingRequests
-                    .any((p) => p.ride.id == ride.id);
+                    .any((p) => p.ride.id.isNotEmpty && p.ride.id == ride.id);
                 final bool isConfirmed = controller.myBookings
-                    .any((b) => b.ride.id == ride.id);
+                    .any((b) => b.ride.id.isNotEmpty && b.ride.id == ride.id);
+
+                if (isMyOwnRide) {
+                  return Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      vertical: 14.h,
+                      horizontal: 16.w,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              color: Color(0xFF64748B),
+                              size: 20,
+                            ),
+                            8.horizontalSpace,
+                            Text(
+                              'This is Your Published Ride',
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                color: const Color(0xFF334155),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        6.verticalSpace,
+                        Text(
+                          "You can't request a ride on your own published trip.",
+                          style: AppTextStyle.text12Regular.copyWith(
+                            color: AppColors.secondaryTextColor,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
                 if (isPending) {
                   return Column(
@@ -611,6 +704,7 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
 
   bool _isValidCoordinate(double? lat, double? lng) {
     if (lat == null || lng == null) return false;
+    if (lat.isNaN || lng.isNaN || lat.isInfinite || lng.isInfinite) return false;
     if (lat == 0.0 && lng == 0.0) return false;
     // World bounds
     if (lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) {
@@ -620,90 +714,105 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
   }
 
   Future<void> _loadCustomMarkers() async {
-    final person = await MapMarkerHelper.getPersonMarker();
-    final pin = await MapMarkerHelper.getDropPinMarker();
-    if (mounted) {
-      setState(() {
-        _pickupPersonMarker = person;
-        _dropPinMarker = pin;
-      });
-    }
+    try {
+      final person = await MapMarkerHelper.getPersonMarker();
+      final pin = await MapMarkerHelper.getDropPinMarker();
+      if (mounted) {
+        setState(() {
+          _pickupPersonMarker = person;
+          _dropPinMarker = pin;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadRealRoute() async {
-    double pLat = widget.ride.searchedPickupLat != 0.0
-        ? widget.ride.searchedPickupLat
-        : widget.ride.originLat;
-    double pLng = widget.ride.searchedPickupLng != 0.0
-        ? widget.ride.searchedPickupLng
-        : widget.ride.originLng;
-    double dLat = widget.ride.searchedDropLat != 0.0
-        ? widget.ride.searchedDropLat
-        : widget.ride.destinationLat;
-    double dLng = widget.ride.searchedDropLng != 0.0
-        ? widget.ride.searchedDropLng
-        : widget.ride.destinationLng;
+    try {
+      double pLat = widget.ride.searchedPickupLat != 0.0
+          ? widget.ride.searchedPickupLat
+          : widget.ride.originLat;
+      double pLng = widget.ride.searchedPickupLng != 0.0
+          ? widget.ride.searchedPickupLng
+          : widget.ride.originLng;
+      double dLat = widget.ride.searchedDropLat != 0.0
+          ? widget.ride.searchedDropLat
+          : widget.ride.destinationLat;
+      double dLng = widget.ride.searchedDropLng != 0.0
+          ? widget.ride.searchedDropLng
+          : widget.ride.destinationLng;
 
-    // If coordinates are missing or invalid, attempt real-time geocoding
-    if (!_isValidCoordinate(pLat, pLng) && widget.ride.origin.trim().isNotEmpty) {
-      final pGeo = await GooglePlacesService.instance.getCoordinatesForAddress(
-        widget.ride.origin,
-      );
-      if (pGeo != null && _isValidCoordinate(pGeo.latitude, pGeo.longitude)) {
-        pLat = pGeo.latitude;
-        pLng = pGeo.longitude;
+      // If coordinates are missing or invalid, attempt real-time geocoding
+      if (!_isValidCoordinate(pLat, pLng) && widget.ride.origin.trim().isNotEmpty) {
+        final pGeo = await GooglePlacesService.instance.getCoordinatesForAddress(
+          widget.ride.origin,
+        );
+        if (pGeo != null && _isValidCoordinate(pGeo.latitude, pGeo.longitude)) {
+          pLat = pGeo.latitude;
+          pLng = pGeo.longitude;
+        }
       }
-    }
 
-    if (!_isValidCoordinate(dLat, dLng) && widget.ride.destination.trim().isNotEmpty) {
-      final dGeo = await GooglePlacesService.instance.getCoordinatesForAddress(
-        widget.ride.destination,
-      );
-      if (dGeo != null && _isValidCoordinate(dGeo.latitude, dGeo.longitude)) {
-        dLat = dGeo.latitude;
-        dLng = dGeo.longitude;
+      if (!_isValidCoordinate(dLat, dLng) && widget.ride.destination.trim().isNotEmpty) {
+        final dGeo = await GooglePlacesService.instance.getCoordinatesForAddress(
+          widget.ride.destination,
+        );
+        if (dGeo != null && _isValidCoordinate(dGeo.latitude, dGeo.longitude)) {
+          dLat = dGeo.latitude;
+          dLng = dGeo.longitude;
+        }
       }
-    }
 
-    // If either pickup or dropoff does not have valid coordinates, do NOT use default fake coordinates
-    if (!_isValidCoordinate(pLat, pLng) || !_isValidCoordinate(dLat, dLng)) {
+      // If either pickup or dropoff does not have valid coordinates, do NOT use default fake coordinates
+      if (!_isValidCoordinate(pLat, pLng) || !_isValidCoordinate(dLat, dLng)) {
+        if (!mounted) return;
+        setState(() {
+          _pickup = null;
+          _dropoff = null;
+          _hasValidCoordinates = false;
+          _isLoadingRoute = false;
+          _routePoints = [];
+        });
+        return;
+      }
+
+      final pickup = LatLng(pLat, pLng);
+      final dropoff = LatLng(dLat, dLng);
+
+      // Fetch driving directions
+      final points = await GooglePlacesService.instance.getDirectionsRoute(
+        pickup,
+        dropoff,
+      );
       if (!mounted) return;
+
       setState(() {
-        _pickup = null;
-        _dropoff = null;
-        _hasValidCoordinates = false;
+        _pickup = pickup;
+        _dropoff = dropoff;
+        _hasValidCoordinates = true;
+        _routePoints = points.isNotEmpty ? points : [pickup, dropoff];
         _isLoadingRoute = false;
-        _routePoints = [];
       });
-      return;
+
+      _fitBounds();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRoute = false;
+          _hasValidCoordinates = false;
+        });
+      }
     }
-
-    final pickup = LatLng(pLat, pLng);
-    final dropoff = LatLng(dLat, dLng);
-
-    // Fetch driving directions
-    final points = await GooglePlacesService.instance.getDirectionsRoute(
-      pickup,
-      dropoff,
-    );
-    if (!mounted) return;
-
-    setState(() {
-      _pickup = pickup;
-      _dropoff = dropoff;
-      _hasValidCoordinates = true;
-      _routePoints = points.isNotEmpty ? points : [pickup, dropoff];
-      _isLoadingRoute = false;
-    });
-
-    _fitBounds();
   }
 
   void _fitBounds() {
-    if (_mapController == null || _pickup == null || _dropoff == null) return;
+    final pickup = _pickup;
+    final dropoff = _dropoff;
+    if (_mapController == null || pickup == null || dropoff == null) return;
     try {
       final allPoints =
-          _routePoints.isNotEmpty ? _routePoints : [_pickup!, _dropoff!];
+          _routePoints.isNotEmpty ? _routePoints : [pickup, dropoff];
+      if (allPoints.isEmpty) return;
+
       double minLat = allPoints.first.latitude;
       double maxLat = allPoints.first.latitude;
       double minLng = allPoints.first.longitude;
@@ -716,11 +825,13 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
         if (p.longitude > maxLng) maxLng = p.longitude;
       }
 
-      if (minLat == maxLat && minLng == maxLng) {
-        minLat -= 0.01;
-        maxLat += 0.01;
-        minLng -= 0.01;
-        maxLng += 0.01;
+      if ((maxLat - minLat).abs() < 0.005) {
+        minLat -= 0.005;
+        maxLat += 0.005;
+      }
+      if ((maxLng - minLng).abs() < 0.005) {
+        minLng -= 0.005;
+        maxLng += 0.005;
       }
 
       final bounds = LatLngBounds(
@@ -774,8 +885,11 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
       );
     }
 
+    final pickup = _pickup;
+    final dropoff = _dropoff;
+
     // Clean container when coordinates or route data are unavailable
-    if (!_hasValidCoordinates || _pickup == null || _dropoff == null) {
+    if (!_hasValidCoordinates || pickup == null || dropoff == null) {
       return Container(
         height: 195.h,
         width: double.infinity,
@@ -897,13 +1011,13 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
     }
 
     final LatLng midPoint = LatLng(
-      (_pickup!.latitude + _dropoff!.latitude) / 2,
-      (_pickup!.longitude + _dropoff!.longitude) / 2,
+      (pickup.latitude + dropoff.latitude) / 2,
+      (pickup.longitude + dropoff.longitude) / 2,
     );
 
     final List<LatLng> activePoints = _routePoints.isNotEmpty
         ? _routePoints
-        : [_pickup!, midPoint, _dropoff!];
+        : [pickup, midPoint, dropoff];
 
     return Container(
       height: 195.h,
@@ -940,8 +1054,12 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
               markers: {
                 Marker(
                   markerId: const MarkerId('pickup'),
-                  position: _pickup!,
-                  infoWindow: InfoWindow(title: 'Pickup: ${widget.ride.origin}'),
+                  position: pickup,
+                  infoWindow: InfoWindow(
+                    title: widget.ride.origin.isNotEmpty
+                        ? 'Pickup: ${widget.ride.origin}'
+                        : 'Pickup',
+                  ),
                   icon: _pickupPersonMarker ??
                       BitmapDescriptor.defaultMarkerWithHue(
                         BitmapDescriptor.hueGreen,
@@ -949,9 +1067,11 @@ class _RideRouteMapCardState extends State<_RideRouteMapCard> {
                 ),
                 Marker(
                   markerId: const MarkerId('dropoff'),
-                  position: _dropoff!,
+                  position: dropoff,
                   infoWindow: InfoWindow(
-                    title: 'Drop-off: ${widget.ride.destination}',
+                    title: widget.ride.destination.isNotEmpty
+                        ? 'Drop-off: ${widget.ride.destination}'
+                        : 'Drop-off',
                   ),
                   icon: _dropPinMarker ??
                       BitmapDescriptor.defaultMarkerWithHue(

@@ -53,7 +53,10 @@ class FirestoreRideModel {
       driverId: map['driverId'] as String? ?? '',
       driverName: map['driver']?['name'] as String? ?? '',
       driverPhotoUrl: map['driver']?['photoUrl'] as String?,
-      driverRating: (map['driver']?['rating'] as num?)?.toDouble() ?? 0.0,
+      driverRating: (map['driver']?['rating'] as num?)?.toDouble() ??
+          (map['driverRating'] as num?)?.toDouble() ??
+          (map['rating'] as num?)?.toDouble() ??
+          5.0,
       driverTotalRides: (map['driver']?['totalRides'] as num?)?.toInt() ?? 0,
       carModel: map['vehicle']?['model'] as String? ?? '',
       carPlate: map['vehicle']?['plate'] as String? ?? '',

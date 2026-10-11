@@ -253,7 +253,8 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
                 if (items.isEmpty) {
                   return ListView(
                     physics: const AlwaysScrollableScrollPhysics(
-                        parent: BouncingScrollPhysics()),
+                      parent: ClampingScrollPhysics(),
+                    ),
                     children: [
                       SizedBox(height: 60.h),
                       Center(
@@ -313,7 +314,8 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
 
                 return ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(
-                      parent: BouncingScrollPhysics()),
+                    parent: ClampingScrollPhysics(),
+                  ),
                   padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 20.h),
                   itemCount: items.length,
                   separatorBuilder: (_, _) => SizedBox(height: 14.h),
@@ -474,9 +476,10 @@ class DriverRideRequestsPage extends GetView<DriverTripsController> {
                                                   ),
                                                   2.horizontalSpace,
                                                   Text(
-                                                    req.rating.toStringAsFixed(
-                                                      2,
-                                                    ),
+                                                    (req.rating.value > 0
+                                                            ? req.rating.value
+                                                            : 5.0)
+                                                        .toStringAsFixed(1),
                                                     style: AppTextStyle
                                                         .text12Semibold
                                                         .copyWith(

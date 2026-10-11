@@ -177,9 +177,9 @@ class RouteMatchingHelper {
       );
     }
 
-    // 4. Calculate total detour distance
+    // 4. Calculate total detour distance and duration (corridor average 35 km/h + 1 min curbside pickup buffer)
     final totalDetourKm = (pickupDetour + dropoffDetour);
-    final detourMins = math.max(1, (totalDetourKm * 2.2).round());
+    final detourMins = math.max(1, (totalDetourKm / 35.0 * 60).round() + 1);
 
     // 5. Calculate recommended sub-route fare proportional to distance
     final fullDriverDistance = distanceKm(driverOrigin, driverDestination);

@@ -157,19 +157,35 @@ class DriverDashboardController extends GetxController {
     driverCurrentSpeed.value = pos.speed;
     driverCurrentAccuracy.value = pos.accuracy;
 
+    final double heading =
+        pos.heading >= 0.0 ? pos.heading : driverCurrentHeading.value;
+    final double speedKmH = pos.speed > 0.0 ? (pos.speed * 3.6) : 0.0;
+
     // 1. Update live location in driver's user document in Firestore (filtered)
     AuthService.instance.updateDriverLocation(
       latitude: pos.latitude,
       longitude: pos.longitude,
+      heading: heading,
+      speed: speedKmH,
       force: forceSync,
     );
 
     // 2. If any trip is started/active, update live location data to driver lat/long on trips
-    syncLocationToStartedTrips(loc, forceSync: forceSync);
+    syncLocationToStartedTrips(
+      loc,
+      heading: heading,
+      speed: speedKmH,
+      forceSync: forceSync,
+    );
   }
 
   /// Sync live location coordinates to any active / started trips
-  void syncLocationToStartedTrips(LatLng pos, {bool forceSync = false}) {
+  void syncLocationToStartedTrips(
+    LatLng pos, {
+    double? heading,
+    double? speed,
+    bool forceSync = false,
+  }) {
     if (!Get.isRegistered<DriverTripsController>()) return;
 
     final activeTrips = <DriverTripModel>[];
@@ -179,7 +195,9 @@ class DriverDashboardController extends GetxController {
       final status = trip.status.value.toLowerCase().trim();
       if (status == 'active' ||
           status == 'in progress' ||
-          status == 'in_progress') {
+          status == 'in_progress' ||
+          status == 'started' ||
+          status == 'onboard') {
         activeTrips.add(trip);
       }
     }
@@ -199,6 +217,8 @@ class DriverDashboardController extends GetxController {
           trip.id,
           pos.latitude,
           pos.longitude,
+          heading: heading,
+          speed: speed,
           force: forceSync,
         );
       }
@@ -231,7 +251,7 @@ class DriverDashboardController extends GetxController {
 
   @override
   void onClose() {
-    cleanupAll();
+    stopDriverLiveLocationTracking();
     _locationSubscription?.cancel();
     _authSubscription?.cancel();
     super.onClose();

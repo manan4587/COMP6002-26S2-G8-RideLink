@@ -37,7 +37,13 @@ class DriverCommunityDetailsPage extends StatelessWidget {
                   ),
                   16.verticalSpace,
                   TextButton(
-                    onPressed: () => Get.back(),
+                    onPressed: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else {
+                        Get.back();
+                      }
+                    },
                     child: const Text('Back'),
                   ),
                 ],
@@ -56,7 +62,13 @@ class DriverCommunityDetailsPage extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: IconButton(
-                        onPressed: () => Get.back(),
+                        onPressed: () {
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          } else {
+                            Get.back();
+                          }
+                        },
                         icon: Icon(
                           CupertinoIcons.back,
                           size: 22.sp,
@@ -846,14 +858,12 @@ class _StatCard extends StatelessWidget {
             ],
           ),
           10.verticalSpace,
-          Obx(
-            () => Text(
-              '${countObs.value}',
-              style: AppTextStyle.text20Semibold.copyWith(
-                fontSize: 22.sp,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF0F172A),
-              ),
+          Text(
+            '${countObs.value}',
+            style: AppTextStyle.text20Semibold.copyWith(
+              fontSize: 22.sp,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF0F172A),
             ),
           ),
         ],

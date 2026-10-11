@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_assets.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
 import 'package:ridelink/core/enums/verification_status.dart';
+import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
 import 'package:ridelink/views/auth_flow/auth_controller.dart';
 import 'package:ridelink/widgets/app_button.dart';
@@ -36,29 +37,35 @@ class _DriverVerificationUploadViewState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryBgColor,
-      body: AppMainContainer(
-        alignment: AlignmentGeometry.topCenter,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Top Navigation Bar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: () => Get.back(),
-                      icon: Icon(
-                        CupertinoIcons.back,
-                        size: 22.sp,
-                        color: AppColors.primaryTextColor,
+        backgroundColor: AppColors.primaryBgColor,
+        body: AppMainContainer(
+          alignment: AlignmentGeometry.topCenter,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Top Navigation Bar
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          if (Get.key.currentState?.canPop() == true) {
+                            Get.back();
+                          } else {
+                            Get.offAllNamed(AppRoutes.driverDashboard);
+                          }
+                        },
+                        icon: Icon(
+                          CupertinoIcons.back,
+                          size: 22.sp,
+                          color: AppColors.primaryTextColor,
+                        ),
+                        splashRadius: 22.r,
                       ),
-                      splashRadius: 22.r,
-                    ),
                     Row(
                       children: [
                         Container(

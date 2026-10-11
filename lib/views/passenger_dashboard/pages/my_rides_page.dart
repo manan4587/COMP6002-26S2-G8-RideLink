@@ -417,6 +417,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                 'carModel': booking.ride.carModel,
                 'route':
                     '${booking.ride.origin} → ${booking.ride.destination}',
+                'driverPhone': booking.ride.driverPhone,
               },
             );
           },
@@ -522,6 +523,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
       'Driver taking too long',
       'Other reason',
     ];
+    bool isCancelling = false;
 
     showModalBottomSheet(
       context: context,
@@ -636,7 +638,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Get.back(),
+                      onPressed: isCancelling ? null : () => Navigator.of(ctx).pop(),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 13.h),
                         side: const BorderSide(color: AppColors.borderColor),
@@ -655,28 +657,54 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                   12.horizontalSpace,
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Get.back();
-                        controller.cancelPendingRequest(
-                          request,
-                          reason: selectedReason,
-                        );
-                      },
+                      onPressed: isCancelling
+                          ? null
+                          : () {
+                              setSheetState(() => isCancelling = true);
+                              Navigator.of(ctx).pop();
+                              controller.cancelPendingRequest(
+                                request,
+                                reason: selectedReason,
+                              );
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.red,
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            AppColors.red.withValues(alpha: 0.6),
                         padding: EdgeInsets.symmetric(vertical: 13.h),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12.r),
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        'Confirm Cancel',
-                        style: AppTextStyle.text14Semibold.copyWith(
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: isCancelling
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 14.r,
+                                  height: 14.r,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                8.horizontalSpace,
+                                Text(
+                                  'Cancelling...',
+                                  style: AppTextStyle.text14Semibold.copyWith(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Confirm Cancel',
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -690,6 +718,13 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
 
   // Modal Sheet to Cancel Confirmed Booking
   void _confirmCancelBooking(BuildContext context, dynamic booking) {
+    if (booking is BookingModel && booking.isOnboard) {
+      AppSnackBar.warning(
+        message: 'You have already onboarded this ride and cannot cancel.',
+      );
+      return;
+    }
+
     final String driverName = booking is BookingModel
         ? booking.ride.driverName
         : 'the driver';
@@ -701,6 +736,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
       'Emergency came up',
       'Driver requested cancel',
     ];
+    bool isCancelling = false;
 
     showModalBottomSheet(
       context: context,
@@ -834,7 +870,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Get.back(),
+                      onPressed: isCancelling ? null : () => Navigator.of(ctx).pop(),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 13.h),
                         side: const BorderSide(color: AppColors.borderColor),
@@ -853,28 +889,54 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
                   12.horizontalSpace,
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Get.back();
-                        controller.cancelBooking(
-                          booking,
-                          reason: selectedReason,
-                        );
-                      },
+                      onPressed: isCancelling
+                          ? null
+                          : () {
+                              setSheetState(() => isCancelling = true);
+                              Navigator.of(ctx).pop();
+                              controller.cancelBooking(
+                                booking,
+                                reason: selectedReason,
+                              );
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.red,
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            AppColors.red.withValues(alpha: 0.6),
                         padding: EdgeInsets.symmetric(vertical: 13.h),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12.r),
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        'Cancel Ride',
-                        style: AppTextStyle.text14Semibold.copyWith(
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: isCancelling
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 14.r,
+                                  height: 14.r,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                8.horizontalSpace,
+                                Text(
+                                  'Cancelling...',
+                                  style: AppTextStyle.text14Semibold.copyWith(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Cancel Ride',
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -894,6 +956,7 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
     final RxDouble ratingValue = 5.0.obs;
     final TextEditingController reviewController = TextEditingController();
     final RxList<String> selectedTags = <String>[].obs;
+    final RxBool isSubmitting = false.obs;
 
     final List<String> availableTags = [
       'Punctual',
@@ -1109,38 +1172,71 @@ class MyRidesPage extends GetView<PassengerDashboardController> {
               // Submit Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: EdgeInsets.symmetric(vertical: 14.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.r),
+                child: Obx(() {
+                  final submitting = isSubmitting.value;
+                  return ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryColor,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor:
+                          AppColors.primaryColor.withValues(alpha: 0.6),
+                      disabledForegroundColor: Colors.white70,
+                      elevation: 0,
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14.r),
+                      ),
                     ),
-                  ),
-                  onPressed: () {
-                    final combinedComment = [
-                      if (selectedTags.isNotEmpty) selectedTags.join(', '),
-                      if (reviewController.text.trim().isNotEmpty)
-                        reviewController.text.trim(),
-                    ].join(' • ');
+                    onPressed: submitting
+                        ? null
+                        : () {
+                            isSubmitting.value = true;
+                            final combinedComment = [
+                              if (selectedTags.isNotEmpty) selectedTags.join(', '),
+                              if (reviewController.text.trim().isNotEmpty)
+                                reviewController.text.trim(),
+                            ].join(' • ');
 
-                    Get.back();
-                    controller.rateDriver(
-                      tripId: trip.id,
-                      rating: ratingValue.value,
-                      comment: combinedComment,
-                    );
-                  },
-                  child: Text(
-                    'Submit Rating',
-                    style: AppTextStyle.text14Semibold.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                            Navigator.of(ctx).pop();
+                            controller.rateDriver(
+                              tripId: trip.id,
+                              driverId: trip.driverId,
+                              bookingId: trip.bookingId,
+                              rating: ratingValue.value,
+                              comment: combinedComment,
+                            );
+                          },
+                    child: submitting
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 16.r,
+                                height: 16.r,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              8.horizontalSpace,
+                              Text(
+                                'Submitting Rating...',
+                                style: AppTextStyle.text14Semibold.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            'Submit Rating',
+                            style: AppTextStyle.text14Semibold.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  );
+                }),
               ),
             ],
           ),
@@ -1257,7 +1353,9 @@ class _PendingRequestCard extends StatelessWidget {
                     radius: 12.r,
                     backgroundColor: const Color(0xFFEFF6FF),
                     child: Text(
-                      pending.ride.driverName[0],
+                      pending.ride.driverName.trim().isNotEmpty
+                          ? pending.ride.driverName.trim()[0].toUpperCase()
+                          : 'D',
                       style: TextStyle(
                         fontSize: 11.sp,
                         fontWeight: FontWeight.bold,
@@ -1272,7 +1370,7 @@ class _PendingRequestCard extends StatelessWidget {
                   ),
                   4.horizontalSpace,
                   Text(
-                    '★ ${pending.ride.rating}',
+                    '★ ${(pending.ride.rating > 0 ? pending.ride.rating : 5.0).toStringAsFixed(1)}',
                     style: AppTextStyle.text10Medium.copyWith(
                       color: const Color(0xFFD97706),
                       fontWeight: FontWeight.bold,
@@ -1439,7 +1537,9 @@ class _ConfirmedTripCard extends StatelessWidget {
                 radius: 14.r,
                 backgroundColor: const Color(0xFFEFF6FF),
                 child: Text(
-                  booking.ride.driverName[0],
+                  booking.ride.driverName.trim().isNotEmpty
+                      ? booking.ride.driverName.trim()[0].toUpperCase()
+                      : 'D',
                   style: TextStyle(
                     fontSize: 12.sp,
                     fontWeight: FontWeight.bold,
@@ -1452,9 +1552,21 @@ class _ConfirmedTripCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      booking.ride.driverName,
-                      style: AppTextStyle.text12Semibold,
+                    Row(
+                      children: [
+                        Text(
+                          booking.ride.driverName,
+                          style: AppTextStyle.text12Semibold,
+                        ),
+                        4.horizontalSpace,
+                        Text(
+                          '★ ${(booking.ride.rating > 0 ? booking.ride.rating : 5.0).toStringAsFixed(1)}',
+                          style: AppTextStyle.text10Medium.copyWith(
+                            color: const Color(0xFFD97706),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
                       '${booking.ride.carModel} • ${booking.ride.carPlate}',
@@ -1512,22 +1624,24 @@ class _ConfirmedTripCard extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: onCancel,
-                tooltip: 'Cancel trip',
-                icon: Container(
-                  padding: EdgeInsets.all(7.w),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFEE2E2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    CupertinoIcons.xmark,
-                    size: 15.sp,
-                    color: Colors.red,
+              if (!booking.isOnboard) ...[
+                IconButton(
+                  onPressed: onCancel,
+                  tooltip: 'Cancel trip',
+                  icon: Container(
+                    padding: EdgeInsets.all(7.w),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFEE2E2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      CupertinoIcons.xmark,
+                      size: 15.sp,
+                      color: Colors.red,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ],

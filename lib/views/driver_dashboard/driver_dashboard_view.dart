@@ -10,18 +10,35 @@ import 'package:ridelink/views/driver_dashboard/pages/driver_home_page.dart';
 import 'package:ridelink/views/driver_dashboard/pages/driver_profile_page.dart';
 import 'package:ridelink/views/driver_dashboard/pages/driver_trips_page.dart';
 
-class DriverDashboardView extends GetView<DriverDashboardController> {
+class DriverDashboardView extends StatefulWidget {
   const DriverDashboardView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.homeController.reloadStats();
-      controller.profileController.reloadProfile();
-      controller.tripsController.reloadDriverTrips();
-      controller.startDriverLiveLocationTracking(context: context);
-    });
+  State<DriverDashboardView> createState() => _DriverDashboardViewState();
+}
 
+class _DriverDashboardViewState extends State<DriverDashboardView> {
+  final DriverDashboardController controller =
+      Get.find<DriverDashboardController>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        controller.homeController.reloadStats();
+        controller.profileController.reloadProfile();
+        controller.tripsController.reloadDriverTrips();
+        controller.startDriverLiveLocationTracking(
+          context: context,
+          showPermissionSheet: false,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final List<Widget> pages = const [
       DriverHomePage(),
       DriverTripsPage(),
@@ -29,15 +46,13 @@ class DriverDashboardView extends GetView<DriverDashboardController> {
       DriverProfilePage(),
     ];
 
-    return Scaffold(
-      body: Obx(
-        () => IndexedStack(
+    return Obx(
+      () => Scaffold(
+        body: IndexedStack(
           index: controller.currentTabIndex.value,
           children: pages,
         ),
-      ),
-      bottomNavigationBar: Obx(
-        () => Container(
+          bottomNavigationBar: Container(
           decoration: BoxDecoration(
             color: AppColors.white,
             border: Border(
@@ -116,52 +131,55 @@ class _DriverNavBarItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isSelected ? activeIcon : icon,
-                size: 22.sp,
-                color: isSelected
-                    ? AppColors.primaryColor
-                    : AppColors.secondaryTextColor,
-              ),
-              SizedBox(height: 4.h),
-              Text(
-                label,
-                maxLines: 1,
-                softWrap: false,
-                style: AppTextStyle.text10Medium.copyWith(
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isSelected ? activeIcon : icon,
+                  size: 22.sp,
                   color: isSelected
                       ? AppColors.primaryColor
                       : AppColors.secondaryTextColor,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 ),
-              ),
-            ],
-          ),
-          if (badgeCount != null && badgeCount! > 0)
-            Positioned(
-              right: -6.w,
-              top: -4.h,
-              child: Container(
-                padding: EdgeInsets.all(4.w),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
+                SizedBox(height: 4.h),
+                Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: AppTextStyle.text10Medium.copyWith(
+                    color: isSelected
+                        ? AppColors.primaryColor
+                        : AppColors.secondaryTextColor,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  ),
                 ),
-                child: Text(
-                  '$badgeCount',
-                  style: AppTextStyle.text9Bold.copyWith(
-                    color: Colors.white,
+              ],
+            ),
+            if (badgeCount != null && badgeCount! > 0)
+              Positioned(
+                right: -6.w,
+                top: -4.h,
+                child: Container(
+                  padding: EdgeInsets.all(4.w),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$badgeCount',
+                    style: AppTextStyle.text9Bold.copyWith(
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -9,6 +9,7 @@ import 'package:ridelink/data/models/passenger/passenger_models.dart';
 import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/data/services/trip_service.dart';
 import 'package:ridelink/routes/routes_name.dart';
+import 'package:ridelink/views/passenger_dashboard/controllers/passenger_profile_controller.dart';
 import 'package:ridelink/views/passenger_dashboard/controllers/passenger_search_controller.dart';
 
 class PassengerTripsController extends GetxController {
@@ -197,6 +198,8 @@ class PassengerTripsController extends GetxController {
                       destinationLng: tripDoc.destinationLng,
                       currentDriverLat: tripDoc.currentDriverLat,
                       currentDriverLng: tripDoc.currentDriverLng,
+                      currentDriverHeading: tripDoc.currentDriverHeading,
+                      currentDriverSpeed: tripDoc.currentDriverSpeed,
                       departureTime: tripDoc.departureTimeString.isNotEmpty
                           ? tripDoc.departureTimeString
                           : 'Today',
@@ -206,9 +209,14 @@ class PassengerTripsController extends GetxController {
                           : (b.fare /
                                 (b.requestedSeats > 0 ? b.requestedSeats : 1)),
                       seatsAvailable: tripDoc.availableSeats,
-                      pickupSuggestion: tripDoc.originName,
-                      dropOffPlan:
-                          '${tripDoc.originName} → ${tripDoc.destinationName}',
+                      pickupSuggestion: b.pickupAddress.isNotEmpty
+                          ? b.pickupAddress
+                          : tripDoc.originName,
+                      dropOffPlan: b.dropAddress.isNotEmpty
+                          ? b.dropAddress
+                          : tripDoc.destinationName,
+                      searchedPickupAddress: b.pickupAddress,
+                      searchedDropAddress: b.dropAddress,
                     );
                   }
                 }
@@ -218,21 +226,25 @@ class PassengerTripsController extends GetxController {
                   driverId: b.driverId,
                   driverName: 'Driver',
                   driverAvatar: '',
-                  rating: 0.0,
+                  rating: 5.0,
                   totalRides: 0,
                   carModel: 'Vehicle',
                   carPlate: 'Plate',
                   origin: b.pickupAddress,
                   destination: b.dropAddress,
-                  originLat: 0.0,
-                  originLng: 0.0,
-                  destinationLat: 0.0,
-                  destinationLng: 0.0,
+                  originLat: b.pickupLat,
+                  originLng: b.pickupLng,
+                  destinationLat: b.dropLat,
+                  destinationLng: b.dropLng,
                   departureTime: 'Today',
                   estimatedDuration: '30 mins',
                   pricePerSeat:
                       b.fare / (b.requestedSeats > 0 ? b.requestedSeats : 1),
                   seatsAvailable: 2,
+                  pickupSuggestion: b.pickupAddress,
+                  dropOffPlan: b.dropAddress,
+                  searchedPickupAddress: b.pickupAddress,
+                  searchedDropAddress: b.dropAddress,
                 );
 
                 if (tripDoc == null &&
@@ -270,16 +282,32 @@ class PassengerTripsController extends GetxController {
                     completedTrips.insert(
                       0,
                       CompletedTripModel(
-                        id: b.id,
+                        id: b.tripId.isNotEmpty ? b.tripId : b.id,
+                        bookingId: b.id,
+                        driverId: b.driverId.isNotEmpty ? b.driverId : ride.driverId,
                         driverName: ride.driverName,
                         carModel: ride.carModel,
                         carPlate: ride.carPlate,
                         route: '${ride.origin} → ${ride.destination}',
                         date: 'Today • Dropped Off',
                         fare: '\$${b.fare.toStringAsFixed(2)} AUD',
-                        isRated: false,
+                        isRated: b.isPassengerRated,
+                        rating: b.passengerRatingToDriver ?? 5.0,
+                        reviewComment: b.passengerReviewToDriver ?? '',
                       ),
                     );
+                  } else {
+                    if (b.isPassengerRated) {
+                      existingCompleted.isRated.value = true;
+                      if (b.passengerRatingToDriver != null) {
+                        existingCompleted.rating.value =
+                            b.passengerRatingToDriver!;
+                      }
+                      if (b.passengerReviewToDriver != null) {
+                        existingCompleted.reviewComment.value =
+                            b.passengerReviewToDriver!;
+                      }
+                    }
                   }
                 } else if (b.status == 'accepted') {
                   pendingRequests.removeWhere(
@@ -300,8 +328,12 @@ class PassengerTripsController extends GetxController {
                         ride: ride,
                         bookedSeats: b.requestedSeats,
                         totalPrice: b.fare,
-                        status: 'Confirmed',
-                        bookingDate: 'Confirmed by Driver',
+                        status: b.passengerStatus.toLowerCase() == 'onboard'
+                            ? 'Onboard'
+                            : 'Confirmed',
+                        bookingDate: b.passengerStatus.toLowerCase() == 'onboard'
+                            ? 'Onboard with Driver'
+                            : 'Confirmed by Driver',
                         pickupOtp: b.pickupOtp.isNotEmpty
                             ? b.pickupOtp
                             : (Preferences.rideOtp.isNotEmpty
@@ -313,6 +345,7 @@ class PassengerTripsController extends GetxController {
                                             1000)
                                         .toString()
                                     : '4829')),
+                        passengerStatus: b.passengerStatus,
                       ),
                     );
                   } else {
@@ -323,11 +356,16 @@ class PassengerTripsController extends GetxController {
                       ride: ride,
                       bookedSeats: existing.bookedSeats,
                       totalPrice: existing.totalPrice,
-                      status: existing.status,
-                      bookingDate: existing.bookingDate,
+                      status: b.passengerStatus.toLowerCase() == 'onboard'
+                          ? 'Onboard'
+                          : existing.status,
+                      bookingDate: b.passengerStatus.toLowerCase() == 'onboard'
+                          ? 'Onboard with Driver'
+                          : existing.bookingDate,
                       pickupOtp: b.pickupOtp.isNotEmpty
                           ? b.pickupOtp
                           : existing.pickupOtp,
+                      passengerStatus: b.passengerStatus,
                     );
                   }
                   if (lastCreatedBookingId.value == b.id &&
@@ -405,14 +443,22 @@ class PassengerTripsController extends GetxController {
   }
 
   void requestToJoinRide(RideModel ride, {int? seats, String? notes}) {
+    final user = AuthService.instance.currentUser;
+    final passengerUid = user?.uid ?? 'passenger_demo';
+
+    if (passengerUid.isNotEmpty && ride.driverId == passengerUid) {
+      AppSnackBar.info(
+        message: "You can't request a ride on your own published trip.",
+      );
+      return;
+    }
+
     final int seatCount = seats ?? 1;
     currentSelectedRide.value = ride;
     if (Get.isRegistered<PassengerSearchController>()) {
       Get.find<PassengerSearchController>().requestedSeats.value = seatCount;
     }
     final bookingId = 'bk_${DateTime.now().millisecondsSinceEpoch}';
-    final user = AuthService.instance.currentUser;
-    final passengerUid = user?.uid ?? 'passenger_demo';
     final pName = Preferences.userName.isNotEmpty
         ? Preferences.userName
         : (user?.displayName ?? 'Passenger');
@@ -453,7 +499,10 @@ class PassengerTripsController extends GetxController {
         passengerId: passengerUid,
         passengerName: pName,
         passengerPhone: pPhone,
-        passengerRating: 0.0,
+        passengerRating: (Get.isRegistered<PassengerProfileController>() &&
+                Get.find<PassengerProfileController>().passengerRating.value > 0)
+            ? Get.find<PassengerProfileController>().passengerRating.value
+            : 5.0,
         requestedSeats: seatCount,
         fare: totalFare,
         pickupAddress: pickupAddr,
@@ -473,7 +522,11 @@ class PassengerTripsController extends GetxController {
       ),
     );
 
-    Get.toNamed(AppRoutes.requestSent);
+    if (Get.currentRoute == AppRoutes.rideDetails) {
+      Get.offNamed(AppRoutes.requestSent);
+    } else if (Get.currentRoute != AppRoutes.requestSent) {
+      Get.toNamed(AppRoutes.requestSent);
+    }
   }
 
   void bookRide(RideModel ride, int seats) {
@@ -530,6 +583,12 @@ class PassengerTripsController extends GetxController {
       );
     }
     if (model != null) {
+      if (model.isOnboard) {
+        AppSnackBar.warning(
+          message: 'You have already onboarded this ride and cannot cancel.',
+        );
+        return;
+      }
       myBookings.remove(model);
       final user = AuthService.instance.currentUser;
       final pName = Preferences.userName.isNotEmpty
@@ -555,12 +614,10 @@ class PassengerTripsController extends GetxController {
     trip.reviewComment.value = comment;
     trip.isRated.value = true;
 
-    final booking = myBookings.firstWhereOrNull((b) => b.ride.id == trip.id);
-    final driverId = booking?.ride.driverId ?? '';
-
     TripService.instance.submitPassengerRatingToDriver(
       tripId: trip.id,
-      driverId: driverId,
+      driverId: trip.driverId,
+      bookingId: trip.bookingId,
       rating: rating,
       comment: comment,
     );
@@ -574,28 +631,33 @@ class PassengerTripsController extends GetxController {
     required String tripId,
     required double rating,
     String comment = '',
+    String driverId = '',
+    String? bookingId,
   }) {
-    final tripIndex = completedTrips.indexWhere((t) => t.id == tripId);
+    final tripIndex = completedTrips.indexWhere(
+      (t) =>
+          t.id == tripId ||
+          t.id.contains(tripId) ||
+          (bookingId != null && bookingId.isNotEmpty && t.bookingId == bookingId),
+    );
     if (tripIndex != -1) {
       final trip = completedTrips[tripIndex];
       trip.rating.value = rating;
       trip.reviewComment.value = comment;
       trip.isRated.value = true;
-
-      final booking = myBookings.firstWhereOrNull((b) => b.ride.id == tripId);
-      final driverId = booking?.ride.driverId ?? '';
-
-      TripService.instance.submitPassengerRatingToDriver(
-        tripId: tripId,
-        driverId: driverId,
-        rating: rating,
-        comment: comment,
-      );
-
-      AppSnackBar.success(
-        message: 'Review submitted. Thank you for rating ${trip.driverName}!',
-      );
     }
+
+    TripService.instance.submitPassengerRatingToDriver(
+      tripId: tripId,
+      driverId: driverId,
+      rating: rating,
+      comment: comment,
+      bookingId: bookingId,
+    );
+
+    AppSnackBar.success(
+      message: 'Review submitted. Thank you for rating!',
+    );
   }
 
   @override

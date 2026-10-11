@@ -56,11 +56,21 @@ class DriverCommunityController extends GetxController {
     isLoading.value = true;
     _communitiesSubscription?.cancel();
     _communitiesSubscription = CommunityService.instance
-        .streamCommunities()
+        .streamCommunities(role: 'driver')
         .listen(
           (items) {
             communities.assignAll(items);
             isLoading.value = false;
+
+            // Sync selectedCommunity if currently open
+            if (selectedCommunity.value != null) {
+              final updated = items.firstWhereOrNull(
+                (c) => c.id == selectedCommunity.value!.id,
+              );
+              if (updated != null) {
+                selectedCommunity.value = updated;
+              }
+            }
           },
           onError: (err) {
             debugPrint('[DriverCommunityController] Stream error: $err');
@@ -275,23 +285,21 @@ class DriverCommunityController extends GetxController {
         ? Get.find<DriverTripsController>()
         : Get.put(DriverTripsController());
 
-    tripsController.selectCommunityForPublish(comm.name);
+    tripsController.selectCommunityForPublish(comm.name, communityModel: comm);
 
-    // 2. Pre-fill route endpoints if currently blank from community route summary
-    if (tripsController.publishFromController.text.trim().isEmpty &&
-        tripsController.publishToController.text.trim().isEmpty &&
-        comm.routeSummary.isNotEmpty) {
-      if (comm.routeSummary.contains('→')) {
+    // 2. Pre-fill pickup location if currently blank from community origin
+    if (tripsController.publishFromController.text.trim().isEmpty) {
+      if (comm.pickupLocation.trim().isNotEmpty) {
+        tripsController.publishFromController.text = comm.pickupLocation.trim();
+      } else if (comm.routeSummary.contains('→')) {
         final parts = comm.routeSummary.split('→');
-        if (parts.length >= 2) {
+        if (parts.isNotEmpty && parts[0].trim().isNotEmpty) {
           tripsController.publishFromController.text = parts[0].trim();
-          tripsController.publishToController.text = parts[1].trim();
         }
       } else if (comm.routeSummary.contains('⇄')) {
         final parts = comm.routeSummary.split('⇄');
-        if (parts.length >= 2) {
+        if (parts.isNotEmpty && parts[0].trim().isNotEmpty) {
           tripsController.publishFromController.text = parts[0].trim();
-          tripsController.publishToController.text = parts[1].trim();
         }
       }
     }

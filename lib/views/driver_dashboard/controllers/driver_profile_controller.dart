@@ -208,7 +208,7 @@ class DriverProfileController extends GetxController {
                 driverPhone.value = profile.phoneNumber;
                 Preferences.userPhone = profile.phoneNumber;
               }
-              driverRating.value = profile.rating;
+              driverRating.value = profile.rating > 0 ? profile.rating : 5.0;
               driverTripsCount.value = profile.tripsCompleted;
 
               if (profile.vehicle != null) {
@@ -249,7 +249,7 @@ class DriverProfileController extends GetxController {
     try {
       final profile = await AuthService.instance.getUserProfile(user.uid);
       if (profile != null) {
-        driverRating.value = profile.rating;
+        driverRating.value = profile.rating > 0 ? profile.rating : 5.0;
         driverTripsCount.value = profile.tripsCompleted;
         if (profile.fullName.isNotEmpty) {
           driverName.value = profile.fullName;

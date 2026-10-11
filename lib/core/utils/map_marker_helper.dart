@@ -18,13 +18,18 @@ class MapMarkerHelper {
     double size = 34,
   }) async {
     if (_personIcon != null) return _personIcon!;
-    _personIcon = await _drawIconMarker(
-      icon: Icons.person_rounded,
-      bgColor: backgroundColor,
-      iconColor: iconColor,
-      size: size,
-    );
-    return _personIcon!;
+    try {
+      _personIcon = await _drawIconMarker(
+        icon: Icons.person_rounded,
+        bgColor: backgroundColor,
+        iconColor: iconColor,
+        size: size,
+      );
+      return _personIcon!;
+    } catch (e) {
+      debugPrint('[MapMarkerHelper] getPersonMarker error: $e');
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+    }
   }
 
   /// Creates a vehicle / car icon marker for driver position (Vibrant Blue Navigation Car)
@@ -34,13 +39,18 @@ class MapMarkerHelper {
     double size = 36,
   }) async {
     if (_carIcon != null) return _carIcon!;
-    _carIcon = await _drawIconMarker(
-      icon: Icons.directions_car_rounded,
-      bgColor: backgroundColor,
-      iconColor: iconColor,
-      size: size,
-    );
-    return _carIcon!;
+    try {
+      _carIcon = await _drawIconMarker(
+        icon: Icons.directions_car_rounded,
+        bgColor: backgroundColor,
+        iconColor: iconColor,
+        size: size,
+      );
+      return _carIcon!;
+    } catch (e) {
+      debugPrint('[MapMarkerHelper] getCarMarker error: $e');
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+    }
   }
 
   /// Creates a destination pin marker for drop-off location (Vibrant Red Pin)
@@ -50,13 +60,18 @@ class MapMarkerHelper {
     double size = 34,
   }) async {
     if (_pinIcon != null) return _pinIcon!;
-    _pinIcon = await _drawIconMarker(
-      icon: Icons.place_rounded,
-      bgColor: backgroundColor,
-      iconColor: iconColor,
-      size: size,
-    );
-    return _pinIcon!;
+    try {
+      _pinIcon = await _drawIconMarker(
+        icon: Icons.place_rounded,
+        bgColor: backgroundColor,
+        iconColor: iconColor,
+        size: size,
+      );
+      return _pinIcon!;
+    } catch (e) {
+      debugPrint('[MapMarkerHelper] getDropPinMarker error: $e');
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+    }
   }
 
   /// Draws a clean, ultra-crisp circular badge with high contrast and sharp 3x resolution
@@ -138,8 +153,11 @@ class MapMarkerHelper {
       physicalSize.toInt(),
     );
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (data == null) {
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+    }
     return BitmapDescriptor.bytes(
-      data!.buffer.asUint8List(),
+      data.buffer.asUint8List(),
       imagePixelRatio: pixelRatio,
       width: logicalSize,
       height: logicalSize,

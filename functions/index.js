@@ -49,7 +49,7 @@ exports.sendNotificationOnCreate = onDocumentCreated(
       try {
         const userDoc = await db.collection("users").doc(userId).get();
         if (userDoc.exists) {
-          fcmToken = userDoc.data()?.fcmToken;
+          fcmToken = userDoc.data()?.fcmToken || userDoc.data()?.token;
         }
       } catch (err) {
         logger.error(`Failed to fetch user document for userId: ${userId}`, err);
@@ -127,11 +127,15 @@ exports.sendNotificationOnCreate = onDocumentCreated(
 
       if (isUnregistered && userId) {
         try {
-          logger.warn(`Removing invalid FCM token for user ${userId}`);
-          await db.collection("users").doc(userId).update({
-            fcmToken: admin.firestore.FieldValue.delete(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
+          logger.warn(`Checking whether to remove stale FCM token for user ${userId}`);
+          const currentDoc = await db.collection("users").doc(userId).get();
+          if (currentDoc.exists && currentDoc.data()?.fcmToken === fcmToken) {
+            await db.collection("users").doc(userId).update({
+              fcmToken: admin.firestore.FieldValue.delete(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            logger.info(`Removed stale token for user ${userId}`);
+          }
         } catch (cleanupErr) {
           logger.error(`Failed to remove stale token for user ${userId}`, cleanupErr);
         }

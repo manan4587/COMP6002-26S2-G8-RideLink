@@ -226,6 +226,7 @@ class PassengerDashboardController extends GetxController {
   Rx<RideModel?> get currentSelectedRide => tripsController.currentSelectedRide;
   RxInt get selectedTripsTab => tripsController.selectedTripsTab;
   RxString get tripsSearchQuery => tripsController.searchQuery;
+  RxString get lastCreatedBookingId => tripsController.lastCreatedBookingId;
 
   void switchTripsTab(int index) => tripsController.switchTripsTab(index);
   void openRideDetails(RideModel ride) => tripsController.openRideDetails(ride);
@@ -245,11 +246,15 @@ class PassengerDashboardController extends GetxController {
     required String tripId,
     required double rating,
     String comment = '',
+    String driverId = '',
+    String? bookingId,
   }) =>
       tripsController.rateDriver(
         tripId: tripId,
         rating: rating,
         comment: comment,
+        driverId: driverId,
+        bookingId: bookingId,
       );
   Future<void> reloadTrips() => tripsController.reloadTrips();
 

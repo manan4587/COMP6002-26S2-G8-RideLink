@@ -27,13 +27,21 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                   const Text('No request selected'),
                   12.verticalSpace,
                   ElevatedButton(
-                    onPressed: () => Get.back(),
+                    onPressed: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else {
+                        Get.back();
+                      }
+                    },
                     child: const Text('Back'),
                   ),
                 ],
               ),
             );
           }
+
+          controller.syncPassengerLiveRating(req);
 
           final bool isAccepted = req.status.value == 'Accepted';
           final bool isDeclined = req.status.value == 'Declined';
@@ -49,7 +57,13 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: IconButton(
-                        onPressed: () => Get.back(),
+                        onPressed: () {
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          } else {
+                            Get.back();
+                          }
+                        },
                         icon: Icon(
                           CupertinoIcons.back,
                           size: 22.sp,
@@ -106,7 +120,7 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                         icon: CupertinoIcons.person,
                         title: 'Requested by',
                         subtitle:
-                            '${req.passengerName} • Trust Rating ${req.rating.toStringAsFixed(2)} ★',
+                            '${req.passengerName} • Trust Rating ${(req.rating.value > 0 ? req.rating.value : 5.0).toStringAsFixed(1)} ★',
                       ),
 
                       12.verticalSpace,
@@ -183,7 +197,7 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                                   ),
                                   8.verticalSpace,
                                   Text(
-                                    '${req.pastTrips}',
+                                    '${req.pastTrips.value}',
                                     style: AppTextStyle.text16Semibold.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: const Color(0xFF0F172A),
@@ -334,8 +348,13 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                                 Expanded(
                                   child: ElevatedButton.icon(
                                     onPressed: () {
-                                      controller.acceptRideRequest(trip, req);
                                       Get.back();
+                                      Future.delayed(
+                                        const Duration(milliseconds: 200),
+                                        () {
+                                          controller.acceptRideRequest(trip, req);
+                                        },
+                                      );
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF2563EB),
@@ -368,8 +387,13 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
                                 Expanded(
                                   child: ElevatedButton.icon(
                                     onPressed: () {
-                                      controller.declineRideRequest(trip, req);
                                       Get.back();
+                                      Future.delayed(
+                                        const Duration(milliseconds: 200),
+                                        () {
+                                          controller.declineRideRequest(trip, req);
+                                        },
+                                      );
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFFDC2626),
@@ -449,7 +473,18 @@ class DriverRequestDetailsPage extends GetView<DriverTripsController> {
 
     final extraMeters = (detourDist - directDist).clamp(0.0, 50000.0);
     final extraKm = extraMeters / 1000.0;
-    final extraMins = (extraKm / 35.0 * 60).round();
+
+    // Pre-ride start uses safe corridor average (35 km/h); if actively driving, uses dynamic speed
+    double effectiveSpeed = 35.0;
+    if (Get.isRegistered<DriverDashboardController>()) {
+      final liveSpeed =
+          Get.find<DriverDashboardController>().driverCurrentSpeed.value;
+      if (liveSpeed >= 15.0 && !liveSpeed.isNaN && !liveSpeed.isInfinite) {
+        effectiveSpeed = liveSpeed.clamp(20.0, 100.0);
+      }
+    }
+
+    final extraMins = (extraKm / effectiveSpeed * 60).round() + 1;
 
     if (extraMins <= 1) {
       return '+1 min detour (~${extraKm.toStringAsFixed(1)} km extra • Optimal Route)';

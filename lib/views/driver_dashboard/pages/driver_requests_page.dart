@@ -107,7 +107,7 @@ class DriverRequestsPage extends GetView<DriverTripsController> {
                                           ),
                                           SizedBox(width: 3.w),
                                           Text(
-                                            '${req.rating} Passenger Rating',
+                                            '${(req.rating.value > 0 ? req.rating.value : 5.0).toStringAsFixed(1)} Passenger Rating',
                                             style: AppTextStyle.text10Medium
                                                 .copyWith(
                                                   color: AppColors

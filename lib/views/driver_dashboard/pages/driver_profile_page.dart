@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/constants/constant.dart';
 import 'package:ridelink/core/enums/verification_status.dart';
 import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/preferences.dart';
@@ -22,9 +23,16 @@ class DriverProfilePage extends GetView<DriverProfileController> {
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        child: RefreshIndicator(
+          color: AppColors.primaryColor,
+          onRefresh: () async {
+            await controller.reloadProfile();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -373,6 +381,7 @@ class DriverProfilePage extends GetView<DriverProfileController> {
               SizedBox(height: 10.h),
 
               Obx(() {
+                final isVerified = controller.isVerifiedByAdmin.value;
                 final type = controller.vehicleType.value;
                 final plate = controller.vehicleNumber.value;
                 final color = controller.vehicleColor.value;
@@ -380,14 +389,28 @@ class DriverProfilePage extends GetView<DriverProfileController> {
                     (type.isNotEmpty && type != 'N/A') ||
                     (plate.isNotEmpty && plate != 'N/A');
                 final colorStr = (color.isNotEmpty && color != 'N/A') ? ' • $color' : '';
-                final subtitle = hasVehicle
-                    ? '${type != "N/A" ? type : "Vehicle"} • Plate ${plate != "N/A" ? plate : "N/A"}$colorStr'
-                    : 'N/A';
+                final subtitle = isVerified
+                    ? '${plate != "N/A" ? plate : "Vehicle"} • Verified & Locked'
+                    : (hasVehicle
+                        ? '${type != "N/A" ? type : "Vehicle"} • Plate ${plate != "N/A" ? plate : "N/A"}$colorStr'
+                        : 'N/A');
                 return _DriverSettingsTile(
-                  icon: CupertinoIcons.car,
-                  title: 'Vehicle & Registration',
+                  icon: isVerified
+                      ? CupertinoIcons.lock_shield_fill
+                      : CupertinoIcons.car,
+                  title: isVerified
+                      ? 'Vehicle Details (Locked)'
+                      : 'Vehicle & Registration',
                   subtitle: subtitle,
-                  onTap: () => Get.toNamed(AppRoutes.vehicleRegistration),
+                  onTap: () {
+                    if (isVerified) {
+                      AppSnackBar.info(
+                        message:
+                            'Vehicle details are verified by admin and locked. Contact support team to request changes.',
+                      );
+                    }
+                    Get.toNamed(AppRoutes.vehicleRegistration);
+                  },
                 );
               }),
               Obx(() {
@@ -514,13 +537,27 @@ class DriverProfilePage extends GetView<DriverProfileController> {
                 ),
               ),
 
-              SizedBox(height: 24.h),
+              20.verticalSpace,
+
+              // App Version
+              Center(
+                child: Text(
+                  appNameWithVersion,
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: AppColors.secondaryTextColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
+              24.verticalSpace,
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showCashPayoutNotice(BuildContext context) {
     showModalBottomSheet(

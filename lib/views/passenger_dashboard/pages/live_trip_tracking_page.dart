@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
@@ -10,10 +12,12 @@ import 'package:ridelink/core/utils/app_snack_bar.dart';
 import 'package:ridelink/core/utils/map_marker_helper.dart';
 import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/data/models/firestore/trip_model.dart';
+import 'package:ridelink/data/services/auth_service.dart';
 import 'package:ridelink/data/services/google_places_service.dart';
 import 'package:ridelink/data/services/trip_service.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
+import 'package:ridelink/data/services/chat_service.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
 
 class LiveTripTrackingPage extends StatefulWidget {
@@ -29,6 +33,9 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
 
   GoogleMapController? _mapController;
   StreamSubscription<TripModel?>? _tripLocationSubscription;
+  StreamSubscription<Map<String, dynamic>?>? _driverUserLocationSubscription;
+  StreamSubscription<List<TripBookingModel>>? _passengerBookingSubscription;
+  StreamSubscription<List<TripChatMessageModel>>? _chatMessagesSubscription;
 
   bool _isLoading = true;
   LatLng? _pickup;
@@ -38,13 +45,21 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
 
   LatLng? _currentDriverLocation;
   TripModel? _currentLiveTrip;
-  final int _minutesToArrival = 7;
+  double _driverHeading = 0.0;
+  int _minutesToArrival = 7;
+  String _distanceRemainingKm = '2.4 km';
+  bool _autoFollowDriver = true;
+  bool _isPassengerOnboarded = false;
+  bool _hasShownCompletionDialog = false;
 
   BitmapDescriptor? _pickupPersonMarker;
   BitmapDescriptor? _driverCarMarker;
   BitmapDescriptor? _dropPinMarker;
 
   bool _isCardExpanded = false;
+  TripChatMessageModel? _activeInAppChatBanner;
+  Timer? _chatBannerTimer;
+  String? _lastReceivedChatMsgId;
 
   @override
   void initState() {
@@ -212,6 +227,8 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
 
   void _startLiveDriverLocationTracking(RideModel? ride) {
     if (ride == null || ride.id.isEmpty) return;
+
+    // 1. Primary Stream: Firestore Trip Document (rides/{tripId})
     _tripLocationSubscription?.cancel();
     _tripLocationSubscription = TripService.instance.streamTrip(ride.id).listen(
       (liveTrip) {
@@ -224,8 +241,14 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
         }
 
         // Check if driver has completed the trip / dropped off the passenger
-        if (liveTrip.status.toLowerCase() == 'completed' && mounted) {
+        if (liveTrip.status.toLowerCase() == 'completed' &&
+            mounted &&
+            !_hasShownCompletionDialog) {
+          _hasShownCompletionDialog = true;
           _tripLocationSubscription?.cancel();
+          _driverUserLocationSubscription?.cancel();
+          _passengerBookingSubscription?.cancel();
+          _chatMessagesSubscription?.cancel();
           _showTripCompletedArrivalDialog(ride, liveTrip);
           return;
         }
@@ -237,25 +260,284 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
             liveTrip.currentDriverLat,
             liveTrip.currentDriverLng,
           );
-          setState(() {
-            _currentDriverLocation = newLoc;
-            if (_pickup != null) {
-              final double distToPickup = ((newLoc.latitude - _pickup!.latitude).abs() +
-                      (newLoc.longitude - _pickup!.longitude).abs());
-              if (distToPickup > 0.0005) {
-                if (_driverToPickupRoute.isNotEmpty) {
-                  _driverToPickupRoute[0] = newLoc;
-                } else {
-                  _driverToPickupRoute = [newLoc, _pickup!];
-                }
-              } else {
-                _driverToPickupRoute = [];
-              }
-            }
-          });
+          _handleDriverLiveLocationUpdate(
+            newLoc,
+            heading: liveTrip.currentDriverHeading > 0.0
+                ? liveTrip.currentDriverHeading
+                : null,
+            speed: liveTrip.currentDriverSpeed,
+          );
         }
       },
     );
+
+    // 2. Real-time Fallback Stream: Driver User Profile Document (users/{driverId})
+    if (ride.driverId.isNotEmpty) {
+      _driverUserLocationSubscription?.cancel();
+      _driverUserLocationSubscription = AuthService.instance
+          .userDocumentStream(ride.driverId)
+          .listen((data) {
+        if (data == null || !mounted) return;
+
+        double? lat;
+        double? lng;
+        double? heading;
+        double? speed;
+
+        if (data['currentLocation'] is Map) {
+          final loc = data['currentLocation'] as Map;
+          lat = (loc['latitude'] as num?)?.toDouble();
+          lng = (loc['longitude'] as num?)?.toDouble();
+          heading = (loc['heading'] as num?)?.toDouble();
+          speed = (loc['speed'] as num?)?.toDouble();
+        } else if (data['lastLatitude'] != null && data['lastLongitude'] != null) {
+          lat = (data['lastLatitude'] as num?)?.toDouble();
+          lng = (data['lastLongitude'] as num?)?.toDouble();
+          heading = (data['lastHeading'] as num?)?.toDouble();
+          speed = (data['lastSpeed'] as num?)?.toDouble();
+        }
+
+        if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+          _handleDriverLiveLocationUpdate(
+            LatLng(lat, lng),
+            heading: heading,
+            speed: speed,
+          );
+        }
+      });
+    }
+
+    // 3. Real-time Passenger Booking Stream to dynamically detect Onboarded state
+    final String passengerUid = AuthService.instance.currentUser?.uid ?? '';
+    if (passengerUid.isNotEmpty) {
+      _passengerBookingSubscription?.cancel();
+      _passengerBookingSubscription = TripService.instance
+          .streamPassengerBookings(passengerUid)
+          .listen((bookings) {
+        if (!mounted || bookings.isEmpty) return;
+        final myBooking = bookings.firstWhereOrNull(
+          (b) =>
+              b.tripId == ride.id ||
+              b.id == ride.id ||
+              (controller.lastCreatedBookingId.value.isNotEmpty &&
+                  b.id == controller.lastCreatedBookingId.value),
+        );
+        if (myBooking != null) {
+          final pStatus = myBooking.passengerStatus.toLowerCase();
+          final bool onboard = pStatus == 'onboard';
+          final bool droppedOff = pStatus == 'dropped_off' ||
+              myBooking.status.toLowerCase() == 'completed';
+
+          if (droppedOff && mounted && !_hasShownCompletionDialog) {
+            _hasShownCompletionDialog = true;
+            _tripLocationSubscription?.cancel();
+            _driverUserLocationSubscription?.cancel();
+            _passengerBookingSubscription?.cancel();
+            _chatMessagesSubscription?.cancel();
+            final tripForDialog = _currentLiveTrip ??
+                TripModel(
+                  id: ride.id,
+                  driverId: ride.driverId,
+                  driverName: ride.driverName,
+                  driverPhone: ride.driverPhone,
+                  driverRating: ride.rating,
+                  driverTotalRides: ride.totalRides,
+                  carModel: ride.carModel,
+                  carPlate: ride.carPlate,
+                  carColor: '',
+                  originName: ride.origin,
+                  originAddress: ride.origin,
+                  originLat: ride.originLat,
+                  originLng: ride.originLng,
+                  destinationName: ride.destination,
+                  destinationAddress: ride.destination,
+                  destinationLat: ride.destinationLat,
+                  destinationLng: ride.destinationLng,
+                  departureTime: ride.departureDateTime ?? DateTime.now(),
+                  departureTimeString: ride.departureTime,
+                  pricePerSeat: ride.pricePerSeat,
+                  totalSeats: ride.seatsAvailable,
+                  availableSeats: ride.seatsAvailable,
+                  bookedSeats: 0,
+                  status: 'completed',
+                  createdAt: DateTime.now(),
+                );
+            _showTripCompletedArrivalDialog(ride, tripForDialog);
+            return;
+          }
+
+          if (onboard != _isPassengerOnboarded && mounted) {
+            if (onboard && !_isPassengerOnboarded) {
+              AppSnackBar.success(
+                message:
+                    'Confirmed Onboarded! 🎉 Heading towards ${ride.destination}.',
+              );
+            }
+            setState(() {
+              _isPassengerOnboarded = onboard;
+              if (onboard && _dropoff != null && _currentDriverLocation != null) {
+                _driverToPickupRoute = [];
+                _fullRoute = [_currentDriverLocation!, _dropoff!];
+              }
+            });
+            if (onboard) {
+              _fitBounds();
+            }
+          }
+        }
+      });
+    }
+
+    // 4. Real-time Trip Chat Stream for In-App Live Notification Banners
+    _chatMessagesSubscription?.cancel();
+    bool isInitialChatLoad = true;
+    _chatMessagesSubscription = ChatService.instance
+        .streamTripChatMessages(ride.id)
+        .listen((messages) {
+      if (!mounted || messages.isEmpty) return;
+      if (isInitialChatLoad) {
+        isInitialChatLoad = false;
+        _lastReceivedChatMsgId = messages.last.id;
+        return;
+      }
+      final latest = messages.last;
+      if (latest.senderId != passengerUid && latest.id != _lastReceivedChatMsgId) {
+        _lastReceivedChatMsgId = latest.id;
+        setState(() {
+          _activeInAppChatBanner = latest;
+        });
+        _chatBannerTimer?.cancel();
+        _chatBannerTimer = Timer(const Duration(seconds: 8), () {
+          if (mounted) {
+            setState(() => _activeInAppChatBanner = null);
+          }
+        });
+      }
+    });
+  }
+
+  /// Dynamically updates driver marker, bearing, polylines, camera tracking, and ETA
+  void _handleDriverLiveLocationUpdate(
+    LatLng newLoc, {
+    double? heading,
+    double? speed,
+  }) {
+    if (!mounted) return;
+
+    // Filter sub-meter micro jitter
+    if (_currentDriverLocation != null) {
+      final double movedDist = Geolocator.distanceBetween(
+        _currentDriverLocation!.latitude,
+        _currentDriverLocation!.longitude,
+        newLoc.latitude,
+        newLoc.longitude,
+      );
+      if (movedDist < 1.0) {
+        return;
+      }
+    }
+
+    // Determine heading: provided by GPS or mathematically computed via bearing formula
+    double calculatedHeading = heading ?? _driverHeading;
+    if (heading == null && _currentDriverLocation != null) {
+      calculatedHeading = _calculateBearing(_currentDriverLocation!, newLoc);
+    }
+
+    // Determine active target:
+    // If passenger is onboard, route & ETA target dropoff; otherwise target pickup.
+    final bool isOnboard = _isPassengerOnboarded ||
+        (_currentLiveTrip != null &&
+            _currentLiveTrip!.status.toLowerCase() == 'onboard');
+
+    final LatLng? activeTarget = isOnboard ? _dropoff : _pickup;
+
+    int newEta = _minutesToArrival;
+    String newDist = _distanceRemainingKm;
+
+    if (activeTarget != null) {
+      final double distMeters = Geolocator.distanceBetween(
+        newLoc.latitude,
+        newLoc.longitude,
+        activeTarget.latitude,
+        activeTarget.longitude,
+      );
+      final double distKm = distMeters / 1000.0;
+      newDist = distKm < 1.0
+          ? '${(distKm * 1000).round()} m'
+          : '${distKm.toStringAsFixed(1)} km';
+
+      // Dynamic adaptive speed:
+      // If driver is moving (speed >= 15 km/h), adaptively calculate ETA using live telemetry speed.
+      // If stationary (0 km/h at red light / stop), fall back to safe city average (35 km/h) to prevent division by 0!
+      double effectiveSpeedKmH = 35.0;
+      if (speed != null && speed >= 15.0 && !speed.isNaN && !speed.isInfinite) {
+        effectiveSpeedKmH = speed.clamp(20.0, 100.0);
+      }
+
+      newEta = (distKm / effectiveSpeedKmH * 60).clamp(1, 180).round();
+    }
+
+    setState(() {
+      _currentDriverLocation = newLoc;
+      if (calculatedHeading >= 0.0) {
+        _driverHeading = calculatedHeading;
+      }
+      _minutesToArrival = newEta;
+      _distanceRemainingKm = newDist;
+
+      // Update polylines dynamically
+      if (isOnboard && _dropoff != null) {
+        if (_fullRoute.isNotEmpty) {
+          _fullRoute[0] = newLoc;
+        } else {
+          _fullRoute = [newLoc, _dropoff!];
+        }
+        _driverToPickupRoute = [];
+      } else if (_pickup != null) {
+        final double distToPickup = ((newLoc.latitude - _pickup!.latitude).abs() +
+            (newLoc.longitude - _pickup!.longitude).abs());
+        if (distToPickup > 0.0004) {
+          if (_driverToPickupRoute.isNotEmpty) {
+            _driverToPickupRoute[0] = newLoc;
+          } else {
+            _driverToPickupRoute = [newLoc, _pickup!];
+          }
+        } else {
+          _driverToPickupRoute = [];
+        }
+      }
+    });
+
+    // Auto-follow vehicle camera smoothly if enabled
+    if (_autoFollowDriver && _mapController != null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: newLoc,
+            zoom: 16.0,
+            tilt: 30.0,
+            bearing: _driverHeading,
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Calculates initial bearing in degrees between two GPS coordinates
+  double _calculateBearing(LatLng start, LatLng end) {
+    final double startLat = start.latitude * (math.pi / 180.0);
+    final double startLng = start.longitude * (math.pi / 180.0);
+    final double endLat = end.latitude * (math.pi / 180.0);
+    final double endLng = end.longitude * (math.pi / 180.0);
+
+    final double dLng = endLng - startLng;
+
+    final double y = math.sin(dLng) * math.cos(endLat);
+    final double x = math.cos(startLat) * math.sin(endLat) -
+        math.sin(startLat) * math.cos(endLat) * math.cos(dLng);
+
+    final double bearing = math.atan2(y, x);
+    return (bearing * (180.0 / math.pi) + 360.0) % 360.0;
   }
 
   void _showTripCompletedArrivalDialog(RideModel ride, TripModel trip) async {
@@ -269,6 +551,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
     ];
     final Set<String> selectedBadges = {'Smooth Driver', 'Felt Very Safe'};
     final TextEditingController commentController = TextEditingController();
+    bool isSubmitting = false;
 
     final bool? didSubmit = await showModalBottomSheet<bool>(
       context: context,
@@ -451,22 +734,64 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Get.back(result: true); // dismiss sheet
-                      },
+                      onPressed: isSubmitting
+                          ? null
+                          : () {
+                              setSheetState(() => isSubmitting = true);
+                              Navigator.of(ctx).pop(true); // dismiss sheet with submission
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryColor,
+                        disabledBackgroundColor:
+                            AppColors.primaryColor.withValues(alpha: 0.6),
                         padding: EdgeInsets.symmetric(vertical: 14.h),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14.r),
                         ),
                       ),
-                      child: Text(
-                        'Submit Review & Complete',
-                        style: AppTextStyle.text14Semibold.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: isSubmitting
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 16.r,
+                                  height: 16.r,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                8.horizontalSpace,
+                                Text(
+                                  'Submitting Review...',
+                                  style: AppTextStyle.text14Semibold.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Submit Review & Complete',
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                  ),
+                  6.verticalSpace,
+                  TextButton(
+                    onPressed: isSubmitting
+                        ? null
+                        : () {
+                            setSheetState(() => isSubmitting = true);
+                            Navigator.of(ctx).pop(false);
+                          },
+                    child: Text(
+                      'Skip Rating',
+                      style: AppTextStyle.text14Medium.copyWith(
+                        color: const Color(0xFF64748B),
                       ),
                     ),
                   ),
@@ -478,24 +803,58 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
       ),
     );
 
-    if (didSubmit == true && mounted) {
-      Get.back(); // safely exit tracking page back to dashboard first
+    if (didSubmit == true) {
       final combinedComment = [
         if (selectedBadges.isNotEmpty) selectedBadges.join(', '),
         if (commentController.text.trim().isNotEmpty)
           commentController.text.trim(),
       ].join(' • ');
 
+      final booking = controller.myBookings.firstWhereOrNull(
+        (b) => b.ride.id == ride.id || b.id == ride.id,
+      );
+      final bookingId = booking?.id ??
+          (controller.lastCreatedBookingId.value.isNotEmpty
+              ? controller.lastCreatedBookingId.value
+              : null);
+
       controller.rateDriver(
         tripId: ride.id,
+        driverId: ride.driverId,
         rating: passengerRating,
         comment: combinedComment,
+        bookingId: bookingId,
       );
     }
+
+    // Brief delay to allow bottom sheet dismissal animation to finish
+    await Future.delayed(const Duration(milliseconds: 150));
+
+    // Clear any pending snackbar overlays before resetting route stack
+    AppSnackBar.clear();
+
+    // Ensure passenger cleanly navigates to dashboard trips completed tab
+    if (Get.isRegistered<PassengerDashboardController>()) {
+      final dash = Get.find<PassengerDashboardController>();
+      dash.currentTabIndex.value = 2; // Trips tab
+      dash.selectedTripsTab.value = 2; // Completed subtab
+    }
+    if (Get.isRegistered<PassengerTripsController>()) {
+      final uid = AuthService.instance.currentUser?.uid ?? '';
+      if (uid.isNotEmpty) {
+        Get.find<PassengerTripsController>().subscribeToTripsAndBookings(uid);
+      }
+    }
+
+    // Safely return to passenger dashboard cleanly without getting stuck
+    Get.offAllNamed(AppRoutes.passengerDashboard);
   }
 
   void _fitBounds() {
     if (_mapController == null) return;
+    if (mounted) {
+      setState(() => _autoFollowDriver = false);
+    }
     try {
       final List<LatLng> pointsToFit = List<LatLng>.from(_fullRoute);
       if (_driverToPickupRoute.isNotEmpty) {
@@ -549,9 +908,17 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
 
   void _recenterVehicle() {
     if (_currentDriverLocation == null) return;
+    if (mounted) {
+      setState(() => _autoFollowDriver = true);
+    }
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: _currentDriverLocation!, zoom: 15.5, tilt: 35.0),
+        CameraPosition(
+          target: _currentDriverLocation!,
+          zoom: 16.0,
+          tilt: 30.0,
+          bearing: _driverHeading,
+        ),
       ),
     );
   }
@@ -571,6 +938,13 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
   }
 
   void _showCancelBookingConfirmation(RideModel ride) async {
+    if (_isPassengerOnboarded) {
+      AppSnackBar.warning(
+        message: 'You have already onboarded this ride and cannot cancel.',
+      );
+      return;
+    }
+
     String selectedReason = 'Change of plans';
     final List<String> reasons = [
       'Change of plans',
@@ -578,6 +952,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
       'Found another ride',
       'Driver delayed',
     ];
+    bool isCancelling = false;
 
     final bool? shouldCancel = await showModalBottomSheet<bool>(
       context: context,
@@ -722,7 +1097,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Get.back(result: false),
+                      onPressed: isCancelling ? null : () => Navigator.of(ctx).pop(false),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 13.h),
                         side: const BorderSide(color: AppColors.borderColor),
@@ -741,24 +1116,50 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                   12.horizontalSpace,
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Get.back(result: true);
-                      },
+                      onPressed: isCancelling
+                          ? null
+                          : () {
+                              setSheetState(() => isCancelling = true);
+                              Navigator.of(ctx).pop(true);
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.red,
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            AppColors.red.withValues(alpha: 0.6),
                         padding: EdgeInsets.symmetric(vertical: 13.h),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12.r),
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        'Cancel Ride',
-                        style: AppTextStyle.text14Semibold.copyWith(
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: isCancelling
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 14.r,
+                                  height: 14.r,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                8.horizontalSpace,
+                                Text(
+                                  'Cancelling...',
+                                  style: AppTextStyle.text14Semibold.copyWith(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Cancel Ride',
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -769,8 +1170,11 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
       ),
     );
 
-    if (shouldCancel == true && mounted) {
-      Get.back(); // safely pop live tracking page back to dashboard first
+    if (shouldCancel == true) {
+      controller.switchTab(2); // Trips tab
+      controller.selectedTripsTab.value = 1; // Confirmed tab
+      Get.offAllNamed(AppRoutes.passengerDashboard);
+      await Future.delayed(const Duration(milliseconds: 250));
 
       // Find active booking for this ride and cancel it
       final booking = controller.myBookings.firstWhereOrNull(
@@ -810,6 +1214,10 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
   @override
   void dispose() {
     _tripLocationSubscription?.cancel();
+    _driverUserLocationSubscription?.cancel();
+    _passengerBookingSubscription?.cancel();
+    _chatMessagesSubscription?.cancel();
+    _chatBannerTimer?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -916,6 +1324,10 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
       );
     }
 
+    final bool isActuallyOnboard = _isPassengerOnboarded ||
+        (_currentLiveTrip != null &&
+            _currentLiveTrip!.status.toLowerCase() == 'onboard');
+
     return Scaffold(
       body: Stack(
         children: [
@@ -930,6 +1342,11 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
               Future.delayed(const Duration(milliseconds: 350), () {
                 if (mounted) _fitBounds();
               });
+            },
+            onCameraMoveStarted: () {
+              if (_autoFollowDriver && mounted) {
+                setState(() => _autoFollowDriver = false);
+              }
             },
             markers: {
               Marker(
@@ -948,10 +1365,11 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                 position: _currentDriverLocation!,
                 zIndexInt: 10,
                 anchor: const Offset(0.5, 0.5),
+                rotation: _driverHeading,
                 flat: true,
                 infoWindow: InfoWindow(
                   title: '${ride.driverName} (${ride.carModel})',
-                  snippet: 'Driver Vehicle Location',
+                  snippet: 'Live Vehicle Location',
                 ),
                 icon:
                     _driverCarMarker ??
@@ -1006,8 +1424,10 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                 // 1. Recenter / Target vehicle
                 _MapShortcutButton(
                   icon: CupertinoIcons.location_fill,
-                  tooltip: 'Recenter Vehicle',
-                  iconColor: const Color(0xFF2563EB),
+                  tooltip: _autoFollowDriver ? 'Tracking Driver Live' : 'Recenter Vehicle',
+                  iconColor: _autoFollowDriver
+                      ? const Color(0xFF16A34A)
+                      : const Color(0xFF2563EB),
                   onTap: _recenterVehicle,
                 ),
                 10.verticalSpace,
@@ -1117,7 +1537,18 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 GestureDetector(
-                  onTap: () => Get.back(),
+                  onTap: () {
+                    if (_currentLiveTrip?.status.toLowerCase() == 'completed') {
+                      if (Get.isRegistered<PassengerDashboardController>()) {
+                        final dash = Get.find<PassengerDashboardController>();
+                        dash.currentTabIndex.value = 2; // Trips tab
+                        dash.selectedTripsTab.value = 2; // Completed subtab
+                      }
+                      Get.offAllNamed(AppRoutes.passengerDashboard);
+                    } else {
+                      Get.back();
+                    }
+                  },
                   child: Container(
                     padding: EdgeInsets.all(10.r),
                     decoration: BoxDecoration(
@@ -1157,16 +1588,23 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                       Container(
                         width: 8.w,
                         height: 8.w,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF16A34A),
+                        decoration: BoxDecoration(
+                          color: isActuallyOnboard
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFF2563EB),
                           shape: BoxShape.circle,
                         ),
                       ),
                       8.horizontalSpace,
                       Text(
-                        'Live Trip In Progress',
+                        isActuallyOnboard
+                            ? 'Confirmed Onboarded • Heading to destination'
+                            : 'Driver heading to pickup',
                         style: AppTextStyle.text12Semibold.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: isActuallyOnboard
+                              ? const Color(0xFF15803D)
+                              : AppColors.primaryTextColor,
                         ),
                       ),
                     ],
@@ -1196,6 +1634,114 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
               ],
             ),
           ),
+
+          // In-App Chat Alert Banner
+          if (_activeInAppChatBanner != null)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 58.h,
+              left: 16.w,
+              right: 16.w,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => _activeInAppChatBanner = null);
+                  final status = (_currentLiveTrip?.status ?? ride.status).toLowerCase();
+                  final isStarted = status == 'started' ||
+                      status == 'in_progress' ||
+                      status == 'onboard' ||
+                      status == 'active';
+                  if (isStarted) {
+                    Get.toNamed(
+                      AppRoutes.rideChat,
+                      arguments: {
+                        'tripId': ride.id,
+                        'driverName': ride.driverName,
+                        'carModel': ride.carModel,
+                        'route': '${ride.origin} → ${ride.destination}',
+                        'driverPhone': ride.driverPhone,
+                      },
+                    );
+                  }
+                },
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(16.r),
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(color: const Color(0xFF38BDF8), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(7.r),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF0284C7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.chat_bubble_2_fill,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                        10.horizontalSpace,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _activeInAppChatBanner!.senderName.isNotEmpty
+                                    ? _activeInAppChatBanner!.senderName
+                                    : 'Driver',
+                                style: AppTextStyle.text12Semibold.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              2.verticalSpace,
+                              Text(
+                                _activeInAppChatBanner!.message,
+                                style: AppTextStyle.text12Regular.copyWith(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        8.horizontalSpace,
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          child: Text(
+                            'Reply',
+                            style: AppTextStyle.text10Medium.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           // Bottom Slide Card: Driver details, live ETA, and actions
           Positioned(
@@ -1248,6 +1794,64 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                   ),
                   4.verticalSpace,
 
+                  if (isActuallyOnboard) ...[
+                    Container(
+                      width: double.infinity,
+                      margin: EdgeInsets.only(bottom: 10.h),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12.w,
+                        vertical: 8.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(
+                          color: const Color(0xFF86EFAC),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(4.r),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF16A34A),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 14.sp,
+                            ),
+                          ),
+                          10.horizontalSpace,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Confirmed Onboarded! 🎉',
+                                  style: AppTextStyle.text12Semibold.copyWith(
+                                    color: const Color(0xFF15803D),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Heading towards ${ride.destination}',
+                                  style: AppTextStyle.text10Medium.copyWith(
+                                    color: const Color(0xFF166534),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   // Minimal Header: Driver Avatar, Name & ETA
                   Row(
                     children: [
@@ -1260,7 +1864,9 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                         ),
                         child: Center(
                           child: Text(
-                            ride.driverName.substring(0, 1),
+                            ride.driverName.trim().isNotEmpty
+                                ? ride.driverName.trim().substring(0, 1).toUpperCase()
+                                : 'D',
                             style: AppTextStyle.text16Semibold.copyWith(
                               color: AppColors.primaryColor,
                               fontWeight: FontWeight.bold,
@@ -1285,6 +1891,37 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                                 color: AppColors.secondaryTextColor,
                               ),
                             ),
+                            if (isActuallyOnboard) ...[
+                              2.verticalSpace,
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 6.w,
+                                  vertical: 2.h,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCFCE7),
+                                  borderRadius: BorderRadius.circular(6.r),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_rounded,
+                                      size: 11.sp,
+                                      color: const Color(0xFF16A34A),
+                                    ),
+                                    4.horizontalSpace,
+                                    Text(
+                                      'Confirmed Onboarded',
+                                      style: AppTextStyle.text10Medium.copyWith(
+                                        color: const Color(0xFF15803D),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -1294,13 +1931,19 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                           vertical: 4.h,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
+                          color: isActuallyOnboard
+                              ? const Color(0xFFDCFCE7)
+                              : const Color(0xFFEFF6FF),
                           borderRadius: BorderRadius.circular(10.r),
                         ),
                         child: Text(
-                          'ETA $_minutesToArrival min',
+                          isActuallyOnboard
+                              ? 'ETA $_minutesToArrival min to Dropoff ($_distanceRemainingKm)'
+                              : 'ETA $_minutesToArrival min to Pickup ($_distanceRemainingKm)',
                           style: AppTextStyle.text10Medium.copyWith(
-                            color: const Color(0xFF16A34A),
+                            color: isActuallyOnboard
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFF1D4ED8),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1408,6 +2051,7 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                                   'carModel': ride.carModel,
                                   'route':
                                       '${ride.origin} → ${ride.destination}',
+                                  'driverPhone': ride.driverPhone,
                                 },
                               );
                             },
@@ -1436,11 +2080,18 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () async {
+                              final dPhone = ride.driverPhone.trim();
+                              if (dPhone.isEmpty) {
+                                AppSnackBar.info(
+                                  message: 'Driver phone number is not available.',
+                                );
+                                return;
+                              }
                               try {
-                                await Utils.launchURL('tel:0412345678');
+                                await Utils.launchURL('tel:$dPhone');
                               } catch (_) {
                                 AppSnackBar.info(
-                                  message: 'Dialing driver phone...',
+                                  message: 'Dialing driver at $dPhone...',
                                 );
                               }
                             },
@@ -1468,30 +2119,31 @@ class _LiveTripTrackingPageState extends State<LiveTripTrackingPage> {
                       ],
                     ),
 
-                    10.verticalSpace,
-
-                    // Cancel Ride Option
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton.icon(
-                        onPressed: () => _showCancelBookingConfirmation(ride),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.red,
-                          padding: EdgeInsets.symmetric(vertical: 8.h),
-                        ),
-                        icon: const Icon(
-                          CupertinoIcons.xmark_circle,
-                          size: 16,
-                          color: AppColors.red,
-                        ),
-                        label: Text(
-                          'Cancel Ride',
-                          style: AppTextStyle.text12Semibold.copyWith(
+                    // Cancel Ride Option (only available before passenger is onboarded)
+                    if (!_isPassengerOnboarded) ...[
+                      10.verticalSpace,
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton.icon(
+                          onPressed: () => _showCancelBookingConfirmation(ride),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.red,
+                            padding: EdgeInsets.symmetric(vertical: 8.h),
+                          ),
+                          icon: const Icon(
+                            CupertinoIcons.xmark_circle,
+                            size: 16,
                             color: AppColors.red,
+                          ),
+                          label: Text(
+                            'Cancel Ride',
+                            style: AppTextStyle.text12Semibold.copyWith(
+                              color: AppColors.red,
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ],
               ),

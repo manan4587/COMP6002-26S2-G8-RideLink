@@ -504,22 +504,24 @@ class PassengerEmergencyContactsPage
 
                   Get.back();
 
-                  if (existingContact == null) {
-                    controller.addEmergencyContact(
-                      name: name,
-                      relation: selectedRelation.value,
-                      phone: phone,
-                      isPrimary: isPrimary.value,
-                    );
-                  } else {
-                    controller.updateEmergencyContact(
-                      id: existingContact.id,
-                      name: name,
-                      relation: selectedRelation.value,
-                      phone: phone,
-                      isPrimary: isPrimary.value,
-                    );
-                  }
+                  Future.delayed(const Duration(milliseconds: 250), () {
+                    if (existingContact == null) {
+                      controller.addEmergencyContact(
+                        name: name,
+                        relation: selectedRelation.value,
+                        phone: phone,
+                        isPrimary: isPrimary.value,
+                      );
+                    } else {
+                      controller.updateEmergencyContact(
+                        id: existingContact.id,
+                        name: name,
+                        relation: selectedRelation.value,
+                        phone: phone,
+                        isPrimary: isPrimary.value,
+                      );
+                    }
+                  });
                 },
               ),
             ],

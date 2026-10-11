@@ -24,15 +24,13 @@ class PassengerDashboardView extends GetView<PassengerDashboardController> {
       ProfilePage(),
     ];
 
-    return Scaffold(
-      body: Obx(
-        () => IndexedStack(
+    return Obx(
+      () => Scaffold(
+        body: IndexedStack(
           index: controller.currentTabIndex.value,
           children: pages,
         ),
-      ),
-      bottomNavigationBar: Obx(
-        () => Column(
+          bottomNavigationBar: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(

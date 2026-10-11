@@ -16,6 +16,11 @@ class AppSnackBar {
 
   static OverlayEntry? _currentEntry;
 
+  /// Clear any active snackbar banner immediately (e.g. before navigating)
+  static void clear() {
+    _removeCurrent();
+  }
+
   static void _show({
     required String message,
     required Color backgroundColor,
@@ -65,27 +70,32 @@ class AppSnackBar {
 
     late final OverlayEntry entry;
     entry = OverlayEntry(
+      opaque: false,
+      maintainState: false,
       builder: (context) {
         return Positioned(
           top: 0,
           left: 0,
           right: 0,
-          child: Material(
-            color: Colors.transparent,
-            child: _TopBannerWidget(
-              message: message,
-              backgroundColor: backgroundColor,
-              borderColor: borderColor,
-              icon: icon,
-              iconColor: iconColor,
-              onPress: onPress,
-              buttonText: buttonText,
-              duration: duration,
-              onDismissed: () {
-                if (_currentEntry == entry) {
-                  _removeCurrent();
-                }
-              },
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Material(
+              type: MaterialType.transparency,
+              child: _TopBannerWidget(
+                message: message,
+                backgroundColor: backgroundColor,
+                borderColor: borderColor,
+                icon: icon,
+                iconColor: iconColor,
+                onPress: onPress,
+                buttonText: buttonText,
+                duration: duration,
+                onDismissed: () {
+                  if (_currentEntry == entry) {
+                    _removeCurrent();
+                  }
+                },
+              ),
             ),
           ),
         );
@@ -93,12 +103,20 @@ class AppSnackBar {
     );
 
     _currentEntry = entry;
-    overlayState.insert(entry);
+    try {
+      overlayState.insert(entry);
+    } catch (_) {
+      _currentEntry = null;
+    }
   }
 
   static void _removeCurrent() {
     try {
-      _currentEntry?.remove();
+      if (_currentEntry != null) {
+        if (_currentEntry!.mounted) {
+          _currentEntry!.remove();
+        }
+      }
     } catch (_) {}
     _currentEntry = null;
   }
@@ -232,13 +250,17 @@ class _TopBannerWidgetState extends State<_TopBannerWidget>
   }
 
   void _dismiss() {
-    if (_isDismissing || !mounted) return;
+    if (_isDismissing) return;
     _isDismissing = true;
     _dismissTimer?.cancel();
+    if (!mounted) {
+      widget.onDismissed();
+      return;
+    }
     _animController.reverse().then((_) {
-      if (mounted) {
-        widget.onDismissed();
-      }
+      widget.onDismissed();
+    }).catchError((_) {
+      widget.onDismissed();
     });
   }
 
@@ -246,6 +268,7 @@ class _TopBannerWidgetState extends State<_TopBannerWidget>
   void dispose() {
     _dismissTimer?.cancel();
     _animController.dispose();
+    AppSnackBar._removeCurrent();
     super.dispose();
   }
 

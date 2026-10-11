@@ -70,6 +70,13 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
     super.dispose();
   }
 
+  void _showLockedNotice() {
+    AppSnackBar.info(
+      message:
+          'Vehicle details are verified by admin and locked. Please open a support ticket to request changes.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -243,49 +250,53 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                         ),
                       ),
                       8.verticalSpace,
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 14.w,
-                          vertical: 4.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isVerified ? const Color(0xFFF8FAFC) : AppColors.white,
-                          borderRadius: BorderRadius.circular(14.r),
-                          border: Border.all(
-                            color: isVerified ? const Color(0xFFE2E8F0) : AppColors.borderColor,
-                            width: 1.2,
+                      GestureDetector(
+                        onTap: isVerified ? _showLockedNotice : null,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 14.w,
+                            vertical: 4.h,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              CupertinoIcons.number,
-                              color: isVerified
-                                  ? AppColors.secondaryTextColor
-                                  : AppColors.primaryColor,
-                              size: 18.sp,
+                          decoration: BoxDecoration(
+                            color: isVerified ? const Color(0xFFF8FAFC) : AppColors.white,
+                            borderRadius: BorderRadius.circular(14.r),
+                            border: Border.all(
+                              color: isVerified ? const Color(0xFFE2E8F0) : AppColors.borderColor,
+                              width: 1.2,
                             ),
-                            10.horizontalSpace,
-                            Expanded(
-                              child: TextField(
-                                controller: _numberController,
-                                readOnly: isVerified,
-                                style: AppTextStyle.text16Semibold.copyWith(
-                                  letterSpacing: 1.2,
-                                  color: isVerified
-                                      ? AppColors.secondaryTextColor
-                                      : AppColors.primaryTextColor,
-                                ),
-                                textCapitalization: TextCapitalization.characters,
-                                decoration: const InputDecoration(
-                                  hintText: '1ABC 123',
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  suffixIcon: null,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isVerified ? CupertinoIcons.lock_fill : CupertinoIcons.number,
+                                color: isVerified
+                                    ? AppColors.secondaryTextColor
+                                    : AppColors.primaryColor,
+                                size: 18.sp,
+                              ),
+                              10.horizontalSpace,
+                              Expanded(
+                                child: TextField(
+                                  controller: _numberController,
+                                  readOnly: isVerified,
+                                  onTap: isVerified ? _showLockedNotice : null,
+                                  style: AppTextStyle.text16Semibold.copyWith(
+                                    letterSpacing: 1.2,
+                                    color: isVerified
+                                        ? AppColors.secondaryTextColor
+                                        : AppColors.primaryTextColor,
+                                  ),
+                                  textCapitalization: TextCapitalization.characters,
+                                  decoration: const InputDecoration(
+                                    hintText: '1ABC 123',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    suffixIcon: null,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
 
@@ -315,7 +326,7 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
 
                         return GestureDetector(
                           onTap: isVerified
-                              ? null
+                              ? _showLockedNotice
                               : () {
                                   setState(() {
                                     _selectedType = type;
@@ -392,45 +403,49 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                         ),
                       ),
                       8.verticalSpace,
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 14.w,
-                          vertical: 4.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isVerified ? const Color(0xFFF8FAFC) : AppColors.white,
-                          borderRadius: BorderRadius.circular(14.r),
-                          border: Border.all(
-                            color: isVerified ? const Color(0xFFE2E8F0) : AppColors.borderColor,
-                            width: 1.2,
+                      GestureDetector(
+                        onTap: isVerified ? _showLockedNotice : null,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 14.w,
+                            vertical: 4.h,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              CupertinoIcons.car_detailed,
-                              color: AppColors.secondaryTextColor,
-                              size: 18.sp,
+                          decoration: BoxDecoration(
+                            color: isVerified ? const Color(0xFFF8FAFC) : AppColors.white,
+                            borderRadius: BorderRadius.circular(14.r),
+                            border: Border.all(
+                              color: isVerified ? const Color(0xFFE2E8F0) : AppColors.borderColor,
+                              width: 1.2,
                             ),
-                            10.horizontalSpace,
-                            Expanded(
-                              child: TextField(
-                                controller: _modelController,
-                                readOnly: isVerified,
-                                style: AppTextStyle.text14Medium.copyWith(
-                                  color: isVerified
-                                      ? AppColors.secondaryTextColor
-                                      : AppColors.primaryTextColor,
-                                ),
-                                decoration: const InputDecoration(
-                                  hintText: 'e.g. Toyota Camry 2022',
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  suffixIcon: null,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isVerified ? CupertinoIcons.lock_fill : CupertinoIcons.car_detailed,
+                                color: AppColors.secondaryTextColor,
+                                size: 18.sp,
+                              ),
+                              10.horizontalSpace,
+                              Expanded(
+                                child: TextField(
+                                  controller: _modelController,
+                                  readOnly: isVerified,
+                                  onTap: isVerified ? _showLockedNotice : null,
+                                  style: AppTextStyle.text14Medium.copyWith(
+                                    color: isVerified
+                                        ? AppColors.secondaryTextColor
+                                        : AppColors.primaryTextColor,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: 'e.g. Toyota Camry 2022',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    suffixIcon: null,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
 
@@ -444,45 +459,49 @@ class _VehicleRegistrationPageState extends State<VehicleRegistrationPage> {
                         ),
                       ),
                       8.verticalSpace,
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 14.w,
-                          vertical: 4.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isVerified ? const Color(0xFFF8FAFC) : AppColors.white,
-                          borderRadius: BorderRadius.circular(14.r),
-                          border: Border.all(
-                            color: isVerified ? const Color(0xFFE2E8F0) : AppColors.borderColor,
-                            width: 1.2,
+                      GestureDetector(
+                        onTap: isVerified ? _showLockedNotice : null,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 14.w,
+                            vertical: 4.h,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              CupertinoIcons.paintbrush,
-                              color: AppColors.secondaryTextColor,
-                              size: 18.sp,
+                          decoration: BoxDecoration(
+                            color: isVerified ? const Color(0xFFF8FAFC) : AppColors.white,
+                            borderRadius: BorderRadius.circular(14.r),
+                            border: Border.all(
+                              color: isVerified ? const Color(0xFFE2E8F0) : AppColors.borderColor,
+                              width: 1.2,
                             ),
-                            10.horizontalSpace,
-                            Expanded(
-                              child: TextField(
-                                controller: _colorController,
-                                readOnly: isVerified,
-                                style: AppTextStyle.text14Medium.copyWith(
-                                  color: isVerified
-                                      ? AppColors.secondaryTextColor
-                                      : AppColors.primaryTextColor,
-                                ),
-                                decoration: const InputDecoration(
-                                  hintText: 'e.g. Silver, Pearl White, Black',
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  suffixIcon: null,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isVerified ? CupertinoIcons.lock_fill : CupertinoIcons.paintbrush,
+                                color: AppColors.secondaryTextColor,
+                                size: 18.sp,
+                              ),
+                              10.horizontalSpace,
+                              Expanded(
+                                child: TextField(
+                                  controller: _colorController,
+                                  readOnly: isVerified,
+                                  onTap: isVerified ? _showLockedNotice : null,
+                                  style: AppTextStyle.text14Medium.copyWith(
+                                    color: isVerified
+                                        ? AppColors.secondaryTextColor
+                                        : AppColors.primaryTextColor,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: 'e.g. Silver, Pearl White, Black',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    suffixIcon: null,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:ridelink/core/utils/preferences.dart';
 
 class RideModel {
   final String id;
@@ -19,6 +20,8 @@ class RideModel {
   final double destinationLng;
   final double currentDriverLat;
   final double currentDriverLng;
+  final double currentDriverHeading;
+  final double currentDriverSpeed;
   final String departureTime;
   final String estimatedDuration;
   final double pricePerSeat;
@@ -60,6 +63,8 @@ class RideModel {
     this.destinationLng = 0.0,
     this.currentDriverLat = 0.0,
     this.currentDriverLng = 0.0,
+    this.currentDriverHeading = 0.0,
+    this.currentDriverSpeed = 0.0,
     required this.departureTime,
     required this.estimatedDuration,
     required this.pricePerSeat,
@@ -102,6 +107,8 @@ class RideModel {
     double? destinationLng,
     double? currentDriverLat,
     double? currentDriverLng,
+    double? currentDriverHeading,
+    double? currentDriverSpeed,
     String? departureTime,
     String? estimatedDuration,
     double? pricePerSeat,
@@ -143,6 +150,8 @@ class RideModel {
       destinationLng: destinationLng ?? this.destinationLng,
       currentDriverLat: currentDriverLat ?? this.currentDriverLat,
       currentDriverLng: currentDriverLng ?? this.currentDriverLng,
+      currentDriverHeading: currentDriverHeading ?? this.currentDriverHeading,
+      currentDriverSpeed: currentDriverSpeed ?? this.currentDriverSpeed,
       departureTime: departureTime ?? this.departureTime,
       estimatedDuration: estimatedDuration ?? this.estimatedDuration,
       pricePerSeat: pricePerSeat ?? this.pricePerSeat,
@@ -200,6 +209,7 @@ class BookingModel {
   final String status; // 'Confirmed', 'Upcoming', 'Completed', 'Cancelled'
   final String bookingDate;
   final String pickupOtp;
+  final String passengerStatus; // 'to_pickup' | 'arrived' | 'onboard' | 'dropped_off'
 
   BookingModel({
     required this.id,
@@ -210,11 +220,20 @@ class BookingModel {
     required this.status,
     required this.bookingDate,
     this.pickupOtp = '1234',
+    this.passengerStatus = 'to_pickup',
   });
+
+  bool get isOnboard =>
+      passengerStatus.toLowerCase().trim() == 'onboard' ||
+      status.toLowerCase().trim() == 'onboard' ||
+      passengerStatus.toLowerCase().trim() == 'dropped_off' ||
+      status.toLowerCase().trim() == 'completed';
 }
 
 class CompletedTripModel {
   final String id;
+  final String bookingId;
+  final String driverId;
   final String driverName;
   final String carModel;
   final String carPlate;
@@ -227,6 +246,8 @@ class CompletedTripModel {
 
   CompletedTripModel({
     required this.id,
+    this.bookingId = '',
+    this.driverId = '',
     required this.driverName,
     required this.carModel,
     required this.carPlate,
@@ -358,6 +379,8 @@ class CommunityModel {
   final String routeSummary; // e.g. 'Landsdale → Curtin University'
   final String pickupLocation;
   final String dropOffLocation;
+  final double dropOffLat;
+  final double dropOffLng;
   final String fixedLocationType; // 'dropoff' | 'pickup' | 'both' | 'none'
   final bool isFixedPickup;
   final bool isFixedDropOff;
@@ -386,6 +409,8 @@ class CommunityModel {
     required this.routeSummary,
     this.pickupLocation = '',
     this.dropOffLocation = '',
+    this.dropOffLat = 0.0,
+    this.dropOffLng = 0.0,
     this.fixedLocationType = 'none',
     this.isFixedPickup = false,
     this.isFixedDropOff = false,
@@ -538,6 +563,7 @@ class CommunityModel {
     Map<String, dynamic> data,
     String id, {
     String? currentUserId,
+    String? userRole,
   }) {
     final memberIds = (data['memberIds'] as List<dynamic>?)
             ?.map((e) => e.toString())
@@ -552,10 +578,17 @@ class CommunityModel {
             .toList() ??
         [];
 
-    final bool isUserJoined = currentUserId != null &&
-        (memberIds.contains(currentUserId) ||
-            passengerMemberIds.contains(currentUserId) ||
-            driverMemberIds.contains(currentUserId));
+    final effectiveRole = userRole ?? Preferences.userRole;
+    final bool isUserJoined;
+    if (currentUserId == null) {
+      isUserJoined = false;
+    } else if (effectiveRole == 'driver') {
+      isUserJoined = driverMemberIds.contains(currentUserId);
+    } else {
+      isUserJoined = passengerMemberIds.contains(currentUserId) ||
+          (memberIds.contains(currentUserId) &&
+              !driverMemberIds.contains(currentUserId));
+    }
 
     final rawPassengers = (data['passengersCount'] as num?)?.toInt() ??
         passengerMemberIds.length;
@@ -564,12 +597,37 @@ class CommunityModel {
 
     final rawIcon = data['icon'];
     final rawFixedType = data['fixedLocationType']?.toString().toLowerCase().trim() ?? 'none';
+    final parsedDropLocation = data['dropOffLocation']?.toString() ??
+        data['dropoffLocation']?.toString() ??
+        data['destination']?.toString() ??
+        data['to']?.toString() ??
+        '';
     final isFixedDrop = data['isFixedDropOff'] == true ||
+        data['isFixedDropoff'] == true ||
+        data['fixedDropOff'] == true ||
+        data['fixedDrop'] == true ||
         rawFixedType == 'dropoff' ||
-        rawFixedType == 'both';
+        rawFixedType == 'both' ||
+        parsedDropLocation.trim().isNotEmpty;
     final isFixedPick = data['isFixedPickup'] == true ||
+        data['isFixedPickup'] == true ||
         rawFixedType == 'pickup' ||
         rawFixedType == 'both';
+
+    final rawDropLat = (data['dropOffLat'] ??
+            data['dropoffLat'] ??
+            data['toLat'] ??
+            data['destinationLat'] ??
+            data['fixedLat'] as num?)
+        ?.toDouble() ??
+        0.0;
+    final rawDropLng = (data['dropOffLng'] ??
+            data['dropoffLng'] ??
+            data['toLng'] ??
+            data['destinationLng'] ??
+            data['fixedLng'] as num?)
+        ?.toDouble() ??
+        0.0;
 
     final recurringDaysList = (data['recurringDays'] as List<dynamic>?)
             ?.map((e) => e.toString())
@@ -580,8 +638,13 @@ class CommunityModel {
       id: id,
       name: data['name']?.toString() ?? '',
       routeSummary: data['routeSummary']?.toString() ?? '',
-      pickupLocation: data['pickupLocation']?.toString() ?? '',
-      dropOffLocation: data['dropOffLocation']?.toString() ?? '',
+      pickupLocation: data['pickupLocation']?.toString() ??
+          data['pickUpLocation']?.toString() ??
+          data['from']?.toString() ??
+          '',
+      dropOffLocation: parsedDropLocation,
+      dropOffLat: rawDropLat,
+      dropOffLng: rawDropLng,
       fixedLocationType: rawFixedType,
       isFixedPickup: isFixedPick,
       isFixedDropOff: isFixedDrop,
@@ -613,6 +676,8 @@ class CommunityModel {
       'routeSummary': routeSummary,
       'pickupLocation': pickupLocation,
       'dropOffLocation': dropOffLocation,
+      'dropOffLat': dropOffLat,
+      'dropOffLng': dropOffLng,
       'fixedLocationType': fixedLocationType,
       'isFixedPickup': isFixedPickup,
       'isFixedDropOff': isFixedDropOff,

@@ -12,6 +12,9 @@ class GooglePlacesSearchField extends StatefulWidget {
   final Color labelColor;
   final ValueChanged<PlaceDetails>? onPlaceSelected;
   final Widget? trailing;
+  final bool readOnly;
+  final bool enabled;
+  final String? fixedBadgeText;
 
   const GooglePlacesSearchField({
     super.key,
@@ -21,6 +24,9 @@ class GooglePlacesSearchField extends StatefulWidget {
     required this.labelColor,
     this.onPlaceSelected,
     this.trailing,
+    this.readOnly = false,
+    this.enabled = true,
+    this.fixedBadgeText,
   });
 
   @override
@@ -40,6 +46,10 @@ class _GooglePlacesSearchFieldState extends State<GooglePlacesSearchField> {
   void initState() {
     super.initState();
     _focusNode.addListener(() {
+      if (widget.readOnly || !widget.enabled) {
+        _hideOverlay();
+        return;
+      }
       if (!_focusNode.hasFocus) {
         _hideOverlay();
       }
@@ -55,6 +65,7 @@ class _GooglePlacesSearchFieldState extends State<GooglePlacesSearchField> {
   }
 
   void _onChanged(String val) {
+    if (widget.readOnly || !widget.enabled) return;
     if (_debounce?.isActive ?? false) _debounce?.cancel();
 
     _debounce = Timer(const Duration(milliseconds: 300), () async {
@@ -172,14 +183,19 @@ class _GooglePlacesSearchFieldState extends State<GooglePlacesSearchField> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isLocked = widget.readOnly || !widget.enabled;
+
     return CompositedTransformTarget(
       link: _layerLink,
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: isLocked ? const Color(0xFFF1F5F9) : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(
+            color: isLocked ? const Color(0xFFCBD5E1) : const Color(0xFFE2E8F0),
+            width: isLocked ? 1.2 : 1.0,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,6 +210,39 @@ class _GooglePlacesSearchFieldState extends State<GooglePlacesSearchField> {
                     letterSpacing: 0.5,
                   ),
                 ),
+                if (widget.fixedBadgeText != null &&
+                    widget.fixedBadgeText!.isNotEmpty) ...[
+                  8.horizontalSpace,
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 6.w,
+                      vertical: 2.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(6.r),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.lock_rounded,
+                          size: 10.sp,
+                          color: const Color(0xFF2563EB),
+                        ),
+                        4.horizontalSpace,
+                        Text(
+                          widget.fixedBadgeText!,
+                          style: AppTextStyle.text10Medium.copyWith(
+                            color: const Color(0xFF1D4ED8),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 if (widget.trailing != null) ...[
                   widget.trailing!,
@@ -214,6 +263,8 @@ class _GooglePlacesSearchFieldState extends State<GooglePlacesSearchField> {
             TextField(
               controller: widget.controller,
               focusNode: _focusNode,
+              readOnly: widget.readOnly,
+              enabled: widget.enabled,
               onChanged: _onChanged,
               decoration: InputDecoration(
                 hintText: widget.hintText,
@@ -225,7 +276,10 @@ class _GooglePlacesSearchFieldState extends State<GooglePlacesSearchField> {
                 contentPadding: EdgeInsets.symmetric(vertical: 4.h),
               ),
               style: AppTextStyle.text14Medium.copyWith(
-                color: AppColors.primaryTextColor,
+                color: isLocked
+                    ? const Color(0xFF475569)
+                    : AppColors.primaryTextColor,
+                fontWeight: isLocked ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],

@@ -380,6 +380,8 @@ class AuthService {
   Future<void> updateDriverLocation({
     required double latitude,
     required double longitude,
+    double? heading,
+    double? speed,
     bool force = false,
   }) async {
     final user = _auth.currentUser;
@@ -392,8 +394,8 @@ class AuthService {
         _lastAuthDriverUpdate != null) {
       final elapsedMs = now.difference(_lastAuthDriverUpdate!).inMilliseconds;
 
-      // Throttle: max once per 3 seconds
-      if (elapsedMs < 3000) {
+      // Throttle: max once per 2 seconds
+      if (elapsedMs < 2000) {
         return;
       }
 
@@ -404,8 +406,8 @@ class AuthService {
         longitude,
       );
 
-      // Skip DB write if stationary (< 10 meters) and within 60-second heartbeat
-      if (distanceMeters < 10.0 && elapsedMs < 60000) {
+      // Skip DB write if stationary (< 2 meters) and within 6-second heartbeat
+      if (distanceMeters < 2.0 && elapsedMs < 6000) {
         return;
       }
     }
@@ -415,20 +417,36 @@ class AuthService {
     _lastAuthDriverUpdate = now;
 
     try {
-      await _firestore
-          .collection(FirestoreCollections.users)
-          .doc(user.uid)
-          .set({
-        'currentLocation': {
-          'latitude': latitude,
-          'longitude': longitude,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
+      final Map<String, dynamic> locMap = {
+        'latitude': latitude,
+        'longitude': longitude,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (heading != null && heading >= 0.0) {
+        locMap['heading'] = heading;
+      }
+      if (speed != null && speed >= 0.0 && !speed.isNaN && !speed.isInfinite) {
+        locMap['speed'] = speed;
+      }
+
+      final Map<String, dynamic> updatePayload = {
+        'currentLocation': locMap,
         'lastLatitude': latitude,
         'lastLongitude': longitude,
         'lastLocationUpdate': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+      if (heading != null && heading >= 0.0) {
+        updatePayload['lastHeading'] = heading;
+      }
+      if (speed != null && speed >= 0.0 && !speed.isNaN && !speed.isInfinite) {
+        updatePayload['lastSpeed'] = speed;
+      }
+
+      await _firestore
+          .collection(FirestoreCollections.users)
+          .doc(user.uid)
+          .set(updatePayload, SetOptions(merge: true));
     } catch (e) {
       debugPrint('[AuthService] Failed to update driver location: $e');
     }

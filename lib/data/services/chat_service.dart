@@ -34,6 +34,70 @@ class ChatService {
     );
 
     await docRef.set(msg.toMap());
+
+    // Trigger in-app & push notification entry for the recipient
+    try {
+      final List<String> targetUserIds = [];
+      final tripDoc = await _firestore
+          .collection(FirestoreCollections.rides)
+          .doc(tripId)
+          .get();
+
+      if (tripDoc.exists) {
+        final data = tripDoc.data() ?? {};
+        final driverId = data['driverId']?.toString() ?? '';
+
+        if (senderId == driverId) {
+          // Driver sent message -> notify accepted passengers on this trip
+          final bookingsSnap = await _firestore
+              .collection(FirestoreCollections.bookings)
+              .where('tripId', isEqualTo: tripId)
+              .where('status', isEqualTo: 'accepted')
+              .get();
+          for (final doc in bookingsSnap.docs) {
+            final pId = doc.data()['passengerId']?.toString();
+            if (pId != null &&
+                pId.isNotEmpty &&
+                pId != senderId &&
+                !targetUserIds.contains(pId)) {
+              targetUserIds.add(pId);
+            }
+          }
+        } else {
+          // Passenger sent message -> notify driver
+          if (driverId.isNotEmpty && driverId != senderId) {
+            targetUserIds.add(driverId);
+          }
+        }
+      }
+
+      for (final recipientId in targetUserIds) {
+        String? token;
+        try {
+          final uDoc = await _firestore
+              .collection(FirestoreCollections.users)
+              .doc(recipientId)
+              .get();
+          token = uDoc.data()?['fcmToken']?.toString();
+        } catch (_) {}
+
+        await _firestore.collection(FirestoreCollections.notifications).add({
+          'title': 'New Message from $senderName 💬',
+          'body': message.trim(),
+          'userId': recipientId,
+          if (token != null && token.isNotEmpty) 'fcmToken': token,
+          'status': 'pending',
+          'data': {
+            'type': 'trip_chat',
+            'tripId': tripId,
+            'senderId': senderId,
+            'senderName': senderName,
+          },
+          'sound': 'default',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (_) {}
   }
 
   /// Stream real-time chat messages for a specific trip

@@ -12,6 +12,8 @@ import 'package:ridelink/core/utils/map_marker_helper.dart';
 import 'package:ridelink/core/utils/route_matching_helper.dart';
 import 'package:ridelink/core/utils/utils.dart';
 import 'package:ridelink/data/services/auth_service.dart';
+import 'package:ridelink/data/models/firestore/trip_model.dart';
+import 'package:ridelink/data/services/chat_service.dart';
 import 'package:ridelink/data/services/device_location_service.dart';
 import 'package:ridelink/data/services/google_places_service.dart';
 import 'package:ridelink/data/services/trip_service.dart';
@@ -43,6 +45,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
 
   LatLng? _currentDriverLocation;
   double _driverHeading = 0.0;
+  double _driverSpeedKmH = 0.0;
 
   BitmapDescriptor? _pickupPersonMarker;
   BitmapDescriptor? _driverCarMarker;
@@ -52,6 +55,14 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
   String? _manualTargetPassengerId;
   String? _manualTargetType; // 'pickup' | 'dropoff'
 
+  StreamSubscription<List<TripChatMessageModel>>? _chatMessagesSubscription;
+  TripChatMessageModel? _activeInAppChatBanner;
+  Timer? _chatBannerTimer;
+  String? _lastReceivedChatMsgId;
+  bool _isCompletingOrFinishing = false;
+  final RxBool _isCompletingEntireTrip = false.obs;
+  final RxBool _isNotifyingArrival = false.obs;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +70,10 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
         tripsController.liveTrip.value ??
         tripsController.selectedTripForRequests.value ??
         (tripsController.myTrips.isNotEmpty ? tripsController.myTrips.first : null);
+
+    if (trip != null && trip.id.isNotEmpty) {
+      _startChatListener(trip);
+    }
 
     // Warm up driver live location immediately from cached position
     LatLng? quickLoc = DeviceLocationService.instance.cachedPosition;
@@ -89,6 +104,15 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
             _updateTargetRoute(trip);
           }
         });
+        if (trip != null && trip.id.isNotEmpty) {
+          TripService.instance.updateDriverLocation(
+            trip.id,
+            freshLoc.latitude,
+            freshLoc.longitude,
+            heading: _driverHeading,
+            force: true,
+          );
+        }
       }
     });
 
@@ -263,6 +287,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
           devicePos,
           trip,
           heading: dashCtrl.driverCurrentHeading.value,
+          speed: dashCtrl.driverCurrentSpeed.value,
         );
       });
     } else {
@@ -270,10 +295,12 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
           .streamDevicePosition(distanceFilterMeters: 0)
           .listen((pos) {
         if (!mounted) return;
+        final double speedKmH = pos.speed > 0.0 ? (pos.speed * 3.6) : 0.0;
         _handleLivePositionUpdate(
           LatLng(pos.latitude, pos.longitude),
           trip,
           heading: pos.heading,
+          speed: speedKmH,
         );
       });
     }
@@ -283,11 +310,15 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
     LatLng devicePos,
     DriverTripModel? trip, {
     double? heading,
+    double? speed,
   }) {
     setState(() {
       _currentDriverLocation = devicePos;
       if (heading != null && heading >= 0.0) {
         _driverHeading = heading;
+      }
+      if (speed != null && speed >= 0.0 && !speed.isNaN && !speed.isInfinite) {
+        _driverSpeedKmH = speed;
       }
       if (trip != null) {
         final target = _getActiveTargetStop(trip);
@@ -324,6 +355,8 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
         trip.id,
         devicePos.latitude,
         devicePos.longitude,
+        heading: heading ?? _driverHeading,
+        speed: speed ?? _driverSpeedKmH,
       );
     }
   }
@@ -496,8 +529,15 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
         );
     final extraMeters = (detourDist - directDist).clamp(0.0, 50000.0);
     final extraKm = extraMeters / 1000.0;
-    final extraMins = (extraKm / 35.0 * 60).round();
-    if (extraMins <= 1) return '+1 min detour';
+
+    // Use live speed if moving (> 15 km/h), otherwise fallback to safe 35 km/h (stops / red lights)
+    double effectiveSpeed = 35.0;
+    if (_driverSpeedKmH >= 15.0 && !_driverSpeedKmH.isNaN && !_driverSpeedKmH.isInfinite) {
+      effectiveSpeed = _driverSpeedKmH.clamp(20.0, 100.0);
+    }
+
+    final extraMins = (extraKm / effectiveSpeed * 60).round() + 1;
+    if (extraMins <= 1) return '+1 min detour (~${extraKm.toStringAsFixed(1)} km)';
     return '+$extraMins mins detour (~${extraKm.toStringAsFixed(1)} km)';
   }
 
@@ -714,11 +754,50 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
   @override
   void dispose() {
     _deviceLocationSubscription?.cancel();
+    _chatMessagesSubscription?.cancel();
+    _chatBannerTimer?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
 
-  void _finishAndReturnToDriverHome() {
+  void _startChatListener(DriverTripModel trip) {
+    final String driverUid = AuthService.instance.currentUser?.uid ?? '';
+    _chatMessagesSubscription?.cancel();
+    bool isInitialLoad = true;
+    _chatMessagesSubscription = ChatService.instance
+        .streamTripChatMessages(trip.id)
+        .listen((messages) {
+      if (!mounted || messages.isEmpty) return;
+      if (isInitialLoad) {
+        isInitialLoad = false;
+        _lastReceivedChatMsgId = messages.last.id;
+        return;
+      }
+      final latest = messages.last;
+      if (latest.senderId != driverUid && latest.id != _lastReceivedChatMsgId) {
+        _lastReceivedChatMsgId = latest.id;
+        setState(() {
+          _activeInAppChatBanner = latest;
+        });
+        _chatBannerTimer?.cancel();
+        _chatBannerTimer = Timer(const Duration(seconds: 8), () {
+          if (mounted) {
+            setState(() => _activeInAppChatBanner = null);
+          }
+        });
+      }
+    });
+  }
+
+  void _finishAndReturnToDriverHome({String? snackbarMessage}) {
+    if (_isCompletingOrFinishing) return;
+    _isCompletingOrFinishing = true;
+
+    AppSnackBar.clear();
+    _chatMessagesSubscription?.cancel();
+    _chatBannerTimer?.cancel();
+    _deviceLocationSubscription?.cancel();
+
     if (Get.isRegistered<DriverTripsController>()) {
       final tc = Get.find<DriverTripsController>();
       tc.liveTrip.value = null;
@@ -734,7 +813,15 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
     if (Get.isRegistered<DriverDashboardController>()) {
       Get.find<DriverDashboardController>().switchTab(0);
     }
+
+    // Safely return to driver dashboard cleanly without stuck routes or modal conflicts
     Get.offAllNamed(AppRoutes.driverDashboard);
+
+    if (snackbarMessage != null) {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        AppSnackBar.success(message: snackbarMessage);
+      });
+    }
   }
 
   void _showConfirmPassengerBoardingSheet(
@@ -882,6 +969,9 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                   if (sheetCtx.mounted) {
                                     Get.back();
                                   }
+                                  await Future.delayed(
+                                    const Duration(milliseconds: 200),
+                                  );
                                   AppSnackBar.success(
                                     message:
                                         '${passenger.passengerName} is onboard! Proceeding to drop-off.',
@@ -931,8 +1021,9 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
 
   void _showRatePassengerSheet(
     DriverTripModel trip,
-    PassengerRequestModel passenger,
-  ) {
+    PassengerRequestModel passenger, {
+    bool isCompletingEntireTrip = false,
+  }) {
     double selectedRating = 5.0;
     final List<String> availableBadges = [
       'Punctual',
@@ -943,6 +1034,7 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
     ];
     final Set<String> selectedBadges = {'Punctual', 'Polite & Respectful'};
     final TextEditingController commentController = TextEditingController();
+    bool isSubmitting = false;
 
     Get.bottomSheet(
       StatefulBuilder(
@@ -1214,47 +1306,155 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        Get.back(); // close bottom sheet
-                        await tripsController.submitPassengerRating(
-                          passengerId:
-                              passenger.passengerId ?? passenger.id,
-                          passengerName: passenger.passengerName,
-                          rating: selectedRating,
-                          comment: commentController.text.trim(),
-                          trip: trip,
-                          bookingId: passenger.id,
-                          fare: passenger.fare,
-                          paymentMethod: 'cash',
-                        );
-                        if (trip.status.value == 'Completed') {
-                          _finishAndReturnToDriverHome();
-                        } else {
-                          setState(() {
-                            _manualTargetPassengerId = null;
-                            _manualTargetType = null;
-                            _updateTargetRoute(trip);
-                          });
-                        }
-                      },
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              setSheetState(() => isSubmitting = true);
+                              try {
+                                await tripsController.submitPassengerRating(
+                                  passengerId:
+                                      passenger.passengerId ?? passenger.id,
+                                  passengerName: passenger.passengerName,
+                                  rating: selectedRating,
+                                  comment: commentController.text.trim(),
+                                  trip: trip,
+                                  bookingId: passenger.id,
+                                  fare: passenger.fare,
+                                  paymentMethod: 'cash',
+                                );
+                                final bool allRated = trip.acceptedPassengers.every((p) => p.isRated.value);
+                                if (isCompletingEntireTrip || trip.status.value == 'Completed' || allRated) {
+                                  trip.status.value = 'Completed';
+                                  tripsController.myTrips.refresh();
+                                  final driverUid =
+                                      AuthService.instance.currentUser?.uid ?? '';
+                                  if (trip.id.isNotEmpty) {
+                                    await TripService.instance.completeEntireTrip(
+                                      tripId: trip.id,
+                                      driverId: driverUid,
+                                    );
+                                  }
+                                  if (Get.isRegistered<DriverHomeController>()) {
+                                    Get.find<DriverHomeController>()
+                                        .completedTripsCount
+                                        .value++;
+                                  }
+                                  if (Get.isBottomSheetOpen == true) {
+                                    Get.back();
+                                  }
+                                  await Future.delayed(const Duration(milliseconds: 200));
+                                  _finishAndReturnToDriverHome(
+                                    snackbarMessage: 'Trip completed successfully!',
+                                  );
+                                } else {
+                                  Get.back();
+                                  final nextUnrated = trip.acceptedPassengers.firstWhereOrNull((p) => !p.isRated.value);
+                                  if (nextUnrated != null && isCompletingEntireTrip) {
+                                    _showRatePassengerSheet(trip, nextUnrated, isCompletingEntireTrip: true);
+                                  } else {
+                                    setState(() {
+                                      _manualTargetPassengerId = null;
+                                      _manualTargetType = null;
+                                      _updateTargetRoute(trip);
+                                    });
+                                  }
+                                }
+                              } catch (_) {
+                                if (context.mounted) {
+                                  setSheetState(() => isSubmitting = false);
+                                }
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF16A34A),
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor: const Color(0xFF16A34A).withValues(alpha: 0.6),
                         elevation: 0,
                         padding: EdgeInsets.symmetric(vertical: 14.h),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16.r),
                         ),
                       ),
-                      child: Text(
-                        'Confirm Dropoff & Payment (${Utils.formatPrice(passenger.fare)} AUD)',
-                        style: AppTextStyle.text14Semibold.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: isSubmitting
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 18.r,
+                                  height: 18.r,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                ),
+                                10.horizontalSpace,
+                                Text(
+                                  'Confirming Dropoff & Payment...',
+                                  style: AppTextStyle.text14Semibold.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Confirm Dropoff & Payment (${Utils.formatPrice(passenger.fare)} AUD)',
+                              style: AppTextStyle.text14Semibold.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
+                  if (isCompletingEntireTrip) ...[
+                    8.verticalSpace,
+                    TextButton(
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              setSheetState(() => isSubmitting = true);
+                              try {
+                                trip.status.value = 'Completed';
+                                tripsController.myTrips.refresh();
+                                final driverUid =
+                                    AuthService.instance.currentUser?.uid ?? '';
+                                if (trip.id.isNotEmpty) {
+                                  await TripService.instance.completeEntireTrip(
+                                    tripId: trip.id,
+                                    driverId: driverUid,
+                                  );
+                                }
+                                if (Get.isRegistered<DriverHomeController>()) {
+                                  Get.find<DriverHomeController>()
+                                      .completedTripsCount
+                                      .value++;
+                                }
+                                _finishAndReturnToDriverHome(
+                                  snackbarMessage: 'Trip completed successfully!',
+                                );
+                              } catch (_) {
+                                if (context.mounted) {
+                                  setSheetState(() => isSubmitting = false);
+                                }
+                              }
+                            },
+                      child: isSubmitting
+                          ? SizedBox(
+                              width: 16.r,
+                              height: 16.r,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF64748B)),
+                              ),
+                            )
+                          : Text(
+                              'Skip Rating & Finish Trip',
+                              style: AppTextStyle.text14Medium.copyWith(
+                                color: const Color(0xFF64748B),
+                              ),
+                            ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1615,6 +1815,108 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
             ),
           ),
 
+          // In-App Chat Alert Banner
+          if (_activeInAppChatBanner != null)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 58.h,
+              left: 16.w,
+              right: 16.w,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => _activeInAppChatBanner = null);
+                  final target = activeTarget.passenger ??
+                      (trip.acceptedPassengers.isNotEmpty
+                          ? trip.acceptedPassengers.first
+                          : null);
+                  if (target != null) {
+                    tripsController.openDriverChat(
+                      passenger: target,
+                      tripId: trip.id,
+                      route: '${trip.from} → ${trip.to}',
+                    );
+                  }
+                },
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(16.r),
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(color: const Color(0xFF38BDF8), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(7.r),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF0284C7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.chat_bubble_2_fill,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                        10.horizontalSpace,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _activeInAppChatBanner!.senderName.isNotEmpty
+                                    ? _activeInAppChatBanner!.senderName
+                                    : 'Passenger',
+                                style: AppTextStyle.text12Semibold.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              2.verticalSpace,
+                              Text(
+                                _activeInAppChatBanner!.message,
+                                style: AppTextStyle.text12Regular.copyWith(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        8.horizontalSpace,
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          child: Text(
+                            'Reply',
+                            style: AppTextStyle.text10Medium.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           // Bottom Slide Card: Passenger Details & Trip Controls
           Positioned(
             left: 16.w,
@@ -1857,7 +2159,10 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                         ),
                                         2.horizontalSpace,
                                         Text(
-                                          activeTarget.passenger!.rating.toStringAsFixed(1),
+                                          (activeTarget.passenger!.rating.value > 0
+                                                  ? activeTarget.passenger!.rating.value
+                                                  : 5.0)
+                                              .toStringAsFixed(1),
                                           style: AppTextStyle.text10Medium.copyWith(
                                             color: const Color(0xFF92400E),
                                             fontWeight: FontWeight.bold,
@@ -2032,38 +2337,60 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                     children: [
                                       Expanded(
                                         flex: 6,
-                                        child: ElevatedButton.icon(
-                                          onPressed: () async {
-                                            await tripsController.updatePassengerTripStatus(
-                                              passenger: activeTarget.passenger!,
-                                              newStatus: 'arrived',
-                                            );
-                                            AppSnackBar.success(
-                                              message:
-                                                  'Notified ${activeTarget.passenger!.passengerName} that you have arrived!',
-                                            );
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFF0D9488),
-                                            foregroundColor: Colors.white,
-                                            elevation: 0,
-                                            padding: EdgeInsets.symmetric(vertical: 11.h),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(14.r),
+                                        child: Obx(() {
+                                          final isNotifying = _isNotifyingArrival.value;
+                                          return ElevatedButton.icon(
+                                            onPressed: isNotifying
+                                                ? null
+                                                : () async {
+                                                    _isNotifyingArrival.value = true;
+                                                    try {
+                                                      await tripsController.updatePassengerTripStatus(
+                                                        passenger: activeTarget.passenger!,
+                                                        newStatus: 'arrived',
+                                                      );
+                                                      AppSnackBar.success(
+                                                        message:
+                                                            'Notified ${activeTarget.passenger!.passengerName} that you have arrived!',
+                                                      );
+                                                    } finally {
+                                                      _isNotifyingArrival.value = false;
+                                                    }
+                                                  },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF0D9488),
+                                              foregroundColor: Colors.white,
+                                              disabledBackgroundColor:
+                                                  const Color(0xFF0D9488).withValues(alpha: 0.6),
+                                              disabledForegroundColor: Colors.white70,
+                                              elevation: 0,
+                                              padding: EdgeInsets.symmetric(vertical: 11.h),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(14.r),
+                                              ),
                                             ),
-                                          ),
-                                          icon: const Icon(
-                                            CupertinoIcons.location_fill,
-                                            size: 15,
-                                          ),
-                                          label: Text(
-                                            'Arrived at Pickup',
-                                            style: AppTextStyle.text12Semibold.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
+                                            icon: isNotifying
+                                                ? SizedBox(
+                                                    width: 14.r,
+                                                    height: 14.r,
+                                                    child: const CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Colors.white,
+                                                    ),
+                                                  )
+                                                : const Icon(
+                                                    CupertinoIcons.location_fill,
+                                                    size: 15,
+                                                  ),
+                                            label: Text(
+                                              isNotifying ? 'Notifying...' : 'Arrived at Pickup',
+                                              style: AppTextStyle.text12Semibold.copyWith(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                        ),
+                                          );
+                                        }),
                                       ),
                                       8.horizontalSpace,
                                       Expanded(
@@ -2101,10 +2428,14 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                   ))
                             : (activeTarget.isDropoff
                                 ? ElevatedButton.icon(
-                                    onPressed: () => _showRatePassengerSheet(
-                                      trip,
-                                      activeTarget.passenger!,
-                                    ),
+                                    onPressed: () {
+                                      final bool isLastPassenger = trip.acceptedPassengers.where((p) => p.status.value != 'Dropped Off' && p.status.value != 'Completed' && p != activeTarget.passenger).isEmpty;
+                                      _showRatePassengerSheet(
+                                        trip,
+                                        activeTarget.passenger!,
+                                        isCompletingEntireTrip: isLastPassenger,
+                                      );
+                                    },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF16A34A),
                                       foregroundColor: Colors.white,
@@ -2126,64 +2457,89 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                                       ),
                                     ),
                                   )
-                                : ElevatedButton.icon(
-                                    onPressed: () async {
-                                      final unratedPassenger =
-                                          trip.acceptedPassengers.firstWhereOrNull(
-                                        (p) => !p.isRated.value,
-                                      );
-                                      if (unratedPassenger != null) {
-                                        _showRatePassengerSheet(
-                                          trip,
-                                          unratedPassenger,
-                                        );
-                                        return;
-                                      }
+                                : Obx(() {
+                                    final isCompleting = _isCompletingEntireTrip.value;
+                                    return ElevatedButton.icon(
+                                      onPressed: isCompleting
+                                          ? null
+                                          : () async {
+                                              final unratedPassenger =
+                                                  trip.acceptedPassengers.firstWhereOrNull(
+                                                (p) => !p.isRated.value,
+                                              );
+                                              if (unratedPassenger != null) {
+                                                _showRatePassengerSheet(
+                                                  trip,
+                                                  unratedPassenger,
+                                                  isCompletingEntireTrip: true,
+                                                );
+                                                return;
+                                              }
 
-                                      trip.status.value = 'Completed';
-                                      tripsController.myTrips.refresh();
-                                      final driverUid =
-                                          AuthService.instance.currentUser?.uid ??
-                                              '';
-                                      if (trip.id.isNotEmpty) {
-                                        await TripService.instance
-                                            .completeEntireTrip(
-                                          tripId: trip.id,
-                                          driverId: driverUid,
-                                        );
-                                      }
-                                      if (Get.isRegistered<
-                                          DriverHomeController>()) {
-                                        Get.find<DriverHomeController>()
-                                            .completedTripsCount
-                                            .value++;
-                                      }
-                                      AppSnackBar.success(
-                                        message: 'Trip completed successfully!',
-                                      );
-                                      _finishAndReturnToDriverHome();
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF1E293B),
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      padding: EdgeInsets.symmetric(vertical: 11.h),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14.r),
+                                              _isCompletingEntireTrip.value = true;
+                                              try {
+                                                trip.status.value = 'Completed';
+                                                tripsController.myTrips.refresh();
+                                                final driverUid =
+                                                    AuthService.instance.currentUser?.uid ??
+                                                        '';
+                                                if (trip.id.isNotEmpty) {
+                                                  await TripService.instance
+                                                      .completeEntireTrip(
+                                                    tripId: trip.id,
+                                                    driverId: driverUid,
+                                                  );
+                                                }
+                                                if (Get.isRegistered<
+                                                    DriverHomeController>()) {
+                                                  Get.find<DriverHomeController>()
+                                                      .completedTripsCount
+                                                      .value++;
+                                                }
+                                                _finishAndReturnToDriverHome(
+                                                  snackbarMessage:
+                                                      'Trip completed successfully!',
+                                                );
+                                              } finally {
+                                                _isCompletingEntireTrip.value = false;
+                                              }
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF1E293B),
+                                        foregroundColor: Colors.white,
+                                        disabledBackgroundColor:
+                                            const Color(0xFF1E293B).withValues(alpha: 0.6),
+                                        disabledForegroundColor: Colors.white70,
+                                        elevation: 0,
+                                        padding: EdgeInsets.symmetric(vertical: 11.h),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14.r),
+                                        ),
                                       ),
-                                    ),
-                                    icon: const Icon(
-                                      Icons.flag_rounded,
-                                      size: 16,
-                                    ),
-                                    label: Text(
-                                      'Complete Entire Trip',
-                                      style: AppTextStyle.text12Semibold.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
+                                      icon: isCompleting
+                                          ? SizedBox(
+                                              width: 14.r,
+                                              height: 14.r,
+                                              child: const CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.flag_rounded,
+                                              size: 16,
+                                            ),
+                                      label: Text(
+                                        isCompleting
+                                            ? 'Completing Trip...'
+                                            : 'Complete Entire Trip',
+                                        style: AppTextStyle.text12Semibold.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ),
-                                  )),
+                                    );
+                                  })),
                       ),
                     ],
                   ),

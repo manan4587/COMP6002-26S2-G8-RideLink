@@ -44,6 +44,18 @@ class RequestSentPage extends GetView<PassengerDashboardController> {
 
     final int seatsNeeded = controller.requestedSeats.value;
 
+    final String passengerPickup = ride.searchedPickupAddress.isNotEmpty
+        ? ride.searchedPickupAddress
+        : (controller.fromLocationController.text.trim().isNotEmpty
+            ? controller.fromLocationController.text.trim()
+            : (ride.pickupSuggestion.isNotEmpty ? ride.pickupSuggestion : ride.origin));
+
+    final String passengerDrop = ride.searchedDropAddress.isNotEmpty
+        ? ride.searchedDropAddress
+        : (controller.toLocationController.text.trim().isNotEmpty
+            ? controller.toLocationController.text.trim()
+            : (ride.dropOffPlan.isNotEmpty ? ride.dropOffPlan : ride.destination));
+
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
       body: SafeArea(
@@ -56,7 +68,11 @@ class RequestSentPage extends GetView<PassengerDashboardController> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
-                  onPressed: () => Get.back(),
+                  onPressed: () {
+                    controller.switchTab(2); // Jump to Trips tab
+                    controller.selectedTripsTab.value = 0; // Show Pending Requests tab
+                    Get.offAllNamed(AppRoutes.passengerDashboard);
+                  },
                   icon: Icon(
                     CupertinoIcons.back,
                     size: 22.sp,
@@ -263,11 +279,20 @@ class RequestSentPage extends GetView<PassengerDashboardController> {
               // Pickup Card
               _SummaryTile(
                 icon: CupertinoIcons.location,
-                title: 'Pickup',
-                subtitle: ride.pickupSuggestion,
+                title: 'Pickup Location',
+                subtitle: passengerPickup,
               ),
 
-              28.verticalSpace,
+              12.verticalSpace,
+
+              // Drop-off Card
+              _SummaryTile(
+                icon: CupertinoIcons.arrow_branch,
+                title: 'Drop-off Destination',
+                subtitle: passengerDrop,
+              ),
+
+              24.verticalSpace,
 
               // Reactive Approved Banner if the driver accepts while user is on this page
               Obx(() {
@@ -357,8 +382,7 @@ class RequestSentPage extends GetView<PassengerDashboardController> {
               GestureDetector(
                 onTap: () {
                   controller.switchTab(2); // Jump to Trips tab
-                  controller.selectedTripsTab.value =
-                      0; // Show Pending Requests tab
+                  controller.selectedTripsTab.value = 0; // Show Pending Requests tab
                   Get.offAllNamed(AppRoutes.passengerDashboard);
                 },
                 child: Container(

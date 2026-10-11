@@ -100,7 +100,7 @@ class PassengerProfileController extends GetxController {
       try {
         final profile = await AuthService.instance.getUserProfile(user.uid);
         if (profile != null) {
-          passengerRating.value = profile.rating;
+          passengerRating.value = profile.rating > 0 ? profile.rating : 5.0;
           tripsCount.value = profile.tripsCompleted;
           if (profile.fullName.isNotEmpty) {
             passengerName.value = profile.fullName;
@@ -165,7 +165,7 @@ class PassengerProfileController extends GetxController {
         .streamUserProfile(user.uid)
         .listen((profile) {
       if (profile != null) {
-        passengerRating.value = profile.rating;
+        passengerRating.value = profile.rating > 0 ? profile.rating : 5.0;
         tripsCount.value = profile.tripsCompleted;
         if (profile.fullName.isNotEmpty) {
           passengerName.value = profile.fullName;

@@ -50,7 +50,10 @@ class FirestoreBookingModel {
       passengerName: map['passenger']?['name'] as String? ?? '',
       passengerPhoto: map['passenger']?['photoUrl'] as String?,
       passengerRating:
-          (map['passenger']?['rating'] as num?)?.toDouble() ?? 0.0,
+          (map['passengerRating'] as num?)?.toDouble() ??
+          (map['passenger']?['rating'] as num?)?.toDouble() ??
+          (map['rating'] as num?)?.toDouble() ??
+          5.0,
       originName: map['rideSnapshot']?['originName'] as String? ?? '',
       destinationName: map['rideSnapshot']?['destinationName'] as String? ?? '',
       departureTime: map['rideSnapshot']?['departureTime'] != null

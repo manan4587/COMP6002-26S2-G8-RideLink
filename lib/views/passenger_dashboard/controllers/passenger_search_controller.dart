@@ -436,11 +436,30 @@ class PassengerSearchController extends GetxController {
     }
   }
 
+  bool _matchesDate(RideModel r, DateTime targetDate, String preset, DateTime now) {
+    if (r.departureDateTime == null) return true;
+
+    if (preset == 'Weekend') {
+      final isSatOrSun = r.departureDateTime!.weekday == DateTime.saturday ||
+          r.departureDateTime!.weekday == DateTime.sunday;
+      final diffDays = r.departureDateTime!
+          .difference(DateTime(now.year, now.month, now.day))
+          .inDays;
+      return isSatOrSun && diffDays >= 0 && diffDays <= 7;
+    }
+
+    return r.departureDateTime!.year == targetDate.year &&
+        r.departureDateTime!.month == targetDate.month &&
+        r.departureDateTime!.day == targetDate.day;
+  }
+
   List<RideModel> get filteredRides {
     final fromQuery = fromLocationController.text.trim().toLowerCase();
     final toQuery = toLocationController.text.trim().toLowerCase();
     final seats = requestedSeats.value;
     final now = DateTime.now();
+    final targetDate = selectedSearchDate.value;
+    final activePreset = activeDatePreset.value;
 
     // Exclude rides that have already completed, cancelled, or departed in the past
     final validRides = availableRides.where((r) {
@@ -460,6 +479,11 @@ class PassengerSearchController extends GetxController {
       return true;
     }).toList();
 
+    // 0. Filter strictly by selected date / date preset
+    final dateFilteredRides = validRides.where((r) {
+      return _matchesDate(r, targetDate, activePreset, now);
+    }).toList();
+
     final bool hasSearchCoords = (fromLat.value != 0.0 || fromLng.value != 0.0) &&
         (toLat.value != 0.0 || toLng.value != 0.0);
 
@@ -470,7 +494,7 @@ class PassengerSearchController extends GetxController {
       final pPickup = LatLng(fromLat.value, fromLng.value);
       final pDrop = LatLng(toLat.value, toLng.value);
 
-      for (final r in validRides) {
+      for (final r in dateFilteredRides) {
         if (r.seatsAvailable < seats) continue;
 
         // Skip if driver route coordinates are uninitialized
@@ -514,7 +538,7 @@ class PassengerSearchController extends GetxController {
 
     // 2. If no coordinate matches, or text search was used, fallback to keyword matching
     if (list.isEmpty) {
-      list = validRides.where((r) {
+      list = dateFilteredRides.where((r) {
         if (r.seatsAvailable < seats) return false;
 
         if (fromQuery.isNotEmpty) {
@@ -549,14 +573,29 @@ class PassengerSearchController extends GetxController {
       }).toList();
     }
 
-    // 3. Fallback to all available rides if no match found
-    if (list.isEmpty) {
-      list = validRides.where((r) => r.seatsAvailable >= seats).toList();
+    // 3. If still empty and no specific query text entered, show all rides for that date
+    if (list.isEmpty && fromQuery.isEmpty && toQuery.isEmpty) {
+      list = dateFilteredRides.where((r) => r.seatsAvailable >= seats).toList();
     }
+
+    // Attach searched pickup and dropoff locations to all matching rides
+    final pPickupText = fromLocationController.text.trim();
+    final pDropText = toLocationController.text.trim();
+    list = list.map((r) {
+      return r.copyWith(
+        searchedPickupAddress: r.searchedPickupAddress.isNotEmpty
+            ? r.searchedPickupAddress
+            : (pPickupText.isNotEmpty ? pPickupText : r.origin),
+        searchedDropAddress: r.searchedDropAddress.isNotEmpty
+            ? r.searchedDropAddress
+            : (pDropText.isNotEmpty ? pDropText : r.destination),
+        pickupSuggestion: pPickupText.isNotEmpty ? pPickupText : r.origin,
+        dropOffPlan: pDropText.isNotEmpty ? pDropText : r.destination,
+      );
+    }).toList();
 
     // 4. Date & Time Ranking / Sorting
     final targetMinutes = _timeToMinutes(preferredTime.value);
-    final targetDate = selectedSearchDate.value;
 
     list.sort((a, b) {
       // Prioritize en-route corridor matches

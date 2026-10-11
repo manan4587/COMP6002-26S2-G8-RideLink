@@ -32,7 +32,8 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
                 16.verticalSpace,
                 ElevatedButton(
                   onPressed: () {
-                    controller.currentTabIndex.value = 2; // Trips tab
+                    controller.switchTab(2); // Trips tab
+                    controller.selectedTripsTab.value = 1; // Confirmed tab
                     Get.offAllNamed(AppRoutes.passengerDashboard);
                   },
                   child: const Text('View My Trips'),
@@ -46,27 +47,43 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
 
     final int seatsNeeded = controller.requestedSeats.value;
 
+    final String passengerPickup = ride.searchedPickupAddress.isNotEmpty
+        ? ride.searchedPickupAddress
+        : (controller.fromLocationController.text.trim().isNotEmpty
+            ? controller.fromLocationController.text.trim()
+            : (ride.pickupSuggestion.isNotEmpty ? ride.pickupSuggestion : ride.origin));
+
+    final String passengerDrop = ride.searchedDropAddress.isNotEmpty
+        ? ride.searchedDropAddress
+        : (controller.toLocationController.text.trim().isNotEmpty
+            ? controller.toLocationController.text.trim()
+            : (ride.dropOffPlan.isNotEmpty ? ride.dropOffPlan : ride.destination));
+
     return Scaffold(
-      backgroundColor: AppColors.secondaryBgColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          child: Column(
-            children: [
-              // Top Back button row
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  onPressed: () => Get.back(),
-                  icon: Icon(
-                    CupertinoIcons.back,
-                    size: 22.sp,
-                    color: AppColors.primaryTextColor,
+        backgroundColor: AppColors.secondaryBgColor,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Column(
+              children: [
+                // Top Back button row
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () {
+                      controller.switchTab(2); // Trips tab
+                      controller.selectedTripsTab.value = 1; // Confirmed tab
+                      Get.offAllNamed(AppRoutes.passengerDashboard);
+                    },
+                    icon: Icon(
+                      CupertinoIcons.back,
+                      size: 22.sp,
+                      color: AppColors.primaryTextColor,
+                    ),
+                    splashRadius: 22.r,
                   ),
-                  splashRadius: 22.r,
                 ),
-              ),
 
               20.verticalSpace,
 
@@ -132,8 +149,17 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
               // Pickup Tile
               _ApprovedSummaryTile(
                 icon: CupertinoIcons.location,
-                title: 'Pickup',
-                subtitle: '${ride.pickupSuggestion} • ${ride.departureTime}',
+                title: 'Pickup Location',
+                subtitle: '$passengerPickup • ${ride.departureTime}',
+              ),
+
+              12.verticalSpace,
+
+              // Drop-off Tile
+              _ApprovedSummaryTile(
+                icon: CupertinoIcons.arrow_branch,
+                title: 'Drop-off Destination',
+                subtitle: passengerDrop,
               ),
 
               12.verticalSpace,
@@ -199,7 +225,7 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
               // View in My Trips Secondary Button
               OutlinedButton(
                 onPressed: () {
-                  controller.currentTabIndex.value = 2; // Trips tab
+                  controller.switchTab(2); // Trips tab
                   controller.selectedTripsTab.value = 1; // Confirmed tab
                   Get.offAllNamed(AppRoutes.passengerDashboard);
                 },

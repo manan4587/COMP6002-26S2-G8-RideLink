@@ -346,9 +346,13 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: Text(
-                            hasVehicle ? 'View / Edit' : 'Add Now',
+                            controller.isVerifiedByAdmin.value
+                                ? 'View (Locked)'
+                                : (hasVehicle ? 'View / Edit' : 'Add Now'),
                             style: AppTextStyle.text12Semibold.copyWith(
-                              color: AppColors.primaryColor,
+                              color: controller.isVerifiedByAdmin.value
+                                  ? AppColors.secondaryTextColor
+                                  : AppColors.primaryColor,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -378,11 +382,13 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                     Obx(
                       () => _DocumentStatusTile(
                         title: 'Driving Licence (DL)',
-                        subtitle: controller.dlStatus.value.isVerified
-                            ? 'Government-issued valid driving licence • Verified'
-                            : (controller.drivingLicenceUrl.value.isNotEmpty
-                                  ? 'Document uploaded and awaiting admin review'
-                                  : 'Government-issued valid driving licence'),
+                        subtitle: controller.dlStatus.value.isRejected
+                            ? 'Rejected by Admin • Tap to review & re-upload'
+                            : (controller.dlStatus.value.isVerified
+                                ? 'Government-issued valid driving licence • Verified'
+                                : (controller.drivingLicenceUrl.value.isNotEmpty
+                                    ? 'Document uploaded and awaiting admin review'
+                                    : 'Government-issued valid driving licence')),
                         status: controller.dlStatus.value,
                         fileName: controller.drivingLicenceDoc.value,
                         rejectionReason: controller.dlRejectionReason.value,
@@ -403,6 +409,7 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                             DriverDocumentId.drivingLicence,
                           ),
                           docId: DriverDocumentId.drivingLicence,
+                          rejectionReason: controller.dlRejectionReason.value,
                         ),
                       ),
                     ),
@@ -411,29 +418,31 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                     Obx(
                       () => _DocumentStatusTile(
                         title: 'Vehicle Registration (VR)',
-                        subtitle: controller.vrStatus.value.isVerified
-                            ? (controller.vehicleNumber.value != 'N/A' &&
-                                      controller.vehicleNumber.value.isNotEmpty
-                                  ? 'Plate: ${controller.vehicleNumber.value} • Verified'
-                                  : 'Registration certificate verified')
-                            : (controller
-                                      .vehicleRegistrationUrl
-                                      .value
-                                      .isNotEmpty
-                                  ? (controller.vehicleNumber.value != 'N/A' &&
+                        subtitle: controller.vrStatus.value.isRejected
+                            ? 'Rejected by Admin • Tap to review & re-upload'
+                            : (controller.vrStatus.value.isVerified
+                                ? (controller.vehicleNumber.value != 'N/A' &&
+                                        controller.vehicleNumber.value.isNotEmpty
+                                    ? 'Plate: ${controller.vehicleNumber.value} • Verified'
+                                    : 'Registration certificate verified')
+                                : (controller
+                                        .vehicleRegistrationUrl
+                                        .value
+                                        .isNotEmpty
+                                    ? (controller.vehicleNumber.value != 'N/A' &&
                                             controller
                                                 .vehicleNumber
                                                 .value
                                                 .isNotEmpty
-                                        ? 'Plate: ${controller.vehicleNumber.value} • Uploaded'
-                                        : 'Registration certificate uploaded')
-                                  : (controller.vehicleNumber.value != 'N/A' &&
+                                        ? 'Plate: ${controller.vehicleNumber.value} • Uploaded & in review'
+                                        : 'Registration certificate uploaded & in review')
+                                    : (controller.vehicleNumber.value != 'N/A' &&
                                             controller
                                                 .vehicleNumber
                                                 .value
                                                 .isNotEmpty
                                         ? 'Plate: ${controller.vehicleNumber.value} • Not uploaded'
-                                        : 'Official vehicle registration certificate')),
+                                        : 'Official vehicle registration certificate'))),
                         status: controller.vrStatus.value,
                         fileName: controller.vehicleRegistrationDoc.value,
                         rejectionReason: controller.vrRejectionReason.value,
@@ -454,6 +463,7 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                             DriverDocumentId.vehicleRegistration,
                           ),
                           docId: DriverDocumentId.vehicleRegistration,
+                          rejectionReason: controller.vrRejectionReason.value,
                         ),
                       ),
                     ),
@@ -462,11 +472,13 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                     Obx(
                       () => _DocumentStatusTile(
                         title: 'Vehicle Insurance (VI)',
-                        subtitle: controller.viStatus.value.isVerified
-                            ? 'Vehicle insurance policy • Verified'
-                            : (controller.vehicleInsuranceUrl.value.isNotEmpty
-                                  ? 'Policy document uploaded and awaiting review'
-                                  : 'Comprehensive or third-party vehicle policy'),
+                        subtitle: controller.viStatus.value.isRejected
+                            ? 'Rejected by Admin • Tap to review & re-upload'
+                            : (controller.viStatus.value.isVerified
+                                ? 'Vehicle insurance policy • Verified'
+                                : (controller.vehicleInsuranceUrl.value.isNotEmpty
+                                    ? 'Policy document uploaded and awaiting review'
+                                    : 'Comprehensive or third-party vehicle policy')),
                         status: controller.viStatus.value,
                         fileName: controller.vehicleInsuranceDoc.value,
                         rejectionReason: controller.viRejectionReason.value,
@@ -487,6 +499,7 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                             DriverDocumentId.vehicleInsurance,
                           ),
                           docId: DriverDocumentId.vehicleInsurance,
+                          rejectionReason: controller.viRejectionReason.value,
                         ),
                       ),
                     ),
@@ -495,11 +508,13 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                     Obx(
                       () => _DocumentStatusTile(
                         title: 'Police Check (PC)',
-                        subtitle: controller.pcStatus.value.isVerified
-                            ? 'Police certificate • Verified'
-                            : (controller.policeCheckUrl.value.isNotEmpty
-                                  ? 'Police certificate uploaded and awaiting review'
-                                  : 'National criminal history check (Optional)'),
+                        subtitle: controller.pcStatus.value.isRejected
+                            ? 'Rejected by Admin • Tap to review & re-upload'
+                            : (controller.pcStatus.value.isVerified
+                                ? 'Police certificate • Verified'
+                                : (controller.policeCheckUrl.value.isNotEmpty
+                                    ? 'Police certificate uploaded and awaiting review'
+                                    : 'National criminal history check (Optional)')),
                         status: controller.pcStatus.value,
                         fileName: controller.policeCheckDoc.value,
                         rejectionReason: controller.pcRejectionReason.value,
@@ -520,6 +535,7 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                             DriverDocumentId.policeCheck,
                           ),
                           docId: DriverDocumentId.policeCheck,
+                          rejectionReason: controller.pcRejectionReason.value,
                         ),
                       ),
                     ),
@@ -543,6 +559,7 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
     DocumentVerificationStatus docStatus,
     VoidCallback onUpload, {
     String? docId,
+    String? rejectionReason,
   }) {
     final hasVehicle = controller.vehicleNumber.value.isNotEmpty &&
         controller.vehicleNumber.value != 'N/A';
@@ -563,99 +580,318 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
     final bool isDocVerified =
         docStatus.isVerified || controller.isVerifiedByAdmin.value;
 
-    if (documentUrl.isNotEmpty) {
+    if (documentUrl.isNotEmpty || docStatus.isRejected) {
       Get.bottomSheet(
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.88,
+          ),
+          padding: EdgeInsets.only(
+            left: 20.w,
+            right: 20.w,
+            top: 12.h,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24.h,
+          ),
           decoration: BoxDecoration(
             color: AppColors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        docTitle,
-                        style: AppTextStyle.text18Semibold.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (isDocVerified) ...[
-                        8.horizontalSpace,
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 6.w,
-                            vertical: 2.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
-                            borderRadius: BorderRadius.circular(6.r),
-                            border: Border.all(
-                              color: const Color(0xFF86EFAC),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check_circle_rounded,
-                                size: 11.sp,
-                                color: const Color(0xFF16A34A),
-                              ),
-                              3.horizontalSpace,
-                              Text(
-                                'Verified',
-                                style: AppTextStyle.text10Medium.copyWith(
-                                  color: const Color(0xFF16A34A),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  IconButton(
-                    onPressed: () => Get.back(),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              if (fileName.isNotEmpty &&
-                      !fileName.endsWith('_doc.jpg') &&
-                      !fileName.endsWith('.jpg') ||
-                  (fileName.isNotEmpty && fileName.contains('image_picker')))
-                Padding(
-                  padding: EdgeInsets.only(top: 4.h),
-                  child: Text(
-                    fileName,
-                    style: AppTextStyle.text12Regular.copyWith(
-                      color: AppColors.secondaryTextColor,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top drag handle pill
+                Center(
+                  child: Container(
+                    width: 44.w,
+                    height: 4.h,
+                    decoration: BoxDecoration(
+                      color: AppColors.borderColor,
+                      borderRadius: BorderRadius.circular(2.r),
                     ),
                   ),
                 ),
-              12.verticalSpace,
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12.r),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 220.h,
-                  child:
-                      documentUrl.startsWith('http://') ||
-                          documentUrl.startsWith('https://')
-                      ? Image.network(
-                          documentUrl,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
+                14.verticalSpace,
+
+                // Title and status badge
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              docTitle,
+                              style: AppTextStyle.text18Semibold.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          8.horizontalSpace,
+                          if (isDocVerified)
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 7.w,
+                                vertical: 2.5.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(6.r),
+                                border: Border.all(
+                                  color: const Color(0xFF86EFAC),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    size: 11.sp,
+                                    color: const Color(0xFF16A34A),
+                                  ),
+                                  3.horizontalSpace,
+                                  Text(
+                                    'Verified',
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: const Color(0xFF16A34A),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (docStatus.isRejected)
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 7.w,
+                                vertical: 2.5.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEE2E2),
+                                borderRadius: BorderRadius.circular(6.r),
+                                border: Border.all(
+                                  color: const Color(0xFFFCA5A5),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.cancel_rounded,
+                                    size: 11.sp,
+                                    color: const Color(0xFFDC2626),
+                                  ),
+                                  3.horizontalSpace,
+                                  Text(
+                                    'Rejected',
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: const Color(0xFFDC2626),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (docStatus.isPending)
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 7.w,
+                                vertical: 2.5.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(6.r),
+                                border: Border.all(
+                                  color: const Color(0xFFFDE68A),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.hourglass_top_rounded,
+                                    size: 11.sp,
+                                    color: const Color(0xFFD97706),
+                                  ),
+                                  3.horizontalSpace,
+                                  Text(
+                                    'In Review',
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: const Color(0xFFB45309),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Get.back(),
+                      icon: const Icon(Icons.close_rounded),
+                      splashRadius: 20.r,
+                    ),
+                  ],
+                ),
+
+                if (fileName.isNotEmpty &&
+                        !fileName.endsWith('_doc.jpg') &&
+                        !fileName.endsWith('.jpg') ||
+                    (fileName.isNotEmpty && fileName.contains('image_picker')))
+                  Padding(
+                    padding: EdgeInsets.only(top: 2.h),
+                    child: Text(
+                      fileName,
+                      style: AppTextStyle.text12Regular.copyWith(
+                        color: AppColors.secondaryTextColor,
+                      ),
+                    ),
+                  ),
+
+                // Dedicated Rejection Reason Banner in the Sheet
+                if (docStatus.isRejected) ...[
+                  14.verticalSpace,
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(14.w),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(
+                        color: const Color(0xFFFECACA),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(6.r),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFEE2E2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                CupertinoIcons.exclamationmark_triangle_fill,
+                                color: const Color(0xFFDC2626),
+                                size: 16.sp,
+                              ),
+                            ),
+                            10.horizontalSpace,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Document Rejected by Admin',
+                                    style: AppTextStyle.text14Semibold.copyWith(
+                                      color: const Color(0xFFB91C1C),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  2.verticalSpace,
+                                  Text(
+                                    'Action required: Please review feedback below',
+                                    style: AppTextStyle.text11Medium.copyWith(
+                                      color: const Color(0xFFDC2626),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (rejectionReason != null &&
+                            rejectionReason.trim().isNotEmpty) ...[
+                          10.verticalSpace,
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.all(12.w),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(
+                                color: const Color(0xFFFCA5A5),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.chat_bubble_text_fill,
+                                      size: 13.sp,
+                                      color: const Color(0xFFDC2626),
+                                    ),
+                                    6.horizontalSpace,
+                                    Text(
+                                      'Admin Feedback / Rejection Reason',
+                                      style: AppTextStyle.text11Medium.copyWith(
+                                        color: const Color(0xFF991B1B),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                6.verticalSpace,
+                                Text(
+                                  rejectionReason.trim(),
+                                  style: AppTextStyle.text13Regular.copyWith(
+                                    color: const Color(0xFF7F1D1D),
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        8.verticalSpace,
+                        Text(
+                          'Please ensure the replacement document is clearly readable, well-lit, shows all four corners, and is not expired.',
+                          style: AppTextStyle.text11Medium.copyWith(
+                            color: const Color(0xFF991B1B),
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                if (documentUrl.isNotEmpty) ...[
+                  14.verticalSpace,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14.r),
+                    child: Container(
+                      width: double.infinity,
+                      height: 200.h,
+                      decoration: BoxDecoration(
+                        color: AppColors.containerFillColor,
+                        borderRadius: BorderRadius.circular(14.r),
+                        border: Border.all(color: AppColors.borderColor),
+                      ),
+                      child: documentUrl.startsWith('http://') ||
+                              documentUrl.startsWith('https://')
+                          ? Image.network(
+                              documentUrl,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
                                 color: AppColors.containerFillColor,
                                 alignment: Alignment.center,
                                 child: Text(
@@ -663,74 +899,92 @@ class DriverVerificationDocumentsPage extends GetView<DriverProfileController> {
                                   style: AppTextStyle.text12Medium,
                                 ),
                               ),
-                        )
-                      : Utils.imageFromBase64(
-                          documentUrl,
-                          fit: BoxFit.contain,
-                          errorWidget: Container(
-                            color: AppColors.containerFillColor,
-                            alignment: Alignment.center,
-                            child: Text(
-                              'Document Preview Unavailable',
-                              style: AppTextStyle.text12Medium,
+                            )
+                          : Utils.imageFromBase64(
+                              documentUrl,
+                              fit: BoxFit.contain,
+                              errorWidget: Container(
+                                color: AppColors.containerFillColor,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Document Preview Unavailable',
+                                  style: AppTextStyle.text12Medium,
+                                ),
+                              ),
                             ),
+                    ),
+                  ),
+                ],
+
+                16.verticalSpace,
+                if (isDocVerified)
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      vertical: 12.h,
+                      horizontal: 14.w,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(14.r),
+                      border: Border.all(color: const Color(0xFF86EFAC)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF16A34A),
+                          size: 16,
+                        ),
+                        8.horizontalSpace,
+                        Text(
+                          'Verified by Admin • Read Only',
+                          style: AppTextStyle.text12Semibold.copyWith(
+                            color: const Color(0xFF15803D),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                ),
-              ),
-              16.verticalSpace,
-              if (isDocVerified)
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    vertical: 12.h,
-                    horizontal: 14.w,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
-                    borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(color: const Color(0xFF86EFAC)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.check_circle_rounded,
-                        color: Color(0xFF16A34A),
-                        size: 16,
+                      ],
+                    ),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Get.back();
+                        onUpload();
+                      },
+                      icon: Icon(
+                        docStatus.isRejected
+                            ? CupertinoIcons.arrow_clockwise_circle_fill
+                            : Icons.refresh_rounded,
                       ),
-                      8.horizontalSpace,
-                      Text(
-                        'Verified by Admin • Read Only',
-                        style: AppTextStyle.text12Semibold.copyWith(
-                          color: const Color(0xFF15803D),
+                      label: Text(
+                        docStatus.isRejected
+                            ? 'Re-upload Document Now'
+                            : 'Re-upload / Replace Document',
+                        style: AppTextStyle.text14Semibold.copyWith(
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
-                  ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Get.back();
-                      onUpload();
-                    },
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Re-upload / Replace Document'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryColor,
-                      foregroundColor: AppColors.white,
-                      padding: EdgeInsets.symmetric(vertical: 12.h),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: docStatus.isRejected
+                            ? const Color(0xFFDC2626)
+                            : AppColors.primaryColor,
+                        foregroundColor: AppColors.white,
+                        padding: EdgeInsets.symmetric(vertical: 13.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14.r),
+                        ),
+                        elevation: docStatus.isRejected ? 2 : 0,
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       );
@@ -897,28 +1151,6 @@ class _DocumentStatusTile extends StatelessWidget {
                           color: AppColors.secondaryTextColor,
                         ),
                       ),
-                      if (isRejected &&
-                          rejectionReason != null &&
-                          rejectionReason!.trim().isNotEmpty) ...[
-                        4.verticalSpace,
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8.w,
-                            vertical: 3.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEE2E2),
-                            borderRadius: BorderRadius.circular(6.r),
-                          ),
-                          child: Text(
-                            'Reason: ${rejectionReason!.trim()}',
-                            style: AppTextStyle.text10Medium.copyWith(
-                              color: const Color(0xFFDC2626),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -1119,7 +1351,7 @@ class _DocumentStatusTile extends StatelessWidget {
                       8.horizontalSpace,
                       Flexible(
                         child: Text(
-                          'Rejected • Tap to re-upload',
+                          'Rejected by Admin • Tap to review & re-upload',
                           style: AppTextStyle.text12Semibold.copyWith(
                             color: status.primaryColor,
                           ),

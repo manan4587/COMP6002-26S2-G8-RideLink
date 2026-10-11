@@ -263,8 +263,10 @@ class HomePage extends GetView<PassengerDashboardController> {
                                   () => Row(
                                     children: [
                                       Text(
-                                        controller.trustRating.value
-                                            .toStringAsFixed(2),
+                                        (controller.trustRating.value > 0
+                                                ? controller.trustRating.value
+                                                : 5.0)
+                                            .toStringAsFixed(1),
                                         style: AppTextStyle.text18Semibold
                                             .copyWith(
                                               fontWeight: FontWeight.bold,

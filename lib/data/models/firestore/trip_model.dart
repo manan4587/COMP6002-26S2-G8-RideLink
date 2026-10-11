@@ -73,6 +73,9 @@ class TripBookingModel {
   final double? driverRatingToPassenger;
   final String? driverReviewToPassenger;
   final bool isDriverRated;
+  final double? passengerRatingToDriver;
+  final String? passengerReviewToDriver;
+  final bool isPassengerRated;
 
   TripBookingModel({
     required this.id,
@@ -100,6 +103,9 @@ class TripBookingModel {
     this.driverRatingToPassenger,
     this.driverReviewToPassenger,
     this.isDriverRated = false,
+    this.passengerRatingToDriver,
+    this.passengerReviewToDriver,
+    this.isPassengerRated = false,
   });
 
   factory TripBookingModel.fromMap(Map<String, dynamic> map, String id) {
@@ -125,6 +131,12 @@ class TripBookingModel {
     final driverReview = map['driverReviewToPassenger']?.toString();
     final driverRated = map['isDriverRated'] == true || driverRating != null;
 
+    final passRating = (map['passengerRatingToDriver'] as num?)?.toDouble() ??
+        (map['passengerRatingGiven'] as num?)?.toDouble();
+    final passReview = map['passengerReviewToDriver']?.toString() ??
+        map['passengerReview']?.toString();
+    final passRated = map['isPassengerRated'] == true || passRating != null;
+
     return TripBookingModel(
       id: id,
       tripId: map['tripId']?.toString() ?? '',
@@ -132,7 +144,10 @@ class TripBookingModel {
       passengerId: map['passengerId']?.toString() ?? '',
       passengerName: map['passengerName']?.toString() ?? '',
       passengerPhone: map['passengerPhone']?.toString() ?? '',
-      passengerRating: (map['passengerRating'] as num?)?.toDouble() ?? 0.0,
+      passengerRating: ((map['passengerRating'] as num?)?.toDouble() != null &&
+              (map['passengerRating'] as num).toDouble() > 0)
+          ? (map['passengerRating'] as num).toDouble()
+          : 5.0,
       requestedSeats: (map['requestedSeats'] as num?)?.toInt() ?? 1,
       fare: (map['fare'] as num?)?.toDouble() ?? 0.0,
       status: map['status']?.toString() ?? 'pending',
@@ -151,6 +166,9 @@ class TripBookingModel {
       driverRatingToPassenger: driverRating,
       driverReviewToPassenger: driverReview,
       isDriverRated: driverRated,
+      passengerRatingToDriver: passRating,
+      passengerReviewToDriver: passReview,
+      isPassengerRated: passRated,
     );
   }
 
@@ -183,6 +201,11 @@ class TripBookingModel {
       if (driverReviewToPassenger != null)
         'driverReviewToPassenger': driverReviewToPassenger,
       'isDriverRated': isDriverRated,
+      if (passengerRatingToDriver != null)
+        'passengerRatingToDriver': passengerRatingToDriver,
+      if (passengerReviewToDriver != null)
+        'passengerReviewToDriver': passengerReviewToDriver,
+      'isPassengerRated': isPassengerRated,
     };
   }
 }
@@ -207,6 +230,8 @@ class TripModel {
   final double destinationLng;
   final double currentDriverLat;
   final double currentDriverLng;
+  final double currentDriverHeading;
+  final double currentDriverSpeed;
   final DateTime departureTime;
   final String departureTimeString;
   final int totalSeats;
@@ -221,6 +246,8 @@ class TripModel {
   final bool isRecurring;
   final List<String> recurringDays;
   final DateTime createdAt;
+  final bool isDriverRated;
+  final double? driverRatingToPassenger;
 
   TripModel({
     required this.id,
@@ -242,6 +269,8 @@ class TripModel {
     required this.destinationLng,
     this.currentDriverLat = 0.0,
     this.currentDriverLng = 0.0,
+    this.currentDriverHeading = 0.0,
+    this.currentDriverSpeed = 0.0,
     required this.departureTime,
     required this.departureTimeString,
     required this.totalSeats,
@@ -256,6 +285,8 @@ class TripModel {
     this.isRecurring = false,
     this.recurringDays = const [],
     required this.createdAt,
+    this.isDriverRated = false,
+    this.driverRatingToPassenger,
   });
 
   factory TripModel.fromMap(Map<String, dynamic> map, String id) {
@@ -273,12 +304,23 @@ class TripModel {
       created = DateTime.tryParse(map['createdAt'] as String) ?? DateTime.now();
     }
 
+    final driverRated = map['isDriverRated'] == true ||
+        (map['driverRatingToPassenger'] as num?) != null;
+    final driverRatingGiven =
+        (map['driverRatingToPassenger'] as num?)?.toDouble();
+
     return TripModel(
       id: id,
       driverId: map['driverId']?.toString() ?? '',
       driverName: map['driverName']?.toString() ?? '',
       driverPhone: map['driverPhone']?.toString() ?? '',
-      driverRating: (map['driverRating'] as num?)?.toDouble() ?? 0.0,
+      driverRating: ((map['driverRating'] as num?)?.toDouble() != null &&
+              (map['driverRating'] as num).toDouble() > 0)
+          ? (map['driverRating'] as num).toDouble()
+          : (((map['rating'] as num?)?.toDouble() != null &&
+                  (map['rating'] as num).toDouble() > 0)
+              ? (map['rating'] as num).toDouble()
+              : 5.0),
       driverTotalRides: (map['driverTotalRides'] as num?)?.toInt() ?? 0,
       carModel: map['carModel']?.toString() ?? '',
       carPlate: map['carPlate']?.toString() ?? '',
@@ -293,6 +335,8 @@ class TripModel {
       destinationLng: (map['destinationLng'] as num?)?.toDouble() ?? 0.0,
       currentDriverLat: (map['currentDriverLat'] as num?)?.toDouble() ?? 0.0,
       currentDriverLng: (map['currentDriverLng'] as num?)?.toDouble() ?? 0.0,
+      currentDriverHeading: (map['currentDriverHeading'] as num?)?.toDouble() ?? 0.0,
+      currentDriverSpeed: (map['currentDriverSpeed'] as num?)?.toDouble() ?? 0.0,
       departureTime: depTime,
       departureTimeString: map['departureTimeString']?.toString() ?? '',
       totalSeats: (map['totalSeats'] as num?)?.toInt() ?? 3,
@@ -310,6 +354,8 @@ class TripModel {
               .toList() ??
           const [],
       createdAt: created,
+      isDriverRated: driverRated,
+      driverRatingToPassenger: driverRatingGiven,
     );
   }
 
@@ -320,6 +366,7 @@ class TripModel {
       'driverName': driverName,
       'driverPhone': driverPhone,
       'driverRating': driverRating,
+      'rating': driverRating,
       'driverTotalRides': driverTotalRides,
       'carModel': carModel,
       'carPlate': carPlate,
@@ -334,6 +381,8 @@ class TripModel {
       'destinationLng': destinationLng,
       'currentDriverLat': currentDriverLat,
       'currentDriverLng': currentDriverLng,
+      'currentDriverHeading': currentDriverHeading,
+      'currentDriverSpeed': currentDriverSpeed,
       'departureTime': Timestamp.fromDate(departureTime),
       'departureTimeString': departureTimeString,
       'totalSeats': totalSeats,
@@ -348,6 +397,9 @@ class TripModel {
       'isRecurring': isRecurring,
       'recurringDays': recurringDays,
       'createdAt': FieldValue.serverTimestamp(),
+      'isDriverRated': isDriverRated,
+      if (driverRatingToPassenger != null)
+        'driverRatingToPassenger': driverRatingToPassenger,
     };
   }
 }

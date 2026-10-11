@@ -131,7 +131,7 @@ class RideDetailsSheet extends StatelessWidget {
                                   ),
                                   SizedBox(width: 4.w),
                                   Text(
-                                    '${ride.rating} (${ride.totalRides} trips) • ${isDriverOnline ? 'Online' : 'Offline'}',
+                                    '${(ride.rating > 0 ? ride.rating : 5.0).toStringAsFixed(1)} (${ride.totalRides} trips) • ${isDriverOnline ? 'Online' : 'Offline'}',
                                     style: AppTextStyle.text12Regular.copyWith(
                                       color: isDriverOnline
                                           ? const Color(0xFF16A34A)
@@ -296,7 +296,9 @@ class RideDetailsSheet extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              ride.origin,
+                              ride.searchedPickupAddress.isNotEmpty
+                                  ? ride.searchedPickupAddress
+                                  : ride.origin,
                               style: AppTextStyle.text14Semibold,
                             ),
                           ),
@@ -320,7 +322,9 @@ class RideDetailsSheet extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              ride.destination,
+                              ride.searchedDropAddress.isNotEmpty
+                                  ? ride.searchedDropAddress
+                                  : ride.destination,
                               style: AppTextStyle.text14Semibold,
                             ),
                           ),
@@ -461,7 +465,7 @@ class RideDetailsSheet extends StatelessWidget {
 
             // Total Price Calculation Card
             Obx(() {
-              final double seatPrice = (ride.isEnRouteMatch && ride.enRouteSubFare != null)
+              final double seatPrice = (ride.isEnRouteMatch && (ride.enRouteSubFare ?? 0) > 0)
                   ? ride.enRouteSubFare!
                   : ride.pricePerSeat;
               final double total = seatPrice * selectedSeats.value;
@@ -482,7 +486,7 @@ class RideDetailsSheet extends StatelessWidget {
                     Text(
                       '\$${total.toStringAsFixed(2)}',
                       style: AppTextStyle.text18Semibold.copyWith(
-                        color: (ride.isEnRouteMatch && ride.enRouteSubFare != null)
+                        color: (ride.isEnRouteMatch && (ride.enRouteSubFare ?? 0) > 0)
                             ? const Color(0xFF16A34A)
                             : AppColors.primaryColor,
                       ),
@@ -494,14 +498,65 @@ class RideDetailsSheet extends StatelessWidget {
 
             SizedBox(height: 20.h),
 
-            // Book Button
-            AppButton(
-              onPressed: () {
-                Get.back();
-                controller.bookRide(ride, selectedSeats.value);
-              },
-              label: 'Confirm & Book Seat',
-            ),
+            // Book Button or Own Ride Notice
+            Builder(builder: (context) {
+              final currentUid = AuthService.instance.currentUser?.uid ?? '';
+              final bool isMyOwnRide =
+                  currentUid.isNotEmpty && ride.driverId == currentUid;
+              if (isMyOwnRide) {
+                return Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    vertical: 14.h,
+                    horizontal: 16.w,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(16.r),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            color: Color(0xFF64748B),
+                            size: 20,
+                          ),
+                          8.horizontalSpace,
+                          Text(
+                            'This is Your Published Ride',
+                            style: AppTextStyle.text14Semibold.copyWith(
+                              color: const Color(0xFF334155),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      6.verticalSpace,
+                      Text(
+                        "You can't request a ride on your own published trip.",
+                        style: AppTextStyle.text12Regular.copyWith(
+                          color: AppColors.secondaryTextColor,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return AppButton(
+                onPressed: () async {
+                  Get.back();
+                  await Future.delayed(const Duration(milliseconds: 200));
+                  controller.bookRide(ride, selectedSeats.value);
+                },
+                label: 'Confirm & Book Seat',
+              );
+            }),
           ],
         ),
       ),

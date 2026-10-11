@@ -509,39 +509,61 @@ class CreateRidePage extends GetView<DriverTripsController> {
                             ),
                           ],
                         ),
-                        InkWell(
-                          onTap: controller.swapPickupAndDrop,
-                          borderRadius: BorderRadius.circular(8.r),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 10.w,
-                              vertical: 5.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(8.r),
-                              border: Border.all(color: AppColors.borderColor),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  CupertinoIcons.arrow_up_arrow_down,
-                                  size: 13.sp,
-                                  color: AppColors.primaryColor,
+                        Obx(() {
+                          final isFixed = controller.isDropOffFixedByCommunity;
+                          return InkWell(
+                            onTap: isFixed
+                                ? () {
+                                    AppSnackBar.info(
+                                      message:
+                                          'Drop-off destination is fixed by the community corridor.',
+                                    );
+                                  }
+                                : controller.swapPickupAndDrop,
+                            borderRadius: BorderRadius.circular(8.r),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10.w,
+                                vertical: 5.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isFixed
+                                    ? const Color(0xFFF1F5F9)
+                                    : const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(8.r),
+                                border: Border.all(
+                                  color: isFixed
+                                      ? AppColors.borderColor
+                                      : const Color(0xFFBFDBFE),
                                 ),
-                                5.horizontalSpace,
-                                Text(
-                                  'Swap Points',
-                                  style: AppTextStyle.text10Medium.copyWith(
-                                    color: AppColors.primaryColor,
-                                    fontWeight: FontWeight.w600,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isFixed
+                                        ? Icons.lock_outline_rounded
+                                        : CupertinoIcons.arrow_up_arrow_down,
+                                    size: 13.sp,
+                                    color: isFixed
+                                        ? const Color(0xFF94A3B8)
+                                        : AppColors.primaryColor,
                                   ),
-                                ),
-                              ],
+                                  5.horizontalSpace,
+                                  Text(
+                                    isFixed ? 'Drop Fixed' : 'Swap Points',
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: isFixed
+                                          ? const Color(0xFF94A3B8)
+                                          : AppColors.primaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        }),
                       ],
                     ),
 
@@ -682,19 +704,66 @@ class CreateRidePage extends GetView<DriverTripsController> {
                                 10.verticalSpace,
 
                                 // Drop-off Destination Google Places Input Box
-                                GooglePlacesSearchField(
-                                  controller: controller.publishToController,
-                                  label: 'DROP-OFF DESTINATION',
-                                  labelColor: AppColors.primaryColor,
-                                  hintText:
-                                      'Search drop-off destination or campus',
-                                  onPlaceSelected: (details) {
-                                    controller.publishToLat.value =
-                                        details.latitude;
-                                    controller.publishToLng.value =
-                                        details.longitude;
-                                  },
-                                ),
+                                Obx(() {
+                                  final isFixed =
+                                      controller.isDropOffFixedByCommunity;
+                                  final commName = controller
+                                      .selectedCommunityForPublish
+                                      .value;
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      GooglePlacesSearchField(
+                                        controller:
+                                            controller.publishToController,
+                                        label: 'DROP-OFF DESTINATION',
+                                        labelColor: AppColors.primaryColor,
+                                        hintText:
+                                            'Search drop-off destination or campus',
+                                        readOnly: isFixed,
+                                        fixedBadgeText:
+                                            isFixed ? 'Fixed Drop-off' : null,
+                                        onPlaceSelected: (details) {
+                                          controller.publishToLat.value =
+                                              details.latitude;
+                                          controller.publishToLng.value =
+                                              details.longitude;
+                                        },
+                                      ),
+                                      if (isFixed) ...[
+                                        4.verticalSpace,
+                                        Padding(
+                                          padding: EdgeInsets.only(left: 4.w),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.lock_rounded,
+                                                size: 11.sp,
+                                                color: const Color(0xFF2563EB),
+                                              ),
+                                              5.horizontalSpace,
+                                              Expanded(
+                                                child: Text(
+                                                  'Drop-off is fixed for $commName community members.',
+                                                  style: AppTextStyle
+                                                      .text11Medium
+                                                      .copyWith(
+                                                        color: const Color(
+                                                          0xFF1D4ED8,
+                                                        ),
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  );
+                                }),
                               ],
                             ),
                           ),
@@ -731,10 +800,11 @@ class CreateRidePage extends GetView<DriverTripsController> {
                           _QuickLocationChip(
                             label: 'Flinders St',
                             onTap: () {
-                              if (controller
-                                  .publishFromController
-                                  .text
-                                  .isEmpty) {
+                              if (controller.isDropOffFixedByCommunity ||
+                                  controller
+                                      .publishFromController
+                                      .text
+                                      .isEmpty) {
                                 controller.publishFromController.text =
                                     'Flinders St Station';
                               } else {
@@ -747,26 +817,37 @@ class CreateRidePage extends GetView<DriverTripsController> {
                           _QuickLocationChip(
                             label: 'Curtin Uni',
                             onTap: () {
-                              controller.publishToController.text =
-                                  'Curtin University';
+                              if (controller.isDropOffFixedByCommunity) {
+                                controller.publishFromController.text =
+                                    'Curtin University';
+                              } else {
+                                controller.publishToController.text =
+                                    'Curtin University';
+                              }
                             },
                           ),
                           8.horizontalSpace,
                           _QuickLocationChip(
                             label: 'Clayton Campus',
                             onTap: () {
-                              controller.publishToController.text =
-                                  'Monash University Clayton';
+                              if (controller.isDropOffFixedByCommunity) {
+                                controller.publishFromController.text =
+                                    'Monash University Clayton';
+                              } else {
+                                controller.publishToController.text =
+                                    'Monash University Clayton';
+                              }
                             },
                           ),
                           8.horizontalSpace,
                           _QuickLocationChip(
                             label: 'Melbourne CBD',
                             onTap: () {
-                              if (controller
-                                  .publishFromController
-                                  .text
-                                  .isEmpty) {
+                              if (controller.isDropOffFixedByCommunity ||
+                                  controller
+                                      .publishFromController
+                                      .text
+                                      .isEmpty) {
                                 controller.publishFromController.text =
                                     'Melbourne CBD';
                               } else {
@@ -1572,46 +1653,49 @@ class CreateRidePage extends GetView<DriverTripsController> {
                   borderRadius: BorderRadius.circular(16.r),
                   border: Border.all(color: AppColors.borderColor),
                 ),
-                child: Column(
-                  children: [
-                    Obx(
-                      () => SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Luggage Space Available',
-                          style: AppTextStyle.text14Semibold,
-                        ),
-                        subtitle: Text(
-                          'Passengers can bring small baggage/backpacks',
-                          style: AppTextStyle.text12Regular.copyWith(
-                            color: AppColors.secondaryTextColor,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Column(
+                    children: [
+                      Obx(
+                        () => SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Luggage Space Available',
+                            style: AppTextStyle.text14Semibold,
                           ),
-                        ),
-                        value: controller.allowLuggage.value,
-                        activeThumbColor: AppColors.primaryColor,
-                        onChanged: (v) => controller.allowLuggage.value = v,
-                      ),
-                    ),
-                    const Divider(color: AppColors.borderColor, height: 1),
-                    Obx(
-                      () => SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'Pets Allowed',
-                          style: AppTextStyle.text14Semibold,
-                        ),
-                        subtitle: Text(
-                          'Allow small caged pets inside vehicle',
-                          style: AppTextStyle.text12Regular.copyWith(
-                            color: AppColors.secondaryTextColor,
+                          subtitle: Text(
+                            'Passengers can bring small baggage/backpacks',
+                            style: AppTextStyle.text12Regular.copyWith(
+                              color: AppColors.secondaryTextColor,
+                            ),
                           ),
+                          value: controller.allowLuggage.value,
+                          activeThumbColor: AppColors.primaryColor,
+                          onChanged: (v) => controller.allowLuggage.value = v,
                         ),
-                        value: controller.allowPets.value,
-                        activeThumbColor: AppColors.primaryColor,
-                        onChanged: (v) => controller.allowPets.value = v,
                       ),
-                    ),
-                  ],
+                      const Divider(color: AppColors.borderColor, height: 1),
+                      Obx(
+                        () => SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Pets Allowed',
+                            style: AppTextStyle.text14Semibold,
+                          ),
+                          subtitle: Text(
+                            'Allow small caged pets inside vehicle',
+                            style: AppTextStyle.text12Regular.copyWith(
+                              color: AppColors.secondaryTextColor,
+                            ),
+                          ),
+                          value: controller.allowPets.value,
+                          activeThumbColor: AppColors.primaryColor,
+                          onChanged: (v) => controller.allowPets.value = v,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -1619,12 +1703,15 @@ class CreateRidePage extends GetView<DriverTripsController> {
 
               // Publish CTA
               Obx(() {
+                final isPublishing = controller.isPublishingTrip.value;
                 final canPublish =
                     isDriver && profileController.isVerifiedByAdmin.value;
                 return AppButton(
-                  onPressed: canPublish
+                  isLoading: isPublishing,
+                  onPressed: (canPublish && !isPublishing)
                       ? controller.publishNewTrip
                       : () {
+                          if (isPublishing) return;
                           if (!isDriver) {
                             AppSnackBar.error(
                               message:

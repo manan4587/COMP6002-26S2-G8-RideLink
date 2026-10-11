@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/core/constants/app_colors.dart';
+import 'package:ridelink/core/constants/constant.dart';
 import 'package:ridelink/core/utils/preferences.dart';
 import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/theme/app_text_style.dart';
@@ -20,9 +21,16 @@ class ProfilePage extends GetView<PassengerDashboardController> {
     return Scaffold(
       backgroundColor: AppColors.secondaryBgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        child: RefreshIndicator(
+          color: AppColors.primaryColor,
+          onRefresh: () async {
+            await controller.reloadProfile();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -382,13 +390,27 @@ class ProfilePage extends GetView<PassengerDashboardController> {
                 ),
               ),
 
-              SizedBox(height: 24.h),
+              20.verticalSpace,
+
+              // App Version
+              Center(
+                child: Text(
+                  appNameWithVersion,
+                  style: AppTextStyle.text12Regular.copyWith(
+                    color: AppColors.secondaryTextColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
+              24.verticalSpace,
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showCashPaymentNotice(BuildContext context) {
     showModalBottomSheet(

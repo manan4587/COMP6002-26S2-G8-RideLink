@@ -16,8 +16,8 @@ class VerificationSubmittedView extends GetView<AuthController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryBgColor,
-      body: AppMainContainer(
+        backgroundColor: AppColors.primaryBgColor,
+        body: AppMainContainer(
         alignment: AlignmentGeometry.topCenter,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),

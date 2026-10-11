@@ -57,7 +57,7 @@ class PassengerCommunityController extends GetxController {
     isLoading.value = true;
     _communitiesSubscription?.cancel();
     _communitiesSubscription = CommunityService.instance
-        .streamCommunities()
+        .streamCommunities(role: 'passenger')
         .listen(
           (items) {
             communities.assignAll(items);

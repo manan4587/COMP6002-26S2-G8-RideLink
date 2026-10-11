@@ -63,18 +63,30 @@ class UserProfileModel {
       roles: (map['roles'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           ['passenger'],
       isEmailVerified: map['isEmailVerified'] as bool? ?? false,
-      rating: (map['passengerStats']?['rating'] as num?)?.toDouble() ??
-          (map['driverStats']?['rating'] as num?)?.toDouble() ??
-          (map['rating'] as num?)?.toDouble() ??
+      rating: ((map['activeRole'] == 'driver')
+              ? ((map['driverStats']?['rating'] as num?)?.toDouble() ??
+                  (map['rating'] as num?)?.toDouble() ??
+                  (map['passengerStats']?['rating'] as num?)?.toDouble())
+              : ((map['passengerStats']?['rating'] as num?)?.toDouble() ??
+                  (map['rating'] as num?)?.toDouble() ??
+                  (map['driverStats']?['rating'] as num?)?.toDouble())) ??
           5.0,
-      ratingCount: (map['passengerStats']?['ratingCount'] as num?)?.toInt() ??
-          (map['driverStats']?['ratingCount'] as num?)?.toInt() ??
+      ratingCount: ((map['activeRole'] == 'driver')
+              ? ((map['driverStats']?['ratingCount'] as num?)?.toInt() ??
+                  (map['ratingCount'] as num?)?.toInt() ??
+                  (map['passengerStats']?['ratingCount'] as num?)?.toInt())
+              : ((map['passengerStats']?['ratingCount'] as num?)?.toInt() ??
+                  (map['ratingCount'] as num?)?.toInt() ??
+                  (map['driverStats']?['ratingCount'] as num?)?.toInt())) ??
           0,
-      tripsCompleted:
-          (map['passengerStats']?['tripsCompleted'] as num?)?.toInt() ??
-              (map['driverStats']?['tripsCompleted'] as num?)?.toInt() ??
-              (map['tripsCompleted'] as num?)?.toInt() ??
-              0,
+      tripsCompleted: ((map['activeRole'] == 'driver')
+              ? ((map['driverStats']?['tripsCompleted'] as num?)?.toInt() ??
+                  (map['tripsCompleted'] as num?)?.toInt() ??
+                  (map['passengerStats']?['tripsCompleted'] as num?)?.toInt())
+              : ((map['passengerStats']?['tripsCompleted'] as num?)?.toInt() ??
+                  (map['tripsCompleted'] as num?)?.toInt() ??
+                  (map['driverStats']?['tripsCompleted'] as num?)?.toInt())) ??
+          0,
       isVerifiedDriver: map['is_verified_driver'] as bool? ?? false,
       isOnline: map['isOnline'] as bool? ?? true,
       vehicle: map['vehicle'] != null
@@ -114,6 +126,9 @@ class UserProfileModel {
       'isEmailVerified': isEmailVerified,
       'isOnline': isOnline,
       'is_verified_driver': isVerifiedDriver,
+      'rating': rating,
+      'ratingCount': ratingCount,
+      'tripsCompleted': tripsCompleted,
       'passengerStats': {
         'rating': rating,
         'ratingCount': ratingCount,

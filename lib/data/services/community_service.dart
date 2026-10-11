@@ -21,7 +21,7 @@ class CommunityService {
       _firestore.collection(FirestoreCollections.rides);
 
   /// Stream all communities in real time from Firestore
-  Stream<List<CommunityModel>> streamCommunities() {
+  Stream<List<CommunityModel>> streamCommunities({String? role}) {
     if (_auth.currentUser == null) {
       return const Stream.empty();
     }
@@ -31,11 +31,13 @@ class CommunityService {
           return <CommunityModel>[];
         }
         final currentUid = _auth.currentUser?.uid;
+        final currentRole = role ?? Preferences.userRole;
         return snapshot.docs.map((doc) {
           return CommunityModel.fromMap(
             doc.data(),
             doc.id,
             currentUserId: currentUid,
+            userRole: currentRole,
           );
         }).toList();
       } catch (e) {
@@ -119,6 +121,21 @@ class CommunityService {
     final userRole = role ?? Preferences.userRole;
     final isDriver = userRole == 'driver';
 
+    // Fetch existing doc to check current membership state safely
+    final commDoc = await _communitiesRef.doc(communityId).get();
+    final data = commDoc.data() ?? {};
+    final driverMemberIds = (data['driverMemberIds'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+    final passengerMemberIds = (data['passengerMemberIds'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+
+    final bool wasInDrivers = driverMemberIds.contains(user.uid);
+    final bool wasInPassengers = passengerMemberIds.contains(user.uid);
+
     final batch = _firestore.batch();
 
     // 1. Delete from subcollection
@@ -130,23 +147,25 @@ class CommunityService {
 
     batch.delete(memberRef);
 
-    // 2. Remove from community member arrays and update counts
+    // 2. Remove from community member arrays and update counts safely
     final commRef = _communitiesRef.doc(communityId);
-    batch.set(
-      commRef,
-      {
-        'memberIds': FieldValue.arrayRemove([user.uid]),
-        if (isDriver) ...{
-          'driverMemberIds': FieldValue.arrayRemove([user.uid]),
-          'driversCount': FieldValue.increment(-1),
-        } else ...{
-          'passengerMemberIds': FieldValue.arrayRemove([user.uid]),
-          'passengersCount': FieldValue.increment(-1),
-        },
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    final Map<String, dynamic> updateData = {
+      'memberIds': FieldValue.arrayRemove([user.uid]),
+      'driverMemberIds': FieldValue.arrayRemove([user.uid]),
+      'passengerMemberIds': FieldValue.arrayRemove([user.uid]),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (wasInDrivers || isDriver) {
+      final currentDrivers = (data['driversCount'] as num?)?.toInt() ?? 0;
+      updateData['driversCount'] = (currentDrivers - 1).clamp(0, 999999);
+    }
+    if (wasInPassengers || !isDriver) {
+      final currentPassengers = (data['passengersCount'] as num?)?.toInt() ?? 0;
+      updateData['passengersCount'] = (currentPassengers - 1).clamp(0, 999999);
+    }
+
+    batch.set(commRef, updateData, SetOptions(merge: true));
 
     // 3. Remove from user profile's joinedCommunities list
     final userDocRef =
