@@ -20,22 +20,29 @@ class RequestSentPage extends GetView<PassengerDashboardController> {
             : null);
 
     if (ride == null) {
-      return Scaffold(
-        backgroundColor: AppColors.secondaryBgColor,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(CupertinoIcons.checkmark_circle, size: 48, color: AppColors.primaryColor),
-                12.verticalSpace,
-                Text('Request Submitted', style: AppTextStyle.text18Semibold),
-                16.verticalSpace,
-                ElevatedButton(
-                  onPressed: () => Get.offAllNamed(AppRoutes.passengerDashboard),
-                  child: const Text('Back to Home'),
-                ),
-              ],
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          controller.returnToTripsTab(tripsTab: 0);
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.secondaryBgColor,
+          body: SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(CupertinoIcons.checkmark_circle, size: 48, color: AppColors.primaryColor),
+                  12.verticalSpace,
+                  Text('Request Submitted', style: AppTextStyle.text18Semibold),
+                  16.verticalSpace,
+                  ElevatedButton(
+                    onPressed: () => controller.returnToTripsTab(tripsTab: 0),
+                    child: const Text('View My Trips'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -56,31 +63,33 @@ class RequestSentPage extends GetView<PassengerDashboardController> {
             ? controller.toLocationController.text.trim()
             : (ride.dropOffPlan.isNotEmpty ? ride.dropOffPlan : ride.destination));
 
-    return Scaffold(
-      backgroundColor: AppColors.secondaryBgColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          child: Column(
-            children: [
-              // Top Back button row
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  onPressed: () {
-                    controller.switchTab(2); // Jump to Trips tab
-                    controller.selectedTripsTab.value = 0; // Show Pending Requests tab
-                    Get.offAllNamed(AppRoutes.passengerDashboard);
-                  },
-                  icon: Icon(
-                    CupertinoIcons.back,
-                    size: 22.sp,
-                    color: AppColors.primaryTextColor,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        controller.returnToTripsTab(tripsTab: 0);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.secondaryBgColor,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Column(
+              children: [
+                // Top Back button row
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () => controller.returnToTripsTab(tripsTab: 0),
+                    icon: Icon(
+                      CupertinoIcons.back,
+                      size: 22.sp,
+                      color: AppColors.primaryTextColor,
+                    ),
+                    splashRadius: 22.r,
                   ),
-                  splashRadius: 22.r,
                 ),
-              ),
 
               20.verticalSpace,
 
@@ -380,11 +389,7 @@ class RequestSentPage extends GetView<PassengerDashboardController> {
 
               // View My Trips CTA Button
               GestureDetector(
-                onTap: () {
-                  controller.switchTab(2); // Jump to Trips tab
-                  controller.selectedTripsTab.value = 0; // Show Pending Requests tab
-                  Get.offAllNamed(AppRoutes.passengerDashboard);
-                },
+                onTap: () => controller.returnToTripsTab(tripsTab: 0),
                 child: Container(
                   width: double.infinity,
                   padding: EdgeInsets.symmetric(vertical: 14.h),
@@ -429,8 +434,9 @@ class RequestSentPage extends GetView<PassengerDashboardController> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _SummaryTile extends StatelessWidget {

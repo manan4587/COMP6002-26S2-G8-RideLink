@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:ridelink/core/services/network_controller.dart';
 import 'package:ridelink/core/services/notification_service.dart';
 import 'package:ridelink/routes/routes.dart';
 import 'package:ridelink/views/auth_flow/auth_controller.dart';
 import 'package:ridelink/views/driver_dashboard/driver_dashboard_controller.dart';
 import 'package:ridelink/views/passenger_dashboard/passenger_dashboard_controller.dart';
+import 'package:ridelink/widgets/no_internet_page.dart';
 
 import 'core/utils/app_snack_bar.dart';
 import 'core/utils/stretch_scroll_behavior.dart';
@@ -58,7 +60,22 @@ class MyApp extends StatelessWidget {
               data: MediaQuery.of(context).copyWith(textScaler: scale),
               child: GestureDetector(
                 onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                child: child!,
+                child: Obx(() {
+                  final network = Get.isRegistered<NetworkController>()
+                      ? Get.find<NetworkController>()
+                      : null;
+                  final isOnline = network?.isConnected.value ?? true;
+
+                  return Stack(
+                    children: [
+                      child ?? const SizedBox.shrink(),
+                      if (!isOnline)
+                        const Positioned.fill(
+                          child: NoInternetPage(),
+                        ),
+                    ],
+                  );
+                }),
               ),
             );
           },
@@ -69,6 +86,7 @@ class MyApp extends StatelessWidget {
 }
 
 void _appDepencyBiding() {
+  Get.put<NetworkController>(NetworkController(), permanent: true);
   Get.put<AuthController>(AuthController(), permanent: true);
   Get.lazyPut<DriverDashboardController>(
     () => DriverDashboardController(),

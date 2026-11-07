@@ -45,8 +45,8 @@ Document ID: `ticketId` (e.g. `PS-4820193` or `TCK-8302194` or Firestore Auto-ID
 | :--- | :--- | :--- | :--- |
 | `ticketId` | `String` | Unique human-readable ticket ID | `"PS-4820193"` / `"TCK-8302194"` |
 | `userId` | `String` | Firebase Auth UID of requester | `"Rylx3ac5qoaXSh0G8MJE9Rw5zfi2"` |
-| `userName` | `String` | Requester full name | `"Sagar Patel"` |
-| `userEmail` | `String` | Registered email address | `"sagar@example.com"` |
+| `userName` | `String` | Requester full name | `"Manan Patel"` |
+| `userEmail` | `String` | Registered email address | `"manan@example.com"` |
 | `userPhone` | `String` | Registered mobile contact | `"+61 412 345 678"` |
 | `userRole` | `String` | User type | `"passenger"` or `"driver"` |
 | `category` | `String` | Issue category (see categories below) | `"Cash Payments & Fares"` |
@@ -70,7 +70,7 @@ Each item in `messages`:
 {
   "id": "msg_1728492019302",
   "senderRole": "passenger", 
-  "senderName": "Sagar Patel",
+  "senderName": "Manan Patel",
   "message": "Hello, I haven't received my refund for yesterday's ride.",
   "timestamp": "2026-10-09T14:32:00.000Z"
 }

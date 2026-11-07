@@ -1,1 +1,1 @@
-const String appNameWithVersion = 'RideLink v1.0.4';
+const String appNameWithVersion = 'RideLink v1.0.5';

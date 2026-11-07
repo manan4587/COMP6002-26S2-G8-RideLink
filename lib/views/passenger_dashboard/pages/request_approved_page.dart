@@ -19,26 +19,29 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
             : null);
 
     if (ride == null) {
-      return Scaffold(
-        backgroundColor: AppColors.secondaryBgColor,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(CupertinoIcons.checkmark_seal_fill, size: 48, color: Color(0xFF16A34A)),
-                12.verticalSpace,
-                Text('Booking Approved', style: AppTextStyle.text18Semibold),
-                16.verticalSpace,
-                ElevatedButton(
-                  onPressed: () {
-                    controller.switchTab(2); // Trips tab
-                    controller.selectedTripsTab.value = 1; // Confirmed tab
-                    Get.offAllNamed(AppRoutes.passengerDashboard);
-                  },
-                  child: const Text('View My Trips'),
-                ),
-              ],
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          controller.returnToTripsTab(tripsTab: 1);
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.secondaryBgColor,
+          body: SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(CupertinoIcons.checkmark_seal_fill, size: 48, color: Color(0xFF16A34A)),
+                  12.verticalSpace,
+                  Text('Booking Approved', style: AppTextStyle.text18Semibold),
+                  16.verticalSpace,
+                  ElevatedButton(
+                    onPressed: () => controller.returnToTripsTab(tripsTab: 1),
+                    child: const Text('View My Trips'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -59,7 +62,13 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
             ? controller.toLocationController.text.trim()
             : (ride.dropOffPlan.isNotEmpty ? ride.dropOffPlan : ride.destination));
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        controller.returnToTripsTab(tripsTab: 1);
+      },
+      child: Scaffold(
         backgroundColor: AppColors.secondaryBgColor,
         body: SafeArea(
           child: SingleChildScrollView(
@@ -71,11 +80,7 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    onPressed: () {
-                      controller.switchTab(2); // Trips tab
-                      controller.selectedTripsTab.value = 1; // Confirmed tab
-                      Get.offAllNamed(AppRoutes.passengerDashboard);
-                    },
+                    onPressed: () => controller.returnToTripsTab(tripsTab: 1),
                     icon: Icon(
                       CupertinoIcons.back,
                       size: 22.sp,
@@ -224,11 +229,7 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
 
               // View in My Trips Secondary Button
               OutlinedButton(
-                onPressed: () {
-                  controller.switchTab(2); // Trips tab
-                  controller.selectedTripsTab.value = 1; // Confirmed tab
-                  Get.offAllNamed(AppRoutes.passengerDashboard);
-                },
+                onPressed: () => controller.returnToTripsTab(tripsTab: 1),
                 style: OutlinedButton.styleFrom(
                   minimumSize: Size(double.infinity, 48.h),
                   side: const BorderSide(color: AppColors.borderColor),
@@ -249,8 +250,9 @@ class RequestApprovedPage extends GetView<PassengerDashboardController> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _ApprovedSummaryTile extends StatelessWidget {

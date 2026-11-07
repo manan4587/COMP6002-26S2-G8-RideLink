@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:ridelink/data/models/passenger/passenger_models.dart';
+import 'package:ridelink/routes/routes_name.dart';
 import 'package:ridelink/views/passenger_dashboard/controllers/passenger_community_controller.dart';
 import 'package:ridelink/views/passenger_dashboard/controllers/passenger_home_controller.dart';
 import 'package:ridelink/views/passenger_dashboard/controllers/passenger_profile_controller.dart';
@@ -54,10 +55,45 @@ class PassengerDashboardController extends GetxController {
     profileController = Get.isRegistered<PassengerProfileController>()
         ? Get.find<PassengerProfileController>()
         : Get.put<PassengerProfileController>(PassengerProfileController());
+
+    _applyRouteArguments();
+  }
+
+  void _applyRouteArguments() {
+    final args = Get.arguments;
+    if (args is Map) {
+      if (args['tab'] is int) {
+        currentTabIndex.value = (args['tab'] as int).clamp(0, 4);
+      }
+      if (args['tripsTab'] is int) {
+        tripsController.selectedTripsTab.value = (args['tripsTab'] as int).clamp(0, 2);
+      }
+    }
   }
 
   void switchTab(int index) {
     currentTabIndex.value = index;
+  }
+
+  /// Cleanly returns to the My Trips tab (index 2) without destroying route state
+  void returnToTripsTab({int tripsTab = 0}) {
+    switchTab(2);
+    tripsController.selectedTripsTab.value = tripsTab.clamp(0, 2);
+
+    bool poppedToDashboard = false;
+    try {
+      Get.until((route) => route.settings.name == AppRoutes.passengerDashboard);
+      if (Get.currentRoute == AppRoutes.passengerDashboard) {
+        poppedToDashboard = true;
+      }
+    } catch (_) {}
+
+    if (!poppedToDashboard) {
+      Get.offAllNamed(
+        AppRoutes.passengerDashboard,
+        arguments: {'tab': 2, 'tripsTab': tripsTab},
+      );
+    }
   }
 
   // -------------------------------------------------------------
@@ -81,6 +117,7 @@ class PassengerDashboardController extends GetxController {
   @override
   void onReady() {
     super.onReady();
+    _applyRouteArguments();
     reloadDashboard();
   }
 

@@ -1969,73 +1969,80 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 3.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: activeTarget.isPickup
-                              ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
-                                  ? const Color(0xFFF0FDFA)
-                                  : const Color(0xFFFEF3C7))
-                              : (activeTarget.isDropoff
-                                  ? const Color(0xFFEFF6FF)
-                                  : const Color(0xFFF1F5F9)),
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(
+                      Flexible(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 3.h,
+                          ),
+                          decoration: BoxDecoration(
                             color: activeTarget.isPickup
                                 ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
-                                    ? const Color(0xFF99F6E4)
-                                    : const Color(0xFFFDE68A))
+                                    ? const Color(0xFFF0FDFA)
+                                    : const Color(0xFFFEF3C7))
                                 : (activeTarget.isDropoff
-                                    ? const Color(0xFFBFDBFE)
-                                    : const Color(0xFFCBD5E1)),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              activeTarget.isPickup
-                                  ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
-                                      ? Icons.pin_drop_rounded
-                                      : Icons.navigation_rounded)
-                                  : (activeTarget.isDropoff
-                                      ? CupertinoIcons.placemark_fill
-                                      : Icons.flag_rounded),
-                              size: 12.sp,
+                                    ? const Color(0xFFEFF6FF)
+                                    : const Color(0xFFF1F5F9)),
+                            borderRadius: BorderRadius.circular(8.r),
+                            border: Border.all(
                               color: activeTarget.isPickup
                                   ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
-                                      ? const Color(0xFF0D9488)
-                                      : const Color(0xFF92400E))
+                                      ? const Color(0xFF99F6E4)
+                                      : const Color(0xFFFDE68A))
                                   : (activeTarget.isDropoff
-                                      ? const Color(0xFF1D4ED8)
-                                      : const Color(0xFF334155)),
+                                      ? const Color(0xFFBFDBFE)
+                                      : const Color(0xFFCBD5E1)),
                             ),
-                            4.horizontalSpace,
-                            Text(
-                              activeTarget.isPickup
-                                  ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
-                                      ? 'ARRIVED AT PICKUP • WAITING BOARDING'
-                                      : 'NEXT STOP: PICKUP')
-                                  : (activeTarget.isDropoff
-                                      ? 'NEXT STOP: DROP-OFF'
-                                      : 'FINAL DESTINATION'),
-                              style: AppTextStyle.text10Medium.copyWith(
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                activeTarget.isPickup
+                                    ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
+                                        ? Icons.pin_drop_rounded
+                                        : Icons.navigation_rounded)
+                                    : (activeTarget.isDropoff
+                                        ? CupertinoIcons.placemark_fill
+                                        : Icons.flag_rounded),
+                                size: 12.sp,
                                 color: activeTarget.isPickup
                                     ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
-                                        ? const Color(0xFF0F766E)
+                                        ? const Color(0xFF0D9488)
                                         : const Color(0xFF92400E))
                                     : (activeTarget.isDropoff
                                         ? const Color(0xFF1D4ED8)
                                         : const Color(0xFF334155)),
-                                fontWeight: FontWeight.bold,
                               ),
-                            ),
-                          ],
+                              4.horizontalSpace,
+                              Flexible(
+                                child: Text(
+                                  activeTarget.isPickup
+                                      ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
+                                          ? 'ARRIVED • WAITING BOARD'
+                                          : 'NEXT STOP: PICKUP')
+                                      : (activeTarget.isDropoff
+                                          ? 'NEXT STOP: DROP-OFF'
+                                          : 'FINAL DESTINATION'),
+                                  style: AppTextStyle.text10Medium.copyWith(
+                                    color: activeTarget.isPickup
+                                        ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
+                                            ? const Color(0xFF0F766E)
+                                            : const Color(0xFF92400E))
+                                        : (activeTarget.isDropoff
+                                            ? const Color(0xFF1D4ED8)
+                                            : const Color(0xFF334155)),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
+                      6.horizontalSpace,
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -2221,23 +2228,31 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.payments_rounded,
-                                color: Color(0xFF16A34A),
-                                size: 16,
-                              ),
-                              6.horizontalSpace,
-                              Text(
-                                'Fare to Collect (Cash):',
-                                style: AppTextStyle.text10Medium.copyWith(
-                                  color: const Color(0xFF15803D),
-                                  fontWeight: FontWeight.bold,
+                          Flexible(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.payments_rounded,
+                                  color: Color(0xFF16A34A),
+                                  size: 16,
                                 ),
-                              ),
-                            ],
+                                6.horizontalSpace,
+                                Flexible(
+                                  child: Text(
+                                    'Fare to Collect (Cash):',
+                                    style: AppTextStyle.text10Medium.copyWith(
+                                      color: const Color(0xFF15803D),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          8.horizontalSpace,
                           Text(
                             '${Utils.formatPrice(activeTarget.fare)} AUD',
                             style: AppTextStyle.text12Semibold.copyWith(
@@ -2252,295 +2267,346 @@ class _DriverLiveTripPageState extends State<DriverLiveTripPage> {
 
                   12.verticalSpace,
 
-                  // Main Target Action Controls Row
-                  Row(
+                  // Main Target Action Controls
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (activeTarget.passenger != null) ...[
-                        // Chat Button
-                        OutlinedButton(
-                          onPressed: () => tripsController.openDriverChat(
-                            passenger: activeTarget.passenger!,
-                            tripId: trip.id,
-                            route: '${trip.from} → ${trip.to}',
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.borderColor),
-                            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12.r),
+                      // Tier 1: Primary Target Progression Action
+                      Row(
+                        children: [
+                          if (activeTarget.isPickup &&
+                              activeTarget.passenger?.passengerStatus.value != 'arrived') ...[
+                            // Pickup En Route: "Arrived at Pickup" & "Board"
+                            Expanded(
+                              flex: 6,
+                              child: Obx(() {
+                                final isNotifying = _isNotifyingArrival.value;
+                                return ElevatedButton.icon(
+                                  onPressed: isNotifying
+                                      ? null
+                                      : () async {
+                                          _isNotifyingArrival.value = true;
+                                          try {
+                                            await tripsController.updatePassengerTripStatus(
+                                              passenger: activeTarget.passenger!,
+                                              newStatus: 'arrived',
+                                            );
+                                            AppSnackBar.success(
+                                              message:
+                                                  'Notified ${activeTarget.passenger!.passengerName} that you have arrived!',
+                                            );
+                                          } finally {
+                                            _isNotifyingArrival.value = false;
+                                          }
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0D9488),
+                                    foregroundColor: Colors.white,
+                                    disabledBackgroundColor:
+                                        const Color(0xFF0D9488).withValues(alpha: 0.6),
+                                    disabledForegroundColor: Colors.white70,
+                                    elevation: 0,
+                                    padding: EdgeInsets.symmetric(vertical: 11.h),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12.r),
+                                    ),
+                                  ),
+                                  icon: isNotifying
+                                      ? SizedBox(
+                                          width: 14.r,
+                                          height: 14.r,
+                                          child: const CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          CupertinoIcons.location_fill,
+                                          size: 15,
+                                        ),
+                                  label: Text(
+                                    isNotifying ? 'Notifying...' : 'Arrived at Pickup',
+                                    style: AppTextStyle.text12Semibold.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }),
                             ),
-                          ),
-                          child: const Icon(
-                            CupertinoIcons.chat_bubble_2_fill,
-                            size: 16,
-                            color: AppColors.primaryTextColor,
-                          ),
-                        ),
-                        8.horizontalSpace,
-                        // Call Button
-                        OutlinedButton(
-                          onPressed: () async {
-                            try {
-                              await Utils.launchURL(
-                                'tel:${activeTarget.passenger!.emergencyContactPhone}',
-                              );
-                            } catch (_) {}
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF93C5FD)),
-                            backgroundColor: const Color(0xFFEFF6FF),
-                            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12.r),
+                            8.horizontalSpace,
+                            Expanded(
+                              flex: 4,
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showConfirmPassengerBoardingSheet(
+                                  trip,
+                                  activeTarget.passenger!,
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                    color: Color(0xFF2563EB),
+                                    width: 1.5,
+                                  ),
+                                  padding: EdgeInsets.symmetric(vertical: 11.h),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12.r),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.person_add_alt_1_rounded,
+                                  size: 15,
+                                  color: Color(0xFF2563EB),
+                                ),
+                                label: Text(
+                                  'Board',
+                                  style: AppTextStyle.text12Semibold.copyWith(
+                                    color: const Color(0xFF2563EB),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                          ),
-                          child: const Icon(
-                            CupertinoIcons.phone_fill,
-                            color: Color(0xFF2563EB),
-                            size: 16,
-                          ),
-                        ),
-                        8.horizontalSpace,
-                      ],
-
-                      // Primary Dynamic Action Button
-                      Expanded(
-                        child: activeTarget.isPickup
-                            ? (activeTarget.passenger?.passengerStatus.value == 'arrived'
-                                ? ElevatedButton.icon(
-                                    onPressed: () => _showConfirmPassengerBoardingSheet(
-                                      trip,
-                                      activeTarget.passenger!,
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF2563EB),
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      padding: EdgeInsets.symmetric(vertical: 11.h),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14.r),
-                                      ),
-                                    ),
-                                    icon: const Icon(
-                                      Icons.check_circle_rounded,
-                                      size: 16,
-                                    ),
-                                    label: Text(
-                                      'Confirm Picked Up (Boarded)',
-                                      style: AppTextStyle.text12Semibold.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  )
-                                : Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 6,
-                                        child: Obx(() {
-                                          final isNotifying = _isNotifyingArrival.value;
-                                          return ElevatedButton.icon(
-                                            onPressed: isNotifying
-                                                ? null
-                                                : () async {
-                                                    _isNotifyingArrival.value = true;
-                                                    try {
-                                                      await tripsController.updatePassengerTripStatus(
-                                                        passenger: activeTarget.passenger!,
-                                                        newStatus: 'arrived',
-                                                      );
-                                                      AppSnackBar.success(
-                                                        message:
-                                                            'Notified ${activeTarget.passenger!.passengerName} that you have arrived!',
-                                                      );
-                                                    } finally {
-                                                      _isNotifyingArrival.value = false;
-                                                    }
-                                                  },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFF0D9488),
-                                              foregroundColor: Colors.white,
-                                              disabledBackgroundColor:
-                                                  const Color(0xFF0D9488).withValues(alpha: 0.6),
-                                              disabledForegroundColor: Colors.white70,
-                                              elevation: 0,
-                                              padding: EdgeInsets.symmetric(vertical: 11.h),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(14.r),
-                                              ),
-                                            ),
-                                            icon: isNotifying
-                                                ? SizedBox(
-                                                    width: 14.r,
-                                                    height: 14.r,
-                                                    child: const CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      color: Colors.white,
-                                                    ),
-                                                  )
-                                                : const Icon(
-                                                    CupertinoIcons.location_fill,
-                                                    size: 15,
-                                                  ),
-                                            label: Text(
-                                              isNotifying ? 'Notifying...' : 'Arrived at Pickup',
-                                              style: AppTextStyle.text12Semibold.copyWith(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                          ] else if (activeTarget.isPickup) ...[
+                            // Pickup Arrived: "Confirm Picked Up (Boarded)"
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _showConfirmPassengerBoardingSheet(
+                                  trip,
+                                  activeTarget.passenger!,
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2563EB),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: EdgeInsets.symmetric(vertical: 11.h),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12.r),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.check_circle_rounded,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  'Confirm Picked Up (Boarded)',
+                                  style: AppTextStyle.text12Semibold.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ] else if (activeTarget.isDropoff) ...[
+                            // Dropoff: "Drop Off & Paid"
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  final bool isLastPassenger = trip.acceptedPassengers
+                                      .where((p) =>
+                                          p.status.value != 'Dropped Off' &&
+                                          p.status.value != 'Completed' &&
+                                          p != activeTarget.passenger)
+                                      .isEmpty;
+                                  _showRatePassengerSheet(
+                                    trip,
+                                    activeTarget.passenger!,
+                                    isCompletingEntireTrip: isLastPassenger,
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF16A34A),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: EdgeInsets.symmetric(vertical: 11.h),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12.r),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  CupertinoIcons.checkmark_circle_fill,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  'Drop Off & Paid (${Utils.formatPrice(activeTarget.fare)} AUD)',
+                                  style: AppTextStyle.text12Semibold.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ] else ...[
+                            // Final Destination: "Complete Entire Trip"
+                            Expanded(
+                              child: Obx(() {
+                                final isCompleting = _isCompletingEntireTrip.value;
+                                return ElevatedButton.icon(
+                                  onPressed: isCompleting
+                                      ? null
+                                      : () async {
+                                          final unratedPassenger =
+                                              trip.acceptedPassengers.firstWhereOrNull(
+                                            (p) => !p.isRated.value,
                                           );
-                                        }),
-                                      ),
-                                      8.horizontalSpace,
-                                      Expanded(
-                                        flex: 5,
-                                        child: OutlinedButton.icon(
-                                          onPressed: () => _showConfirmPassengerBoardingSheet(
-                                            trip,
-                                            activeTarget.passenger!,
-                                          ),
-                                          style: OutlinedButton.styleFrom(
-                                            side: const BorderSide(
-                                              color: Color(0xFF2563EB),
-                                              width: 1.5,
-                                            ),
-                                            padding: EdgeInsets.symmetric(vertical: 11.h),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(14.r),
-                                            ),
-                                          ),
-                                          icon: const Icon(
-                                            Icons.person_add_alt_1_rounded,
-                                            size: 15,
-                                            color: Color(0xFF2563EB),
-                                          ),
-                                          label: Text(
-                                            'Board',
-                                            style: AppTextStyle.text12Semibold.copyWith(
-                                              color: const Color(0xFF2563EB),
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ))
-                            : (activeTarget.isDropoff
-                                ? ElevatedButton.icon(
-                                    onPressed: () {
-                                      final bool isLastPassenger = trip.acceptedPassengers.where((p) => p.status.value != 'Dropped Off' && p.status.value != 'Completed' && p != activeTarget.passenger).isEmpty;
-                                      _showRatePassengerSheet(
-                                        trip,
-                                        activeTarget.passenger!,
-                                        isCompletingEntireTrip: isLastPassenger,
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF16A34A),
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      padding: EdgeInsets.symmetric(vertical: 11.h),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14.r),
-                                      ),
-                                    ),
-                                    icon: const Icon(
-                                      CupertinoIcons.checkmark_circle_fill,
-                                      size: 16,
-                                    ),
-                                    label: Text(
-                                      'Drop Off & Paid (${Utils.formatPrice(activeTarget.fare)} AUD)',
-                                      style: AppTextStyle.text12Semibold.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  )
-                                : Obx(() {
-                                    final isCompleting = _isCompletingEntireTrip.value;
-                                    return ElevatedButton.icon(
-                                      onPressed: isCompleting
-                                          ? null
-                                          : () async {
-                                              final unratedPassenger =
-                                                  trip.acceptedPassengers.firstWhereOrNull(
-                                                (p) => !p.isRated.value,
-                                              );
-                                              if (unratedPassenger != null) {
-                                                _showRatePassengerSheet(
-                                                  trip,
-                                                  unratedPassenger,
-                                                  isCompletingEntireTrip: true,
-                                                );
-                                                return;
-                                              }
+                                          if (unratedPassenger != null) {
+                                            _showRatePassengerSheet(
+                                              trip,
+                                              unratedPassenger,
+                                              isCompletingEntireTrip: true,
+                                            );
+                                            return;
+                                          }
 
-                                              _isCompletingEntireTrip.value = true;
-                                              try {
-                                                trip.status.value = 'Completed';
-                                                tripsController.myTrips.refresh();
-                                                final driverUid =
-                                                    AuthService.instance.currentUser?.uid ??
-                                                        '';
-                                                if (trip.id.isNotEmpty) {
-                                                  await TripService.instance
-                                                      .completeEntireTrip(
-                                                    tripId: trip.id,
-                                                    driverId: driverUid,
-                                                  );
-                                                }
-                                                if (Get.isRegistered<
-                                                    DriverHomeController>()) {
-                                                  Get.find<DriverHomeController>()
-                                                      .completedTripsCount
-                                                      .value++;
-                                                }
-                                                _finishAndReturnToDriverHome(
-                                                  snackbarMessage:
-                                                      'Trip completed successfully!',
-                                                );
-                                              } finally {
-                                                _isCompletingEntireTrip.value = false;
-                                              }
-                                            },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF1E293B),
-                                        foregroundColor: Colors.white,
-                                        disabledBackgroundColor:
-                                            const Color(0xFF1E293B).withValues(alpha: 0.6),
-                                        disabledForegroundColor: Colors.white70,
-                                        elevation: 0,
-                                        padding: EdgeInsets.symmetric(vertical: 11.h),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14.r),
+                                          _isCompletingEntireTrip.value = true;
+                                          try {
+                                            trip.status.value = 'Completed';
+                                            tripsController.myTrips.refresh();
+                                            final driverUid =
+                                                AuthService.instance.currentUser?.uid ?? '';
+                                            if (trip.id.isNotEmpty) {
+                                              await TripService.instance.completeEntireTrip(
+                                                tripId: trip.id,
+                                                driverId: driverUid,
+                                              );
+                                            }
+                                            if (Get.isRegistered<DriverHomeController>()) {
+                                              Get.find<DriverHomeController>()
+                                                  .completedTripsCount
+                                                  .value++;
+                                            }
+                                            _finishAndReturnToDriverHome(
+                                              snackbarMessage:
+                                                  'Trip completed successfully!',
+                                            );
+                                          } finally {
+                                            _isCompletingEntireTrip.value = false;
+                                          }
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1E293B),
+                                    foregroundColor: Colors.white,
+                                    disabledBackgroundColor:
+                                        const Color(0xFF1E293B).withValues(alpha: 0.6),
+                                    disabledForegroundColor: Colors.white70,
+                                    elevation: 0,
+                                    padding: EdgeInsets.symmetric(vertical: 11.h),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12.r),
+                                    ),
+                                  ),
+                                  icon: isCompleting
+                                      ? SizedBox(
+                                          width: 14.r,
+                                          height: 14.r,
+                                          child: const CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.flag_rounded,
+                                          size: 16,
                                         ),
-                                      ),
-                                      icon: isCompleting
-                                          ? SizedBox(
-                                              width: 14.r,
-                                              height: 14.r,
-                                              child: const CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Colors.white,
-                                              ),
-                                            )
-                                          : const Icon(
-                                              Icons.flag_rounded,
-                                              size: 16,
-                                            ),
-                                      label: Text(
-                                        isCompleting
-                                            ? 'Completing Trip...'
-                                            : 'Complete Entire Trip',
-                                        style: AppTextStyle.text12Semibold.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    );
-                                  })),
+                                  label: Text(
+                                    isCompleting
+                                        ? 'Completing Trip...'
+                                        : 'Complete Entire Trip',
+                                    style: AppTextStyle.text12Semibold.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }),
+                            ),
+                          ],
+                        ],
                       ),
+
+                      // Tier 2: Secondary Communication Controls (Chat & Call) if passenger exists
+                      if (activeTarget.passenger != null) ...[
+                        8.verticalSpace,
+                        Row(
+                          children: [
+                            // Chat Button
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => tripsController.openDriverChat(
+                                  passenger: activeTarget.passenger!,
+                                  tripId: trip.id,
+                                  route: '${trip.from} → ${trip.to}',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: AppColors.borderColor),
+                                  padding: EdgeInsets.symmetric(vertical: 9.h),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10.r),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  CupertinoIcons.chat_bubble_2_fill,
+                                  size: 15,
+                                  color: AppColors.primaryTextColor,
+                                ),
+                                label: Text(
+                                  'Chat',
+                                  style: AppTextStyle.text12Medium.copyWith(
+                                    color: AppColors.primaryTextColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            8.horizontalSpace,
+                            // Call Button
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  try {
+                                    await Utils.launchURL(
+                                      'tel:${activeTarget.passenger!.emergencyContactPhone}',
+                                    );
+                                  } catch (_) {}
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFF93C5FD)),
+                                  backgroundColor: const Color(0xFFEFF6FF),
+                                  padding: EdgeInsets.symmetric(vertical: 9.h),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10.r),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  CupertinoIcons.phone_fill,
+                                  color: Color(0xFF2563EB),
+                                  size: 15,
+                                ),
+                                label: Text(
+                                  'Call',
+                                  style: AppTextStyle.text12Medium.copyWith(
+                                    color: const Color(0xFF2563EB),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
 
